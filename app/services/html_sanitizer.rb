@@ -10,8 +10,12 @@ class HtmlSanitizer
 
   def self.call(html)
     return "" if html.blank?
+    # Prune first: the safelist strips tags but keeps their text; script/style
+    # bodies must go entirely.
+    pruned = Nokogiri::HTML5.fragment(html)
+    pruned.css("script, style, iframe, object, embed, form, svg, math").each(&:remove)
     sanitized = Rails::HTML5::SafeListSanitizer.new.sanitize(
-      html, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES
+      pruned.to_html, tags: ALLOWED_TAGS, attributes: ALLOWED_ATTRIBUTES
     )
     # SafeListSanitizer already strips javascript: hrefs; also drop non-http(s)/mailto links.
     fragment = Nokogiri::HTML5.fragment(sanitized)
