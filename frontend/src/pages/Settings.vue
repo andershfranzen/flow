@@ -28,7 +28,7 @@ const flash = ref('')
 const newToken = ref(null)
 const testResult = ref(null)
 
-const profile = ref({ name: '', password: '', notify_prefs: {} })
+const profile = ref({ name: '', password: '', notify_prefs: {}, muted_mailbox_ids: [] })
 
 async function load() {
   flash.value = ''
@@ -48,7 +48,9 @@ async function load() {
   if (tab.value === 'tokens') tokens.value = await api.get('/api/api_tokens')
   if (tab.value === 'profile') {
     const me = await api.get('/api/me')
-    profile.value = { name: me.name, password: '', locale: me.locale, timezone: me.timezone, notify_prefs: me.notify_prefs }
+    mailboxes.value = await api.get('/api/mailboxes')
+    profile.value = { name: me.name, password: '', locale: me.locale, timezone: me.timezone,
+                      notify_prefs: me.notify_prefs, muted_mailbox_ids: me.muted_mailbox_ids || [] }
   }
 }
 onMounted(load)
@@ -79,7 +81,25 @@ async function deleteAgent(a) {
 
 // Mailboxes
 function newMailbox() {
-  editing.value = { imap_port: 993, imap_ssl: true, imap_folder: 'INBOX', smtp_port: 587, smtp_security: 'starttls' }
+  editing.value = { auth_kind: 'password', imap_port: 993, imap_ssl: true, imap_folder: 'INBOX', smtp_port: 587, smtp_security: 'starttls' }
+}
+
+async function connectOauth() {
+  await saveMailbox()
+  try {
+    const { url } = await api.post(`/api/oauth/${editing.value.auth_kind}/start`, { mailbox_id: editing.value.id })
+    const popup = window.open(url, 'flow-oauth', 'width=560,height=680')
+    const onMessage = async (e) => {
+      if (e.data?.flowOauth === undefined) return
+      window.removeEventListener('message', onMessage)
+      popup?.close()
+      editing.value = await api.get(`/api/mailboxes/${editing.value.id}`)
+      ok(e.data.flowOauth ? 'Connected' : 'Connection failed')
+    }
+    window.addEventListener('message', onMessage)
+  } catch (err) {
+    flash.value = err.details?.[0] || 'OAuth app not configured — see Organisation settings'
+  }
 }
 async function editMailbox(m) { editing.value = await api.get(`/api/mailboxes/${m.id}`); testResult.value = null }
 async function saveMailbox() {
@@ -148,6 +168,21 @@ const NOTIFY_LABELS = {
         <div><label>Base URL</label><input v-model="org.base_url" placeholder="https://inbox.example.com" style="width:100%" /></div>
         <div><label>Notify from (email)</label><input v-model="org.notify_from" style="width:100%" /></div>
       </div>
+      <h3 style="margin-top:16px">Microsoft 365 OAuth app</h3>
+      <p class="hint-text">Register an app in Entra ID with delegated IMAP.AccessAsUser.All + SMTP.Send permissions and redirect URI <code>{{ org.base_url || '&lt;base url&gt;' }}/oauth/callback</code>.</p>
+      <div class="form-grid">
+        <div><label>Client ID</label><input v-model="org.ms_client_id" style="width:100%" /></div>
+        <div><label>Client secret {{ org.ms_client_secret_set ? '(set — blank keeps it)' : '' }}</label>
+          <input v-model="org.ms_client_secret" type="password" style="width:100%" /></div>
+        <div><label>Tenant (or "common")</label><input v-model="org.ms_tenant" style="width:100%" /></div>
+      </div>
+      <h3 style="margin-top:16px">Google OAuth app</h3>
+      <p class="hint-text">Google Cloud OAuth client (web), scope <code>https://mail.google.com/</code>, same redirect URI.</p>
+      <div class="form-grid">
+        <div><label>Client ID</label><input v-model="org.google_client_id" style="width:100%" /></div>
+        <div><label>Client secret {{ org.google_client_secret_set ? '(set — blank keeps it)' : '' }}</label>
+          <input v-model="org.google_client_secret" type="password" style="width:100%" /></div>
+      </div>
       <div class="form-actions"><button class="primary">{{ t.save }}</button></div>
     </form>
 
@@ -214,12 +249,28 @@ const NOTIFY_LABELS = {
           <div><label>Address</label><input v-model="editing.address" type="email" required style="width:100%" /></div>
           <div><label>From name (optional)</label><input v-model="editing.from_name" style="width:100%" /></div>
         </div>
+        <h3 style="margin-top:14px">Authentication</h3>
+        <div class="form-grid">
+          <div><label>Method</label>
+            <select v-model="editing.auth_kind" style="width:100%">
+              <option value="password">Password (IMAP/SMTP)</option>
+              <option value="microsoft">Microsoft 365 (OAuth)</option>
+              <option value="google">Google (OAuth)</option>
+            </select></div>
+          <div v-if="editing.auth_kind !== 'password'" style="align-self:end; display:flex; gap:8px; align-items:center">
+            <button type="button" class="primary" @click="connectOauth">
+              Connect {{ editing.auth_kind === 'microsoft' ? 'Microsoft 365' : 'Google' }}
+            </button>
+            <span v-if="editing.oauth_connected" class="pill status-active">connected</span>
+            <span v-else class="pill">not connected</span>
+          </div>
+        </div>
         <h3 style="margin-top:14px">IMAP (incoming)</h3>
         <div class="form-grid">
           <div><label>Host</label><input v-model="editing.imap_host" style="width:100%" /></div>
           <div><label>Port</label><input v-model.number="editing.imap_port" type="number" style="width:100%" /></div>
           <div><label>User</label><input v-model="editing.imap_user" style="width:100%" /></div>
-          <div><label>Password {{ editing.imap_password_set ? '(set — blank keeps it)' : '' }}</label>
+          <div v-if="editing.auth_kind === 'password'"><label>Password {{ editing.imap_password_set ? '(set — blank keeps it)' : '' }}</label>
             <input v-model="editing.imap_password" type="password" style="width:100%" /></div>
           <div><label>Folder</label><input v-model="editing.imap_folder" style="width:100%" /></div>
           <div style="align-self:end"><label class="choice"><input type="checkbox" v-model="editing.imap_ssl" /> SSL</label></div>
@@ -229,13 +280,17 @@ const NOTIFY_LABELS = {
           <div><label>Host</label><input v-model="editing.smtp_host" style="width:100%" /></div>
           <div><label>Port</label><input v-model.number="editing.smtp_port" type="number" style="width:100%" /></div>
           <div><label>User</label><input v-model="editing.smtp_user" style="width:100%" /></div>
-          <div><label>Password {{ editing.smtp_password_set ? '(set — blank keeps it)' : '' }}</label>
+          <div v-if="editing.auth_kind === 'password'"><label>Password {{ editing.smtp_password_set ? '(set — blank keeps it)' : '' }}</label>
             <input v-model="editing.smtp_password" type="password" style="width:100%" /></div>
           <div><label>Security</label>
             <select v-model="editing.smtp_security" style="width:100%">
               <option value="starttls">STARTTLS</option><option value="ssl">SSL/TLS</option><option value="none">None</option>
             </select></div>
         </div>
+        <h3 style="margin-top:14px">Auto-reply</h3>
+        <label class="choice"><input type="checkbox" v-model="editing.auto_reply_enabled" /> Send "we got your mail" once per new conversation</label>
+        <textarea v-if="editing.auto_reply_enabled" v-model="editing.auto_reply_body" rows="3" style="width:100%"
+                  placeholder="Thanks — we received your message and will reply soon."></textarea>
         <div style="margin-top:10px"><label>Signature (appended to replies)</label>
           <textarea v-model="editing.signature" rows="3" style="width:100%"></textarea></div>
         <div class="form-actions">
@@ -261,6 +316,10 @@ const NOTIFY_LABELS = {
       <h3 style="margin-top:14px">Email notifications</h3>
       <label v-for="(label, key) in NOTIFY_LABELS" :key="key" class="choice" style="display:flex">
         <input type="checkbox" v-model="profile.notify_prefs[key]" /> {{ label }}
+      </label>
+      <h3 style="margin-top:14px">Muted mailboxes</h3>
+      <label v-for="m in mailboxes" :key="m.id" class="choice">
+        <input type="checkbox" :value="m.id" v-model="profile.muted_mailbox_ids" /> {{ m.name }}
       </label>
       <div class="form-actions"><button class="primary">{{ t.save }}</button></div>
     </form>

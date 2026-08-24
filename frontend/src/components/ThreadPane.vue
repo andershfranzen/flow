@@ -15,6 +15,7 @@ const inbox = useInbox()
 
 const agents = ref([])
 const tags = ref([])
+const forwardSeed = ref(null)
 const transcriptEl = ref(null)
 let heartbeatTimer = null
 
@@ -59,6 +60,41 @@ function toggleTag(tag) {
   const next = ids.includes(tag.id) ? ids.filter((x) => x !== tag.id) : [...ids, tag.id]
   inbox.update(conv.value.id, { tag_ids: next })
 }
+// Merged conversations redirect to their target (B14).
+watch(() => conv.value?.merged_into_id, (id) => {
+  if (id) router.replace(`/conversations/${id}`)
+}, { immediate: true })
+
+function closeMenus() {
+  document.querySelectorAll('details[open]').forEach((d) => (d.open = false))
+}
+
+async function mergeInto() {
+  closeMenus()
+  const number = window.prompt('Merge this conversation into #…\nEnter the target conversation number:')
+  if (!number) return
+  const target = await api.post(`/api/conversations/${conv.value.id}/merge`, { into_number: Number(number.replace('#', '')) })
+  await inbox.loadConversations()
+  router.replace(`/conversations/${target.id}`)
+}
+
+async function moveTo(e) {
+  closeMenus()
+  const id = e.target.value
+  e.target.value = ''
+  if (!id) return
+  await inbox.update(conv.value.id, { mailbox_id: Number(id) })
+}
+
+function startForward() {
+  closeMenus()
+  const last = [...(conv.value.messages || [])].reverse().find((m) => m.kind !== 'note')
+  forwardSeed.value = {
+    subject: `Fwd: ${conv.value.subject}`,
+    body: `\n\n---------- Forwarded message ----------\nFrom: ${last?.from_email || conv.value.customer.email}\nSubject: ${conv.value.subject}\n\n${last?.body_text || ''}`,
+  }
+}
+
 async function onSent() {
   await inbox.open(conv.value.id)
   await inbox.loadConversations()
@@ -113,6 +149,17 @@ function eventText(e) {
             <span v-if="!tags.length" class="hint" style="font-size:12px; color:var(--muted)">No tags yet — create them in Settings</span>
           </div>
         </details>
+        <details class="tag-menu">
+          <summary class="pill" style="cursor:pointer">⋯</summary>
+          <div class="card" style="position:absolute; right:16px; z-index:5; margin-top:4px; display:flex; flex-direction:column; gap:6px; min-width:180px">
+            <button type="button" class="ghost" style="text-align:left" @click="startForward">Forward…</button>
+            <button type="button" class="ghost" style="text-align:left" @click="mergeInto">Merge into #…</button>
+            <select v-if="inbox.mailboxes.length > 1" @change="moveTo" aria-label="Move to mailbox">
+              <option value="">Move to…</option>
+              <option v-for="m in inbox.mailboxes.filter((x) => x.id !== conv.mailbox_id)" :key="m.id" :value="m.id">{{ m.name }}</option>
+            </select>
+          </div>
+        </details>
       </div>
     </header>
 
@@ -149,7 +196,7 @@ function eventText(e) {
           </article>
         </template>
 
-        <Composer :conversation="conv" @sent="onSent" />
+        <Composer :conversation="conv" :forward-seed="forwardSeed" @sent="onSent" />
       </div>
 
       <aside class="side-panel">

@@ -42,10 +42,10 @@ class Api::ConversationsController < Api::BaseController
     render json: conversation_json(conversation, full: true), status: :created
   end
 
-  # POST /api/conversations/:id/merge { source_number } — B14
+  # POST /api/conversations/:id/merge { into_number } — merge :id into the target (B14)
   def merge
-    target = find_accessible_conversation!(params[:id])
-    source = Conversation.find_by!(number: params.require(:source_number))
+    source = find_accessible_conversation!(params[:id])
+    target = Conversation.find_by!(number: params.require(:into_number))
     raise ActiveRecord::RecordNotFound unless current_agent.can_access?(source.mailbox)
     if source.id == target.id || source.merged_into_id || target.merged_into_id
       return render json: { error: "cannot_merge" }, status: :unprocessable_entity

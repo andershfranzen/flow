@@ -32,14 +32,34 @@ function restream() {
   })
 }
 
+function onKeydown(e) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return
+  const tag = e.target.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return
+  const list = inbox.conversations
+  const idx = list.findIndex((c) => c.id === currentId.value)
+  if (e.key === 'j' || e.key === 'k') {
+    const next = list[e.key === 'j' ? Math.min(idx + 1, list.length - 1) : Math.max(idx - 1, 0)]
+    if (next) router.push(`/conversations/${next.id}`)
+    e.preventDefault()
+  } else if (e.key === 'e' && currentId.value) {
+    inbox.update(currentId.value, { status: 'closed' })
+    e.preventDefault()
+  } else if (e.key === 'r' && currentId.value) {
+    document.querySelector('.composer textarea')?.focus()
+    e.preventDefault()
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', onKeydown)
   await inbox.loadMailboxes()
   await inbox.loadConversations()
   inbox.refreshUnread()
   if (currentId.value) inbox.open(currentId.value)
   restream()
 })
-onUnmounted(() => stream?.close())
+onUnmounted(() => { stream?.close(); window.removeEventListener('keydown', onKeydown) })
 
 watch(currentId, (id) => {
   if (id) inbox.open(id)

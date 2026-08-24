@@ -28,6 +28,22 @@ and SMTP credentials (for Gmail: an app password, `imap.gmail.com` /
 `smtp.gmail.com`), and press **Test connection**. New mail appears within ~30
 seconds.
 
+### Microsoft 365 / Google via OAuth
+
+Microsoft 365 no longer allows password IMAP, so M365 mailboxes connect via
+OAuth — Gmail can too:
+
+1. Register an OAuth app with the provider:
+   - **Microsoft**: Entra ID app registration, delegated permissions
+     `IMAP.AccessAsUser.All` + `SMTP.Send` + `offline_access`, redirect URI
+     `https://your-flow/oauth/callback`.
+   - **Google**: Cloud Console OAuth client (web application), scope
+     `https://mail.google.com/`, same redirect URI.
+2. Paste the client id/secret under **Settings → Organisation**.
+3. On the mailbox, set **Authentication** to Microsoft 365 or Google and press
+   **Connect** — sign in as the shared mailbox, done. Tokens are encrypted at
+   rest and refreshed automatically.
+
 TLS is assumed at a reverse proxy (Caddy, nginx, Traefik) in front of port
 3000; Flow sets secure cookies and expects `X-Forwarded-Proto`.
 
@@ -60,6 +76,10 @@ changes. The MCP server at `POST /mcp` exposes `search`, `get_thread`,
 `draft_reply`, `send`, `list_mailboxes`, `assign` — bring your own MCP client
 and model; core never calls an LLM. Details and a hello-world bot:
 [docs/EXTENDING.md](docs/EXTENDING.md).
+
+## Keyboard shortcuts
+
+`j`/`k` next/previous conversation · `e` close · `r` focus reply.
 
 ## Development
 

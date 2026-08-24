@@ -22,7 +22,11 @@ Listed per the plan's definition of done: known bugs are documented, not silent.
 - First connect starts from "now" (UIDNEXT); it does not import mailbox
   history. A UIDVALIDITY reset re-syncs from the server's current state and
   relies on dedup to avoid duplicates.
-- Poll interval is 30s; IMAP IDLE is planned (v1.1).
+- Poll interval is 30s; IMAP IDLE is planned.
+- Microsoft 365 requires the OAuth flow (basic auth is disabled by
+  Microsoft); this needs an Entra ID app registration by the operator.
+- The OAuth flows are tested against stubbed token endpoints; report issues
+  with real tenants (first-party testing needs a real M365/Google account).
 
 ## Operational
 - Presence/collision state is in-memory in the web process: correct for the

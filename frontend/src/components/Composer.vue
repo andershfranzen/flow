@@ -3,13 +3,14 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { api } from '../api'
 import { t } from '../strings'
 
-const props = defineProps({ conversation: { type: Object, required: true } })
+const props = defineProps({ conversation: { type: Object, required: true }, forwardSeed: { type: Object, default: null } })
 const emit = defineEmits(['sent'])
 
 const mode = ref('reply') // reply | note
 const body = ref('')
 const to = ref('')
 const cc = ref('')
+const subject = ref(null) // non-null = forward mode (B16)
 const files = ref([])
 const savedReplies = ref([])
 const busy = ref(false)
@@ -20,6 +21,21 @@ let savedDraftBody = ''
 const isNote = computed(() => mode.value === 'note')
 
 watch(() => props.conversation.customer.email, (email) => { to.value = email }, { immediate: true })
+
+watch(() => props.forwardSeed, (seed) => {
+  if (!seed) return
+  mode.value = 'reply'
+  subject.value = seed.subject
+  to.value = ''
+  body.value = seed.body
+  document.querySelector('.composer textarea')?.focus()
+})
+
+function cancelForward() {
+  subject.value = null
+  to.value = props.conversation.customer.email
+  body.value = ''
+}
 
 onMounted(async () => {
   savedReplies.value = await api.get('/api/saved_replies')
@@ -67,6 +83,7 @@ async function submit(close = false) {
     if (!isNote.value) {
       to.value.split(/[,;\s]+/).filter(Boolean).forEach((x) => form.append('to[]', x))
       cc.value.split(/[,;\s]+/).filter(Boolean).forEach((x) => form.append('cc[]', x))
+      if (subject.value) form.set('subject', subject.value)
       if (close) form.set('close', 'true')
       files.value.forEach((f) => form.append('files[]', f))
     }
@@ -74,6 +91,8 @@ async function submit(close = false) {
     body.value = ''
     savedDraftBody = ''
     files.value = []
+    subject.value = null
+    to.value = props.conversation.customer.email
     emit('sent')
   } finally {
     busy.value = false
@@ -88,9 +107,14 @@ async function submit(close = false) {
       <button type="button" role="tab" :aria-selected="isNote" class="note-tab" :class="{ active: isNote }" @click="mode = 'note'">{{ t.note }}</button>
     </div>
     <div v-if="!isNote" class="fields">
+      <div v-if="subject !== null" class="field-row">
+        <label style="margin:0; width:24px">Fwd</label>
+        <input v-model="subject" aria-label="Subject" />
+        <button type="button" class="ghost" @click="cancelForward" title="Cancel forward">✕</button>
+      </div>
       <div class="field-row">
         <label style="margin:0; width:24px">{{ t.to }}</label>
-        <input v-model="to" aria-label="To" />
+        <input v-model="to" aria-label="To" :placeholder="subject !== null ? 'forward to…' : ''" />
       </div>
       <div class="field-row">
         <label style="margin:0; width:24px">{{ t.cc }}</label>

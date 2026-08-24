@@ -22,7 +22,7 @@ class V11Test < ActionDispatch::IntegrationTest
   end
 
   test "merge concatenates and redirects the source" do
-    post "/api/conversations/#{@first.id}/merge", params: { source_number: @second.number }
+    post "/api/conversations/#{@second.id}/merge", params: { into_number: @first.number }
     assert_response :success
     assert_equal 2, @first.reload.messages_count
     assert_equal @first.id, @second.reload.merged_into_id

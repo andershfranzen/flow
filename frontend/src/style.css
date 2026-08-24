@@ -199,6 +199,7 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 .login-card h1 { font-size: 36px; font-weight: 900; }
 .login-card h1::after { content: "."; color: var(--accent); }
 .error-text { color: var(--danger); font-size: 13.5px; font-weight: 700; }
+.hint-text { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
 .ok-text { color: var(--ok); font-size: 13.5px; font-weight: 700; }
 
 /* Settings */
