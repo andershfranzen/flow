@@ -1,0 +1,96 @@
+#!/usr/bin/env ruby
+# End-to-end round trip against a real IMAP/SMTP server (GreenMail).
+#
+#   docker run -d --name flow-greenmail -p 3143:3143 -p 3025:3025 \
+#     -e GREENMAIL_OPTS="-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled" \
+#     greenmail/standalone:2.1.8
+#   bin/e2e-greenmail
+#
+# Proves: cursor setup, real IMAP fetch, threading, SMTP send, customer
+# receipt, and the customer-reply round trip — against live servers.
+ENV["RAILS_ENV"] ||= "development"
+require_relative "../config/environment"
+
+ADDRESS  = "flow-e2e@greenmail.test"
+CUSTOMER = "customer-e2e@greenmail.test"
+STAMP    = Time.now.to_i
+
+def step(name) = puts("→ #{name}")
+def ok(name) = puts("  ✓ #{name}")
+
+mailbox = Mailbox.find_or_initialize_by(address: ADDRESS)
+mailbox.assign_attributes(
+  name: "E2E", imap_host: "localhost", imap_port: 3143, imap_ssl: false,
+  imap_user: ADDRESS, imap_password: "x",
+  smtp_host: "localhost", smtp_port: 3025, smtp_security: "none",
+  uid_validity: nil, last_uid: 0
+)
+mailbox.save!
+
+step "first connect sets the cursor without importing history"
+ImapFetcher.call(mailbox)
+ok "cursor: uidvalidity=#{mailbox.reload.uid_validity} last_uid=#{mailbox.last_uid}"
+
+step "customer sends mail to the shared mailbox over SMTP"
+m = Mail.new do
+  from CUSTOMER
+  to ADDRESS
+  subject "E2E round trip #{STAMP}"
+  body "round trip please (#{STAMP})"
+end
+m.message_id = "<e2e-#{STAMP}@greenmail.test>"
+m.delivery_method(:smtp, address: "localhost", port: 3025)
+m.deliver!
+sleep 1
+
+step "Flow fetches it over IMAP"
+ImapFetcher.call(mailbox)
+conversation = Conversation.where(mailbox: mailbox).order(:id).last
+raise "FAIL: no conversation created" unless conversation&.subject == "E2E round trip #{STAMP}"
+raise "FAIL: body missing" unless conversation.messages.last.body_text.include?("round trip please")
+ok "conversation ##{conversation.number} created from #{conversation.customer.email}"
+
+step "agent reply goes out over SMTP"
+reply = conversation.messages.create!(kind: "outbound", status: "queued",
+                                      to: [ CUSTOMER ], body_text: "Got it! (#{STAMP})")
+OutboundSender.call(reply)
+raise "FAIL: reply not sent" unless reply.reload.status == "sent"
+ok "reply sent, Message-ID #{reply.message_id_header}"
+
+step "customer's mailbox received the reply (via IMAP)"
+imap = Net::IMAP.new("localhost", port: 3143)
+imap.login(CUSTOMER, "x")
+imap.examine("INBOX")
+uids = imap.uid_search([ "SUBJECT", "E2E round trip #{STAMP}" ])
+raise "FAIL: reply not in customer inbox" if uids.empty?
+raw = imap.uid_fetch(uids, "BODY.PEEK[]").map { |d| d.attr["BODY[]"] }.join
+raise "FAIL: reply content missing" unless raw.include?("Got it! (#{STAMP})")
+raise "FAIL: reply not threaded (In-Reply-To)" unless raw.include?("e2e-#{STAMP}@greenmail.test")
+imap.logout rescue nil
+ok "reply delivered with correct In-Reply-To"
+
+step "customer replies; Flow threads it into the same conversation"
+m2 = Mail.new do
+  from CUSTOMER
+  to ADDRESS
+  subject "Re: E2E round trip #{STAMP}"
+  body "thanks! (#{STAMP})"
+end
+m2.header["In-Reply-To"] = "<#{reply.message_id_header}>"
+m2.message_id = "<e2e-r2-#{STAMP}@greenmail.test>"
+m2.delivery_method(:smtp, address: "localhost", port: 3025)
+m2.deliver!
+sleep 1
+ImapFetcher.call(mailbox)
+conversation.reload
+raise "FAIL: reply opened a new conversation" unless Conversation.where(mailbox: mailbox, subject: "E2E round trip #{STAMP}").count == 1
+raise "FAIL: message count" unless conversation.messages.where(kind: "inbound").count == 2
+ok "threaded: #{conversation.messages_count} messages on ##{conversation.number}"
+
+step "fetching again does not duplicate"
+before = Message.count
+ImapFetcher.call(mailbox)
+raise "FAIL: duplicate on refetch" unless Message.count == before
+ok "idempotent"
+
+puts "\nE2E PASSED — full round trip against live IMAP/SMTP."
