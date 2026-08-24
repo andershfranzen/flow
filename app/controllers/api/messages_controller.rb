@@ -17,6 +17,7 @@ class Api::MessagesController < Api::BaseController
       message = conversation.messages.create!(
         kind: "outbound", status: "queued", agent: current_agent,
         to: to, cc: Array(params[:cc]).map(&:to_s), bcc: Array(params[:bcc]).map(&:to_s),
+        subject: params[:subject].presence,
         body_text: params[:body_text].to_s,
         body_html: HtmlSanitizer.call(append_signature(params[:body_html].to_s, mailbox))
       )

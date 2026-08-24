@@ -51,6 +51,10 @@ class InboundProcessor
       )
       message = create_message(conversation, bounce: bounce?)
       Notifier.new_conversation(message)
+      if @mailbox.auto_reply_enabled && @mailbox.auto_reply_body.present? &&
+         !bounce? && !list_mail?
+        AutoReplyJob.perform_later(conversation)
+      end
       :new_conversation
     end
   end

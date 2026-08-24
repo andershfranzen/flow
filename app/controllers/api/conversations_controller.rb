@@ -42,9 +42,46 @@ class Api::ConversationsController < Api::BaseController
     render json: conversation_json(conversation, full: true), status: :created
   end
 
-  # PATCH /api/conversations/:id — status, star, assignee, tags (B4/B5/B10/B11)
+  # POST /api/conversations/:id/merge { source_number } — B14
+  def merge
+    target = find_accessible_conversation!(params[:id])
+    source = Conversation.find_by!(number: params.require(:source_number))
+    raise ActiveRecord::RecordNotFound unless current_agent.can_access?(source.mailbox)
+    if source.id == target.id || source.merged_into_id || target.merged_into_id
+      return render json: { error: "cannot_merge" }, status: :unprocessable_entity
+    end
+    Conversation.transaction do
+      source.messages.update_all(conversation_id: target.id)
+      source.events.update_all(conversation_id: target.id)
+      source.notifications.update_all(conversation_id: target.id)
+      source.drafts.destroy_all
+      target.tag_ids |= source.tag_ids
+      source.conversation_tags.destroy_all
+      sql = ActiveRecord::Base.sanitize_sql(
+        [ "UPDATE message_search SET conversation_id = ? WHERE conversation_id = ?", target.id, source.id ]
+      )
+      ActiveRecord::Base.connection.execute(sql)
+      source.update!(merged_into_id: target.id, status: "closed", assignee: nil)
+      Conversation.reset_counters(source.id, :messages)
+      Conversation.reset_counters(target.id, :messages)
+      last = target.messages.order(:created_at).last
+      target.update_columns(last_message_at: last&.created_at,
+                            preview: last&.body_text.to_s.gsub(/\s+/, " ").strip.truncate(140))
+      target.events.create!(agent: current_agent, kind: "merged", data: { from_number: source.number })
+    end
+    render json: conversation_json(target.reload, full: true)
+  end
+
+  # PATCH /api/conversations/:id — status, star, assignee, tags, mailbox (B4/B5/B10/B11/B15)
   def update
     conversation = find_accessible_conversation!(params[:id])
+    if params.key?(:mailbox_id) && params[:mailbox_id].to_i != conversation.mailbox_id
+      new_mailbox = find_accessible_mailbox!(params[:mailbox_id])
+      old_name = conversation.mailbox.name
+      conversation.update!(mailbox: new_mailbox)
+      conversation.events.create!(agent: current_agent, kind: "moved",
+                                  data: { from: old_name, to: new_mailbox.name })
+    end
     if params.key?(:status)
       conversation.set_status!(params[:status], agent: current_agent)
       Notifier.status_changed(conversation)
@@ -103,6 +140,7 @@ class Api::ConversationsController < Api::BaseController
     json["customer"] = c.customer.as_json(only: [ :id, :email, :name ])
     json["assignee"] = c.assignee&.as_json(only: [ :id, :name ])
     json["tags"] = c.tags.map { |t| t.as_json(only: [ :id, :name, :color ]) }
+    json["merged_into_id"] = c.merged_into_id
     if full
       json["messages"] = c.messages.with_attached_files.includes(:agent).order(:created_at).map { |m| message_json(m) }
       json["events"] = c.events.order(:created_at).map { |e|

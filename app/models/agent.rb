@@ -38,6 +38,9 @@ class Agent < ApplicationRecord
     DEFAULT_NOTIFY_PREFS.merge(super || {})
   end
 
+  # Form params deliver ids as strings; comparisons need integers (D5).
+  def muted_mailbox_ids = Array(super).map(&:to_i).reject(&:zero?)
+
   private
 
   def rotate_session_on_password_change

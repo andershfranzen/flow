@@ -37,7 +37,10 @@ class OutboundSender
     m.subject = reply_subject
     m.message_id = "<#{@message.message_id_header}>"
 
-    if (parent = last_inbound)
+    m.header["Auto-Submitted"] = "auto-replied" if @message.auto_submitted
+
+    # A subject override (forward, B16) starts a fresh thread for the recipient.
+    if @message.subject.blank? && (parent = last_inbound)
       m.in_reply_to = "<#{parent.message_id_header}>" if parent.message_id_header.present?
       refs = "#{parent.references_header} #{parent.message_id_header}".split.map { |r| "<#{r.delete('<>')}>" }
       m.references = refs.join(" ") if refs.any?
@@ -73,6 +76,7 @@ class OutboundSender
   end
 
   def reply_subject
+    return @message.subject if @message.subject.present?
     base = @conversation.subject.presence || ""
     return base if @conversation.messages.where(kind: "inbound").none?
     base.match?(/\A\s*re:/i) ? base : "Re: #{base}"

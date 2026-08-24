@@ -13,7 +13,11 @@ class ImapFetcher
 
   def call
     imap = Net::IMAP.new(@mailbox.imap_host, port: @mailbox.imap_port, ssl: @mailbox.imap_ssl)
-    imap.login(@mailbox.imap_user, @mailbox.imap_password)
+    if @mailbox.oauth?
+      imap.authenticate("XOAUTH2", @mailbox.imap_user, MailOauth.access_token!(@mailbox))
+    else
+      imap.login(@mailbox.imap_user, @mailbox.imap_password)
+    end
     imap.examine(@mailbox.imap_folder) # read-only: we never touch flags (A24 off)
 
     uid_validity = imap.responses("UIDVALIDITY", &:last)

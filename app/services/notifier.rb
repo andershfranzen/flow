@@ -45,6 +45,7 @@ class Notifier
   end
 
   def self.notify(agents, conversation, kind)
+    agents = agents.reject { |a| a.muted_mailbox_ids.include?(conversation.mailbox_id) }
     agents.each do |agent|
       notification = Notification.create!(agent: agent, conversation: conversation, kind: kind)
       NotifyAgentEmailJob.perform_later(notification)

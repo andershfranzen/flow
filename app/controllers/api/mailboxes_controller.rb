@@ -35,7 +35,8 @@ class Api::MailboxesController < Api::BaseController
   private
 
   def mailbox_params
-    permitted = params.permit(:address, :name, :from_name, :signature,
+    permitted = params.permit(:address, :name, :from_name, :signature, :auth_kind,
+      :auto_reply_enabled, :auto_reply_body,
       :imap_host, :imap_port, :imap_ssl, :imap_user, :imap_password, :imap_folder,
       :smtp_host, :smtp_port, :smtp_user, :smtp_password, :smtp_security)
     # Blank password in the form means "keep the stored one".
@@ -47,7 +48,11 @@ class Api::MailboxesController < Api::BaseController
   def try_imap(mailbox)
     return { ok: false, error: "not configured" } unless mailbox.imap_configured?
     imap = Net::IMAP.new(mailbox.imap_host, port: mailbox.imap_port, ssl: mailbox.imap_ssl)
-    imap.login(mailbox.imap_user, mailbox.imap_password)
+    if mailbox.oauth?
+      imap.authenticate("XOAUTH2", mailbox.imap_user, MailOauth.access_token!(mailbox))
+    else
+      imap.login(mailbox.imap_user, mailbox.imap_password)
+    end
     imap.examine(mailbox.imap_folder)
     { ok: true }
   rescue StandardError => e
@@ -77,9 +82,11 @@ class Api::MailboxesController < Api::BaseController
     json = m.as_json(only: [ :id, :address, :name, :from_name, :signature, :last_fetched_at, :fetch_error ])
     if full
       json.merge!(m.as_json(only: [ :imap_host, :imap_port, :imap_ssl, :imap_user, :imap_folder,
-                                    :smtp_host, :smtp_port, :smtp_user, :smtp_security ]))
+                                    :smtp_host, :smtp_port, :smtp_user, :smtp_security,
+                                    :auth_kind, :auto_reply_enabled, :auto_reply_body ]))
       json["imap_password_set"] = m.imap_password.present?
       json["smtp_password_set"] = m.smtp_password.present?
+      json["oauth_connected"] = m.oauth_connected?
     end
     json
   end

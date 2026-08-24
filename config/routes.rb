@@ -15,6 +15,7 @@ Rails.application.routes.draw do
     resources :conversations, only: [ :index, :show, :create, :update ] do
       resources :messages, only: [ :create ]
       post :presence, to: "stream#presence"
+      member { post :merge }
     end
     get "stream" => "stream#show"
 
@@ -35,11 +36,14 @@ Rails.application.routes.draw do
     delete "drafts/:id" => "drafts#destroy"
 
     resource :org_settings, only: [ :show, :update ]
+    post "oauth/:provider/start" => "oauth#start"
   end
+
+  get "oauth/callback" => "oauth_callbacks#show"
 
   post "mcp" => "mcp#handle"
 
   # SPA fallback: anything that isn't API/rails/mcp gets the Vue app (H18).
   get "*path", to: "spa#index",
-    constraints: ->(req) { !req.path.start_with?("/api", "/rails", "/mcp", "/up", "/health") && req.format.html? }
+    constraints: ->(req) { !req.path.start_with?("/api", "/rails", "/mcp", "/up", "/health", "/oauth") && req.format.html? }
 end
