@@ -1,0 +1,16 @@
+class Customer < ApplicationRecord
+  has_many :conversations, dependent: :destroy
+
+  validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+
+  before_validation { self.email = email.to_s.downcase.strip }
+
+  def self.for_email(email, name: nil)
+    email = email.to_s.downcase.strip
+    customer = find_or_create_by!(email: email)
+    customer.update!(name: name) if name.present? && customer.name.blank?
+    customer
+  end
+
+  def display_name = name.presence || email
+end
