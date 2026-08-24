@@ -7,6 +7,9 @@ export const useInbox = defineStore('inbox', {
     mailboxId: null,        // null = all mailboxes
     folder: 'unassigned',
     query: '',
+    sort: 'newest',
+    assigneeFilter: '',
+    tagFilter: '',
     conversations: [],
     folderCounts: {},
     current: null,          // full conversation with messages
@@ -25,6 +28,9 @@ export const useInbox = defineStore('inbox', {
         const params = new URLSearchParams({ folder: this.folder })
         if (this.mailboxId) params.set('mailbox_id', this.mailboxId)
         if (this.query) params.set('q', this.query)
+        if (this.sort === 'oldest') params.set('sort', 'oldest')
+        if (this.assigneeFilter) params.set('assignee_id', this.assigneeFilter)
+        if (this.tagFilter) params.set('tag', this.tagFilter)
         const data = await api.get(`/api/conversations?${params}`)
         this.conversations = data.conversations
         this.folderCounts = data.folder_counts

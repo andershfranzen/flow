@@ -41,6 +41,7 @@ class InboundProcessor
       # Reply from a CC'd stranger keeps the original customer (A11).
       message = create_message(conversation, bounce: bounce?)
       conversation.set_status!("active") if %w[pending closed].include?(conversation.status)
+      conversation.update!(snoozed_until: nil) if conversation.snoozed_until # reply wakes it (B18)
       Notifier.customer_reply(message)
       :reply
     else

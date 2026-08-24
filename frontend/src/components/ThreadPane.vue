@@ -91,6 +91,19 @@ async function moveTo(e) {
   await inbox.update(conv.value.id, { mailbox_id: Number(id) })
 }
 
+function snoozeUntil(e) {
+  closeMenus()
+  const choice = e.target.value
+  e.target.value = ''
+  if (!choice) return
+  const d = new Date()
+  if (choice === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0) }
+  else if (choice === '3days') { d.setDate(d.getDate() + 3); d.setHours(9, 0, 0, 0) }
+  else if (choice === 'monday') { d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); d.setHours(9, 0, 0, 0) }
+  else if (choice === 'wake') { inbox.update(conv.value.id, { snooze_until: null }); return }
+  inbox.update(conv.value.id, { snooze_until: d.toISOString() })
+}
+
 function startForward() {
   closeMenus()
   const last = [...(conv.value.messages || [])].reverse().find((m) => m.kind !== 'note')
@@ -193,6 +206,13 @@ function eventText(e) {
           <div class="card" style="position:absolute; right:16px; z-index:5; margin-top:4px; display:flex; flex-direction:column; gap:6px; min-width:180px">
             <button type="button" class="ghost" style="text-align:left" @click="startForward">Forward…</button>
             <button type="button" class="ghost" style="text-align:left" @click="mergeInto">Merge into #…</button>
+            <select @change="snoozeUntil" aria-label="Snooze">
+              <option value="">Snooze…</option>
+              <option value="tomorrow">Until tomorrow 09:00</option>
+              <option value="3days">For 3 days</option>
+              <option value="monday">Until Monday 09:00</option>
+              <option v-if="conv.snoozed_until" value="wake">Unsnooze</option>
+            </select>
             <select v-if="inbox.mailboxes.length > 1" @change="moveTo" aria-label="Move to mailbox">
               <option value="">Move to…</option>
               <option v-for="m in inbox.mailboxes.filter((x) => x.id !== conv.mailbox_id)" :key="m.id" :value="m.id">{{ m.name }}</option>

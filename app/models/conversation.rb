@@ -17,11 +17,17 @@ class Conversation < ApplicationRecord
 
   before_create :assign_number
 
+  # Snooze expires by scope, no wake job needed (B18): a conversation whose
+  # snoozed_until has passed simply reappears in the open folders.
+  scope :not_snoozed, -> { where(snoozed_until: nil).or(where(snoozed_until: ..Time.current)) }
+  scope :snoozed, -> { where(snoozed_until: Time.current..) }
+
   scope :in_folder, ->(folder, agent) {
     case folder
-    when "unassigned" then where(status: %w[active pending], assignee_id: nil)
-    when "mine"       then where(status: %w[active pending], assignee_id: agent.id)
-    when "assigned"   then where(status: %w[active pending]).where.not(assignee_id: nil)
+    when "unassigned" then where(status: %w[active pending], assignee_id: nil).not_snoozed
+    when "mine"       then where(status: %w[active pending], assignee_id: agent.id).not_snoozed
+    when "assigned"   then where(status: %w[active pending]).where.not(assignee_id: nil).not_snoozed
+    when "snoozed"    then where(status: %w[active pending]).snoozed
     when "starred"    then where(starred: true).where.not(status: %w[spam trash])
     when "closed"     then where(status: "closed")
     when "spam"       then where(status: "spam")

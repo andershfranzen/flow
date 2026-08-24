@@ -12,6 +12,7 @@ Rails.application.routes.draw do
       member { post :test }
     end
 
+    patch "conversations/bulk" => "conversations#bulk"
     resources :conversations, only: [ :index, :show, :create, :update ] do
       resources :messages, only: [ :create ]
       post :presence, to: "stream#presence"

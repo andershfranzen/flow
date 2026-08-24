@@ -55,6 +55,9 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
 - Reply-all defaults from the whole thread; a participants panel shows
   everyone on it; quoted history and signatures collapse behind `•••`
 - Full-text search (SQLite FTS5), keyboard shortcuts (`j`/`k`/`e`/`r`)
+- **Per-agent unread state** (bold rows), **snooze** ("until Monday 09:00",
+  woken early by customer replies), **bulk actions** (close / assign / tag
+  many at once), oldest-first queue mode, and assignee/tag filters
 
 **The pipeline**
 - IMAP polling plus optional IMAP IDLE for instant fetch

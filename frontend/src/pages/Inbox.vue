@@ -16,8 +16,11 @@ const router = useRouter()
 const session = useSession()
 const inbox = useInbox()
 
-const FOLDERS = ['unassigned', 'mine', 'assigned', 'starred', 'closed', 'spam', 'trash']
+const FOLDERS = ['unassigned', 'mine', 'assigned', 'starred', 'snoozed', 'closed', 'spam', 'trash']
 const searchInput = ref('')
+const selected = ref(new Set())
+const agents = ref([])
+const tags = ref([])
 const showNew = ref(false)
 const newConv = ref({ mailbox_id: null, to: '', subject: '', body_text: '' })
 let stream = null
@@ -51,8 +54,36 @@ function onKeydown(e) {
   }
 }
 
+function toggleSelect(id, e) {
+  e.stopPropagation()
+  const next = new Set(selected.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  selected.value = next
+}
+
+async function bulk(attrs) {
+  await api.patch('/api/conversations/bulk', { ids: [...selected.value], ...attrs })
+  selected.value = new Set()
+  await inbox.loadConversations()
+}
+
+function bulkAssign(e) {
+  const id = e.target.value
+  e.target.value = ''
+  if (id !== '') bulk({ assignee_id: id === 'none' ? '' : id })
+}
+
+function toggleSort() {
+  inbox.sort = inbox.sort === 'oldest' ? 'newest' : 'oldest'
+  inbox.loadConversations()
+}
+
+function setFilter() { inbox.loadConversations() }
+
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
+  api.get('/api/agents').then((a) => (agents.value = a))
+  api.get('/api/tags').then((x) => (tags.value = x))
   await inbox.loadMailboxes()
   await inbox.loadConversations()
   inbox.refreshUnread()
@@ -71,6 +102,7 @@ function selectFolder(folder) {
   inbox.folder = folder
   inbox.query = ''
   searchInput.value = ''
+  selected.value = new Set()
   inbox.loadConversations()
   router.push('/inbox')
 }
@@ -149,12 +181,41 @@ async function logout() {
       <div class="list-head">
         <input v-model="searchInput" type="search" :placeholder="t.search"
                @keydown.enter="search" aria-label="Search conversations" />
+        <button class="ghost" @click="toggleSort"
+                :title="inbox.sort === 'oldest' ? 'Oldest first (queue mode)' : 'Newest first'">
+          {{ inbox.sort === 'oldest' ? '↑' : '↓' }}
+        </button>
         <button class="primary" @click="openNewConversation" title="New conversation">＋</button>
+      </div>
+      <div class="filter-row">
+        <select v-model="inbox.assigneeFilter" @change="setFilter" aria-label="Filter by assignee">
+          <option value="">Anyone</option>
+          <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+        </select>
+        <select v-if="tags.length" v-model="inbox.tagFilter" @change="setFilter" aria-label="Filter by tag">
+          <option value="">Any tag</option>
+          <option v-for="x in tags" :key="x.id" :value="x.name">{{ x.name }}</option>
+        </select>
+      </div>
+      <div v-if="selected.size" class="bulk-bar">
+        <strong>{{ selected.size }}</strong>
+        <button class="ghost" @click="bulk({ status: 'closed' })">Close</button>
+        <button class="ghost" @click="bulk({ status: 'spam' })">Spam</button>
+        <button class="ghost" @click="bulk({ status: 'trash' })">Trash</button>
+        <select @change="bulkAssign" aria-label="Assign selected">
+          <option value="">Assign…</option>
+          <option value="none">Unassign</option>
+          <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+        </select>
+        <button class="ghost" @click="selected = new Set()">✕</button>
       </div>
       <ul class="conv-list">
         <li v-for="c in inbox.conversations" :key="c.id">
-          <button class="conv-item" :class="{ active: c.id === currentId }"
+          <button class="conv-item" :class="{ active: c.id === currentId, unread: c.unread, selecting: selected.size }"
                   @click="router.push(`/conversations/${c.id}`)">
+            <span class="select-box" @click="toggleSelect(c.id, $event)">
+              <input type="checkbox" :checked="selected.has(c.id)" tabindex="-1" aria-label="Select conversation" />
+            </span>
             <span class="avatar" :style="{ background: avatarColor(c.customer.email) }">
               {{ initials(c.customer.name || c.customer.email) }}
             </span>

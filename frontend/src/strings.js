@@ -5,7 +5,7 @@ export const t = {
   loginFailed: 'Wrong email or password',
   folders: {
     unassigned: 'Unassigned', mine: 'Mine', assigned: 'Assigned', starred: 'Starred',
-    drafts: 'Drafts', closed: 'Closed', spam: 'Spam', trash: 'Trash',
+    snoozed: 'Snoozed', drafts: 'Drafts', closed: 'Closed', spam: 'Spam', trash: 'Trash',
   },
   statuses: { active: 'Active', pending: 'Pending', closed: 'Closed', spam: 'Spam', trash: 'Trash' },
   reply: 'Reply', note: 'Note', send: 'Send', sendAndClose: 'Send & close', saveNote: 'Add note',

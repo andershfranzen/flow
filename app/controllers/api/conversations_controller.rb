@@ -9,14 +9,44 @@ class Api::ConversationsController < Api::BaseController
     end
     scope = scope.in_folder(params[:folder].presence || "all", current_agent)
     scope = scope.joins(:tags).where(tags: { name: params[:tag] }) if params[:tag].present?
+    scope = scope.where(assignee_id: params[:assignee_id]) if params[:assignee_id].present?
     scope = scope.where(id: search_ids(params[:q])) if params[:q].present?
-    scope = scope.includes(:customer, :assignee, :tags).order(last_message_at: :desc, id: :desc)
-    render json: { conversations: paginate(scope).map { |c| conversation_json(c) },
+    order = params[:sort] == "oldest" ? { last_message_at: :asc, id: :asc } : { last_message_at: :desc, id: :desc }
+    scope = scope.includes(:customer, :assignee, :tags).order(order)
+    conversations = paginate(scope).to_a
+    reads = ConversationRead.where(agent: current_agent, conversation_id: conversations.map(&:id))
+                            .pluck(:conversation_id, :last_read_at).to_h
+    render json: { conversations: conversations.map { |c|
+                     conversation_json(c).merge("unread" => unread?(c, reads[c.id])) },
                    folder_counts: folder_counts }
+  end
+
+  # PATCH /api/conversations/bulk { ids: [], status:|assignee_id:|starred: }
+  def bulk
+    ids = Array(params.require(:ids))
+    updated = 0
+    Conversation.where(id: ids).find_each do |conversation|
+      next unless current_agent.can_access?(conversation.mailbox)
+      if params.key?(:status)
+        conversation.set_status!(params[:status], agent: current_agent)
+        Notifier.status_changed(conversation)
+      end
+      if params.key?(:assignee_id)
+        assignee = params[:assignee_id].present? ? Agent.find(params[:assignee_id]) : nil
+        conversation.assign!(assignee, agent: current_agent)
+        Notifier.assigned(conversation, by: current_agent) if assignee
+      end
+      conversation.update!(starred: params[:starred]) if params.key?(:starred)
+      updated += 1
+    end
+    render json: { updated: updated }
   end
 
   def show
     conversation = find_accessible_conversation!(params[:id])
+    ConversationRead.upsert({ agent_id: current_agent.id, conversation_id: conversation.id,
+                              last_read_at: Time.current, created_at: Time.current, updated_at: Time.current },
+                            unique_by: [ :agent_id, :conversation_id ])
     render json: conversation_json(conversation, full: true)
   end
 
@@ -106,6 +136,9 @@ class Api::ConversationsController < Api::BaseController
       Notifier.assigned(conversation, by: current_agent)
     end
     conversation.update!(starred: params[:starred]) if params.key?(:starred)
+    if params.key?(:snooze_until)
+      conversation.update!(snoozed_until: params[:snooze_until].presence)
+    end
     if params.key?(:tag_ids)
       conversation.tag_ids = Array(params[:tag_ids])
     end
@@ -139,7 +172,13 @@ class Api::ConversationsController < Api::BaseController
       closed: base.where(status: "closed").count,
       spam: base.where(status: "spam").count,
       trash: base.where(status: "trash").count,
+      snoozed: base.where(status: %w[active pending]).snoozed.count,
       drafts: current_agent.drafts.count }
+  end
+
+  def unread?(conversation, last_read_at)
+    return false if conversation.last_message_at.nil?
+    last_read_at.nil? || conversation.last_message_at > last_read_at
   end
 
   # Everyone on the thread except our own mailbox address (display + reply-all).
@@ -177,7 +216,7 @@ class Api::ConversationsController < Api::BaseController
 
   def conversation_json(c, full: false)
     json = c.as_json(only: [ :id, :number, :subject, :status, :preview, :starred,
-                             :messages_count, :last_message_at, :mailbox_id, :created_at ])
+                             :messages_count, :last_message_at, :mailbox_id, :created_at, :snoozed_until ])
     json["customer"] = c.customer.as_json(only: [ :id, :email, :name ])
     json["assignee"] = c.assignee&.as_json(only: [ :id, :name ])
     json["tags"] = c.tags.map { |t| t.as_json(only: [ :id, :name, :color ]) }

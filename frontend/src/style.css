@@ -116,6 +116,22 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 .conv-item .row1 { display: flex; justify-content: space-between; gap: 8px; }
 .conv-item .who { font-weight: 800; font-family: var(--font-round); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-item .when { font-size: 12px; font-weight: 700; color: var(--muted); flex: none; }
+.conv-item .select-box { display: none; align-self: center; }
+.conv-item:hover .select-box, .conv-item.selecting .select-box { display: block; }
+.conv-item .select-box input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.conv-item.unread .who { color: var(--accent); }
+.conv-item.unread .line2 .subj { font-weight: 800; }
+.conv-item.unread .avatar { box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.filter-row { display: flex; gap: 6px; padding: 0 14px 10px; }
+.filter-row select { font-size: 13px; padding: 4px 8px; border-radius: 999px; flex: 1; min-width: 0; }
+
+.bulk-bar {
+  display: flex; gap: 4px; align-items: center; padding: 6px 14px;
+  background: var(--accent-soft); font-size: 13.5px;
+}
+.bulk-bar select { font-size: 13px; padding: 3px 8px; border-radius: 999px; }
+
 .conv-item .line2 { display: block; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-item .line2 .subj { font-weight: 600; }
 .conv-item .line2 .prev { color: var(--muted); }

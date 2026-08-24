@@ -116,7 +116,7 @@ CREATE TABLE 'message_search_content'(id INTEGER PRIMARY KEY, c0, c1, c2, c3);
 CREATE TABLE 'message_search_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
 CREATE TABLE 'message_search_config'(k PRIMARY KEY, v) WITHOUT ROWID;
 CREATE TABLE "org_settings" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "site_name" varchar DEFAULT 'Flow' NOT NULL, "base_url" varchar, "notify_from" varchar, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "ms_client_id" varchar /*application='Flow'*/, "ms_client_secret" varchar /*application='Flow'*/, "ms_tenant" varchar DEFAULT 'common' NOT NULL /*application='Flow'*/, "google_client_id" varchar /*application='Flow'*/, "google_client_secret" varchar /*application='Flow'*/);
-CREATE TABLE "conversations" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "mailbox_id" integer NOT NULL, "customer_id" integer NOT NULL, "assignee_id" integer, "number" integer NOT NULL, "subject" varchar DEFAULT '' NOT NULL, "status" varchar DEFAULT 'active' NOT NULL, "preview" varchar DEFAULT '' NOT NULL, "messages_count" integer DEFAULT 0 NOT NULL, "starred" boolean DEFAULT FALSE NOT NULL, "last_message_at" datetime(6), "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "merged_into_id" integer, CONSTRAINT "fk_rails_b0388c9502"
+CREATE TABLE "conversations" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "mailbox_id" integer NOT NULL, "customer_id" integer NOT NULL, "assignee_id" integer, "number" integer NOT NULL, "subject" varchar DEFAULT '' NOT NULL, "status" varchar DEFAULT 'active' NOT NULL, "preview" varchar DEFAULT '' NOT NULL, "messages_count" integer DEFAULT 0 NOT NULL, "starred" boolean DEFAULT FALSE NOT NULL, "last_message_at" datetime(6), "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "merged_into_id" integer, "snoozed_until" datetime(6) /*application='Flow'*/, CONSTRAINT "fk_rails_b0388c9502"
 FOREIGN KEY ("assignee_id")
   REFERENCES "agents" ("id")
 , CONSTRAINT "fk_rails_a72440fed6"
@@ -145,7 +145,19 @@ FOREIGN KEY ("conversation_id")
 CREATE INDEX "index_followers_on_agent_id" ON "followers" ("agent_id") /*application='Flow'*/;
 CREATE INDEX "index_followers_on_conversation_id" ON "followers" ("conversation_id") /*application='Flow'*/;
 CREATE UNIQUE INDEX "index_followers_on_agent_id_and_conversation_id" ON "followers" ("agent_id", "conversation_id") /*application='Flow'*/;
+CREATE TABLE "conversation_reads" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "agent_id" integer NOT NULL, "conversation_id" integer NOT NULL, "last_read_at" datetime(6) NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_446634b7c3"
+FOREIGN KEY ("agent_id")
+  REFERENCES "agents" ("id")
+, CONSTRAINT "fk_rails_bc926ff432"
+FOREIGN KEY ("conversation_id")
+  REFERENCES "conversations" ("id")
+);
+CREATE INDEX "index_conversation_reads_on_agent_id" ON "conversation_reads" ("agent_id") /*application='Flow'*/;
+CREATE INDEX "index_conversation_reads_on_conversation_id" ON "conversation_reads" ("conversation_id") /*application='Flow'*/;
+CREATE UNIQUE INDEX "index_conversation_reads_on_agent_id_and_conversation_id" ON "conversation_reads" ("agent_id", "conversation_id") /*application='Flow'*/;
+CREATE INDEX "index_conversations_on_snoozed_until" ON "conversations" ("snoozed_until") /*application='Flow'*/;
 INSERT INTO "schema_migrations" (version) VALUES
+('20260824240000'),
 ('20260824230000'),
 ('20260824220000'),
 ('20260824210000'),
