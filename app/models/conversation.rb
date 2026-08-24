@@ -10,6 +10,8 @@ class Conversation < ApplicationRecord
   has_many :tags, through: :conversation_tags
   has_many :notifications, dependent: :destroy
   has_many :drafts, dependent: :destroy
+  has_many :followers, dependent: :destroy
+  has_many :following_agents, through: :followers, source: :agent
 
   validates :status, inclusion: { in: STATUSES }
 

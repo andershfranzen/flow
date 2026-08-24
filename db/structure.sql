@@ -135,7 +135,18 @@ CREATE INDEX "index_conversations_on_assignee_id" ON "conversations" ("assignee_
 CREATE UNIQUE INDEX "index_conversations_on_number" ON "conversations" ("number") /*application='Flow'*/;
 CREATE INDEX "idx_on_mailbox_id_status_last_message_at_3ae194d729" ON "conversations" ("mailbox_id", "status", "last_message_at") /*application='Flow'*/;
 CREATE INDEX "index_conversations_on_merged_into_id" ON "conversations" ("merged_into_id") /*application='Flow'*/;
+CREATE TABLE "followers" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "agent_id" integer NOT NULL, "conversation_id" integer NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_97f6edae0a"
+FOREIGN KEY ("agent_id")
+  REFERENCES "agents" ("id")
+, CONSTRAINT "fk_rails_fdc2ac8b69"
+FOREIGN KEY ("conversation_id")
+  REFERENCES "conversations" ("id")
+);
+CREATE INDEX "index_followers_on_agent_id" ON "followers" ("agent_id") /*application='Flow'*/;
+CREATE INDEX "index_followers_on_conversation_id" ON "followers" ("conversation_id") /*application='Flow'*/;
+CREATE UNIQUE INDEX "index_followers_on_agent_id_and_conversation_id" ON "followers" ("agent_id", "conversation_id") /*application='Flow'*/;
 INSERT INTO "schema_migrations" (version) VALUES
+('20260824230000'),
 ('20260824220000'),
 ('20260824210000'),
 ('20260824190000'),

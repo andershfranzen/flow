@@ -21,7 +21,12 @@ class Api::MessagesController < Api::BaseController
         body_text: params[:body_text].to_s,
         body_html: HtmlSanitizer.call(append_signature(params[:body_html].to_s, mailbox))
       )
-      attach_uploads(message)
+      cid_map = attach_uploads(message)
+      if cid_map.any?
+        html = message.body_html.to_s
+        cid_map.each { |local, content_id| html = html.gsub("cid:#{local}", "cid:#{content_id}") }
+        message.update!(body_html: html)
+      end
       SendMessageJob.perform_later(message)
       # Close-from-reply is one action (B5).
       conversation.set_status!("closed", agent: current_agent) if params[:close] == "true" || params[:close] == true
@@ -34,19 +39,23 @@ class Api::MessagesController < Api::BaseController
 
   private
 
+  # Returns { client_local_cid => generated_content_id } for inline images (A20):
+  # the client names each pasted file by its local cid placeholder.
   def attach_uploads(message)
     Array(params[:files]).each do |upload|
       next unless upload.respond_to?(:original_filename)
       message.files.attach(io: upload.to_io, filename: upload.original_filename,
                            content_type: upload.content_type)
     end
-    Array(params[:inline_images]).each do |img|
+    Array(params[:inline_images]).each_with_object({}) do |img, map|
       next unless img.respond_to?(:original_filename)
+      content_id = "inline-#{SecureRandom.hex(8)}@flow"
       blob = ActiveStorage::Blob.create_and_upload!(
         io: img.to_io, filename: img.original_filename, content_type: img.content_type,
-        metadata: { content_id: "inline-#{SecureRandom.hex(8)}@shared-inbox" }
+        metadata: { content_id: content_id }
       )
       message.files.attach(blob)
+      map[img.original_filename] = content_id
     end
   end
 

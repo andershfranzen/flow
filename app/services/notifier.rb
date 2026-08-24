@@ -10,9 +10,12 @@ class Notifier
 
   def self.customer_reply(message)
     conversation = message.conversation
+    recipients = []
     if (assignee = conversation.assignee) && assignee.notify_prefs["customer_reply"]
-      notify([ assignee ], conversation, "customer_reply")
+      recipients << assignee
     end
+    recipients |= conversation.following_agents.to_a
+    notify(recipients, conversation, "customer_reply")
     DomainEvents.emit("message.inbound", message_payload(message))
   end
 
@@ -30,9 +33,22 @@ class Notifier
 
   def self.note_added(message, author:)
     conversation = message.conversation
+    mentioned = mentioned_agents(message.body_text)
+    notify(mentioned - [ author ], conversation, "mention")
+
+    recipients = []
     assignee = conversation.assignee
-    if assignee && assignee != author && assignee.notify_prefs["note_on_mine"]
-      notify([ assignee ], conversation, "note_on_mine")
+    recipients << assignee if assignee && assignee.notify_prefs["note_on_mine"]
+    recipients |= conversation.following_agents.to_a
+    notify(recipients - [ author ] - mentioned, conversation, "note_on_mine")
+  end
+
+  # @firstname or @full.email in a note (B19). First-name collisions notify all matches.
+  def self.mentioned_agents(text)
+    return [] if text.blank?
+    Agent.all.select do |agent|
+      text.include?("@#{agent.email}") ||
+        text.match?(/@#{Regexp.escape(agent.name.split.first)}\b/i)
     end
   end
 

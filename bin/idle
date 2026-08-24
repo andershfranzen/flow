@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+# Optional IMAP IDLE supervisor (A3): one thread per mailbox, instant fetch
+# on new mail. Without this process, the 30s poll still delivers everything.
+require_relative "../config/environment"
+
+puts "Flow IDLE watcher starting"
+threads = {}
+loop do
+  Mailbox.all.each do |mailbox|
+    next unless mailbox.imap_configured?
+    next if threads[mailbox.id]&.alive?
+    threads[mailbox.id] = Thread.new(mailbox.id) { |id| IdleWatcher.run(id) }
+  end
+  sleep 30
+end

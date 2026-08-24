@@ -15,7 +15,11 @@ Rails.application.routes.draw do
     resources :conversations, only: [ :index, :show, :create, :update ] do
       resources :messages, only: [ :create ]
       post :presence, to: "stream#presence"
-      member { post :merge }
+      member do
+        post :merge
+        post :follow
+        delete :follow, action: :unfollow
+      end
     end
     get "stream" => "stream#show"
 

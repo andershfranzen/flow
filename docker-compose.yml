@@ -25,5 +25,18 @@ services:
     depends_on:
       - web
 
+  # Optional: instant fetch via IMAP IDLE; polling covers everything without it.
+  idle:
+    build: .
+    command: ./bin/idle
+    environment:
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+    volumes:
+      - flow_storage:/rails/storage
+    restart: unless-stopped
+    depends_on:
+      - jobs
+
 volumes:
   flow_storage:

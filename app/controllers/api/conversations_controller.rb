@@ -72,6 +72,19 @@ class Api::ConversationsController < Api::BaseController
     render json: conversation_json(target.reload, full: true)
   end
 
+  # POST/DELETE /api/conversations/:id/follow — notify me even when not assignee (B11)
+  def follow
+    conversation = find_accessible_conversation!(params[:id])
+    Follower.find_or_create_by!(agent: current_agent, conversation: conversation)
+    render json: { followed: true }
+  end
+
+  def unfollow
+    conversation = find_accessible_conversation!(params[:id])
+    Follower.where(agent: current_agent, conversation: conversation).destroy_all
+    render json: { followed: false }
+  end
+
   # PATCH /api/conversations/:id — status, star, assignee, tags, mailbox (B4/B5/B10/B11/B15)
   def update
     conversation = find_accessible_conversation!(params[:id])
@@ -129,6 +142,34 @@ class Api::ConversationsController < Api::BaseController
       drafts: current_agent.drafts.count }
   end
 
+  # Everyone on the thread except our own mailbox address (display + reply-all).
+  def participants(c)
+    seen = {}
+    c.messages.each do |m|
+      seen[m.from_email.downcase] ||= m.from_name if m.from_email.present?
+      (Array(m.to) + Array(m.cc)).each do |raw|
+        email = raw[/[^\s<>,;"']+@[^\s<>,;"']+/].to_s.downcase
+        seen[email] ||= nil if email.present?
+      end
+    end
+    seen.reject { |email, _| c.mailbox.matches_address?(email) }
+        .map { |email, name| { email: email, name: name } }
+  end
+
+  # Prefill for the composer: reply-all from the last inbound message.
+  def reply_all_defaults(c)
+    last = c.messages.where(kind: "inbound").order(:created_at).last
+    return { to: [ c.customer.email ], cc: [] } unless last
+    to = [ last.from_email.to_s.downcase ].reject(&:blank?)
+    to = [ c.customer.email ] if to.empty?
+    cc = (Array(last.to) + Array(last.cc))
+         .map { |raw| raw[/[^\s<>,;"']+@[^\s<>,;"']+/].to_s.downcase }
+         .reject(&:blank?).uniq
+    cc -= to
+    cc = cc.reject { |email| c.mailbox.matches_address?(email) }
+    { to: to, cc: cc }
+  end
+
   def append_signature(html, mailbox)
     return html if mailbox.signature.blank?
     "#{html}<br><br>--<br>#{mailbox.signature}"
@@ -143,6 +184,9 @@ class Api::ConversationsController < Api::BaseController
     json["merged_into_id"] = c.merged_into_id
     if full
       json["messages"] = c.messages.with_attached_files.includes(:agent).order(:created_at).map { |m| message_json(m) }
+      json["participants"] = participants(c)
+      json["reply_all"] = reply_all_defaults(c)
+      json["followed"] = c.followers.exists?(agent_id: current_agent.id)
       json["events"] = c.events.order(:created_at).map { |e|
         e.as_json(only: [ :id, :kind, :data, :created_at ]).merge("agent" => e.agent&.as_json(only: [ :id, :name ]))
       }

@@ -6,7 +6,8 @@ class NotifyAgentEmailJob < ApplicationJob
     "new_unassigned" => "New conversation",
     "assigned_to_me" => "Assigned to you",
     "customer_reply" => "Customer replied",
-    "note_on_mine" => "New note"
+    "note_on_mine" => "New note",
+    "mention" => "You were mentioned"
   }.freeze
 
   def perform(notification)
