@@ -8,6 +8,7 @@ import { api } from '../api'
 import { t } from '../strings'
 import ThreadPane from '../components/ThreadPane.vue'
 import { avatarColor, initials } from '../avatar'
+import { shortTime } from '../format'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -88,14 +89,6 @@ async function logout() {
   router.push('/login')
 }
 
-function timeAgo(iso) {
-  if (!iso) return ''
-  const s = (Date.now() - new Date(iso)) / 1000
-  if (s < 60) return 'now'
-  if (s < 3600) return `${Math.floor(s / 60)}m`
-  if (s < 86400) return `${Math.floor(s / 3600)}h`
-  return `${Math.floor(s / 86400)}d`
-}
 </script>
 
 <template>
@@ -123,11 +116,12 @@ function timeAgo(iso) {
         </button>
       </nav>
       <div class="foot">
-        <div style="margin-bottom:6px">
+        <div class="me" :title="session.agent?.email">{{ session.agent?.name }}</div>
+        <div style="display:flex; gap:8px; align-items:center">
           <router-link to="/settings">{{ t.settings }}</router-link>
-          <span v-if="inbox.unread" class="pill" style="margin-left:6px">{{ inbox.unread }}</span>
+          <span v-if="inbox.unread" class="pill">{{ inbox.unread }}</span>
+          <button class="ghost" style="margin-left:auto; padding:4px 10px" @click="logout">{{ t.logout }}</button>
         </div>
-        <button class="ghost" @click="logout">{{ t.logout }} ({{ session.agent?.name }})</button>
       </div>
     </aside>
 
@@ -147,12 +141,13 @@ function timeAgo(iso) {
             <span class="conv-main">
               <span class="row1">
                 <span class="who">{{ c.customer.name || c.customer.email }}</span>
-                <span class="when">{{ timeAgo(c.last_message_at) }}</span>
+                <span class="when">{{ shortTime(c.last_message_at) }}</span>
               </span>
-              <span class="subject"><span v-if="c.starred" class="star">★</span> <span class="num">#{{ c.number }}</span>{{ c.subject || '(no subject)' }}</span>
-              <span class="preview">{{ c.preview }}</span>
-              <span class="meta">
-                <span class="pill" :class="`status-${c.status}`">{{ t.statuses[c.status] }}</span>
+              <span class="line2">
+                <span v-if="c.starred" class="star">★ </span><span class="subj">{{ c.subject || '(no subject)' }}</span><span class="prev"> — {{ c.preview }}</span>
+              </span>
+              <span v-if="c.assignee || c.tags.length || c.status === 'pending'" class="meta">
+                <span v-if="c.status === 'pending'" class="pill status-pending">{{ t.statuses.pending }}</span>
                 <span v-if="c.assignee" class="pill">{{ c.assignee.name }}</span>
                 <span v-for="tag in c.tags" :key="tag.id" class="tag-pill" :style="{ background: tag.color }">{{ tag.name }}</span>
               </span>

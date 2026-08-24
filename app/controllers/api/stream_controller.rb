@@ -1,17 +1,40 @@
 # SSE: conversation-list refresh + collision presence (F6/B13/H20).
+#
+# Dead-socket writes don't reliably raise, so a stream that outlives its
+# client would hold a Puma thread for the whole loop. Each agent therefore
+# gets ONE live stream: opening a new one bumps the agent's generation and
+# every older loop exits at its next tick. Worst case: streams-per-agent = 1
+# plus a few seconds of overlap.
 class Api::StreamController < Api::BaseController
   include ActionController::Live
 
+  TICK_SECONDS = 3
+  TICKS = 30 # ~90s per connection; the client reconnects
+
+  @generation = Hash.new(0)
+  @mutex = Mutex.new
+
+  class << self
+    def open_stream!(agent_id)
+      @mutex.synchronize { @generation[agent_id] += 1 }
+    end
+
+    def current_stream?(agent_id, generation)
+      @mutex.synchronize { @generation[agent_id] == generation }
+    end
+  end
+
   # GET /api/stream?conversation_id= — emits `conversations` bumps and `presence`.
-  # Connection lives ~90s; the client reconnects with backoff.
   def show
     response.headers["Content-Type"] = "text/event-stream"
     response.headers["Cache-Control"] = "no-cache"
+    generation = self.class.open_stream!(current_agent.id)
     sse = ActionController::Live::SSE.new(response.stream, retry: 3000)
     last_stamp = latest_stamp
     last_viewers = nil
     sse.write({ ok: true }, event: "hello")
-    30.times do
+    TICKS.times do
+      break unless self.class.current_stream?(current_agent.id, generation)
       current = latest_stamp
       if current != last_stamp
         last_stamp = current
@@ -24,10 +47,9 @@ class Api::StreamController < Api::BaseController
           sse.write({ viewers: viewers }, event: "presence")
         end
       end
-      # Ping every tick: a dead client raises on write, freeing the Puma
-      # thread immediately instead of after the full loop.
+      # Ping every tick — frees the thread promptly when the socket does report closed.
       sse.write({ t: Time.now.to_i }, event: "ping")
-      sleep 3
+      sleep TICK_SECONDS
     end
   rescue IOError, ActionController::Live::ClientDisconnected
     # client went away
