@@ -1,100 +1,161 @@
-# Flow
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+    <img src="docs/assets/logo.svg" alt="Flow" width="200">
+  </picture>
+</p>
 
-A small, self-hosted, **email-first shared inbox**: IMAP in, SMTP out, a web
-UI for a team, an HTTP API, webhooks, and an MCP server — all in core, all
-**MIT**. No paid modules, no `enterprise/` directory, no per-seat fee.
+<p align="center">
+  A small, self-hosted, <strong>email-first shared inbox</strong> for teams.<br>
+  IMAP in, SMTP out, a fast web UI, an HTTP API, webhooks, MCP, and plugins — all in core, all MIT.
+</p>
 
-Your mail stays in your mailbox. Flow is an **overlay**: it fetches
-`support@example.com` over IMAP and replies through the same account's SMTP.
-Leaving Flow never requires an export ritual — the mail was always yours.
+<p align="center">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-5522fa"></a>
+  <img alt="Rails 8" src="https://img.shields.io/badge/Rails-8-cc0000">
+  <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3-42b883">
+  <img alt="SQLite" src="https://img.shields.io/badge/SQLite-no%20Redis%2C%20no%20Postgres-003b57">
+</p>
 
-- **Stack**: Rails 8 + SQLite + Solid Queue · Vue 3 + Vite + Pinia · no Redis
-- **Extensible**: REST API (everything the UI can do), signed webhooks,
-  MCP tools, and in-process plugins — see [docs/EXTENDING.md](docs/EXTENDING.md)
-- **License**: [MIT](LICENSE) on every file in the tree
+---
 
-## Install (Docker Compose)
+Your team shares `support@example.com`. Flow turns that mailbox into
+conversations you can assign, tag, note, search, and reply to together —
+without the mail ever leaving your mailbox, and without a per-seat fee.
+
+Flow is an **overlay**: it fetches over IMAP and replies through the same
+account's SMTP. Your mailbox stays the source of truth. Leaving Flow never
+requires an export ritual, because the mail was always yours.
+
+## Why Flow exists
+
+| Project | License reality | Shape |
+|---|---|---|
+| FreeScout | AGPL-3.0 + paid modules | Light, email-first |
+| Chatwoot | MIT core, proprietary `enterprise/` | Heavy, omnichannel, open-core |
+| Zammad | AGPL | Full ITSM |
+| **Flow** | **MIT on every file** | **Light, email-first, scriptable** |
+
+The gap Flow fills: **light + OSI-permissive on the whole tree + not
+open-core + scriptable**. There is no module shop, no `.ee.` directory, no
+license key, and no CLA assigning copyright to a company. The features other
+help desks sell — saved replies, API access, webhooks, extra security — are
+ordinary core code here. This is a commons project, not a SaaS pitch.
+
+## Features
+
+**The inbox**
+- Conversations with global numbers (`#142`), statuses (active / pending /
+  closed / spam / trash), folders (Unassigned, Mine, Assigned, Starred, …)
+- Assign, tag, star, follow, merge, move between mailboxes, forward
+- Internal notes with `@name` mentions, visually distinct from mail
+- Collision detection ("Ada is viewing") and live list updates over SSE
+- Rich-text replies with inline image paste, attachments, drafts that
+  autosave, saved replies with `{{customer.name}}`-style variables
+- Reply-all defaults from the whole thread; a participants panel shows
+  everyone on it; quoted history and signatures collapse behind `•••`
+- Full-text search (SQLite FTS5), keyboard shortcuts (`j`/`k`/`e`/`r`)
+
+**The pipeline**
+- IMAP polling plus optional IMAP IDLE for instant fetch
+- Password auth or **OAuth for Microsoft 365 and Gmail** (XOAUTH2 on both
+  IMAP and SMTP; tokens encrypted at rest, refreshed automatically)
+- Proper threading (`References`/`In-Reply-To` + subject fallback), dedup,
+  bounce detection, loop and flood guards, auto-submitted mail filtering
+- Hostile-HTML sanitizer, plain-text extraction, charset normalization
+- Queued SMTP sending with retries — never on the HTTP request
+- Optional loop-safe auto-reply, per-mailbox signatures
+
+**For builders**
+- **If the UI can do it, the API can do it** — REST with token auth and
+  read/write scopes
+- Signed webhooks on inbound/outbound mail, assignment, and status changes
+- An **MCP server** at `/mcp` (`search`, `get_thread`, `draft_reply`, `send`,
+  `list_mailboxes`, `assign`) — bring your own model; core never calls an LLM
+- In-process plugins: drop a folder in `plugins/`, subscribe to domain
+  events, register MCP tools. See [docs/EXTENDING.md](docs/EXTENDING.md)
+
+**Boring on purpose**
+- Rails 8 + SQLite + Solid Queue. One volume to back up. No Redis, no
+  Postgres, no microservices. Runs on a $5 VPS.
+
+## Install
 
 ```sh
-git clone <this repo> flow && cd flow
-export SECRET_KEY_BASE=$(openssl rand -hex 64)   # keep this safe — it also encrypts mailbox passwords
+git clone https://github.com/andershfranzen/flow.git && cd flow
+export SECRET_KEY_BASE=$(openssl rand -hex 64)   # keep it safe — it also encrypts mailbox credentials
 export APP_URL=https://inbox.example.com          # behind your TLS reverse proxy
 docker compose up -d --build
 docker compose exec web bin/create-admin you@example.com "Your Name"
 ```
 
-Open the app, log in, go to **Settings → Mailboxes**, add your mailbox's IMAP
-and SMTP credentials (for Gmail: an app password, `imap.gmail.com` /
-`smtp.gmail.com`), and press **Test connection**. New mail appears within ~30
-seconds.
+Log in, go to **Settings → Mailboxes**, and connect your shared mailbox:
 
-### Microsoft 365 / Google via OAuth
-
-Microsoft 365 no longer allows password IMAP, so M365 mailboxes connect via
-OAuth — Gmail can too:
-
-1. Register an OAuth app with the provider:
-   - **Microsoft**: Entra ID app registration, delegated permissions
-     `IMAP.AccessAsUser.All` + `SMTP.Send` + `offline_access`, redirect URI
+- **Ordinary IMAP** (Fastmail, cPanel, …): paste host + credentials, press
+  **Test connection**.
+- **Gmail**: an app password works today, or use OAuth below.
+- **Microsoft 365**: requires OAuth (Microsoft disabled password IMAP):
+  1. Register an Entra ID app — delegated `IMAP.AccessAsUser.All`,
+     `SMTP.Send`, `offline_access`; redirect URI
      `https://your-flow/oauth/callback`.
-   - **Google**: Cloud Console OAuth client (web application), scope
-     `https://mail.google.com/`, same redirect URI.
-2. Paste the client id/secret under **Settings → Organisation**.
-3. On the mailbox, set **Authentication** to Microsoft 365 or Google and press
-   **Connect** — sign in as the shared mailbox, done. Tokens are encrypted at
-   rest and refreshed automatically.
+  2. Paste client id/secret under **Settings → Organisation**.
+  3. Set the mailbox's authentication to Microsoft 365 and press **Connect**.
 
-TLS is assumed at a reverse proxy (Caddy, nginx, Traefik) in front of port
-3000; Flow sets secure cookies and expects `X-Forwarded-Proto`.
+New mail appears within ~30 seconds (or instantly with the optional `idle`
+container, included in the Compose file).
 
-## Backup
+**Backup** = copy the `flow_storage` volume. Restore = put it back.
 
-Everything lives in the `flow_storage` volume (SQLite databases +
-attachments). Backup = copy the volume. Restore = put it back.
+**TLS** is assumed at your reverse proxy (Caddy, nginx, Traefik); Flow sets
+secure cookies and expects `X-Forwarded-Proto`.
 
 ## CLI
 
 ```sh
-bin/create-admin EMAIL NAME [PASSWORD]   # first admin, more admins
-bin/fetch-now [MAILBOX_ADDRESS]          # fetch immediately instead of waiting for the poll
-bin/send-test MAILBOX_ADDRESS TO_EMAIL   # verify SMTP settings
+docker compose exec web bin/create-admin EMAIL NAME   # add an admin
+docker compose exec web bin/fetch-now                 # fetch immediately
+docker compose exec web bin/send-test MAILBOX TO      # verify SMTP
 ```
 
-Inside Compose, prefix with `docker compose exec web`.
+`GET /health` reports the database and last successful fetch per mailbox.
 
-## API, webhooks, MCP
-
-Everything the UI can do, the API can do. Create a token under **Settings →
-API tokens**, then:
+## API, webhooks, MCP, plugins
 
 ```sh
+# Settings → API tokens, then:
 curl -H "Authorization: Bearer si_..." https://inbox.example.com/api/conversations
 ```
 
-Webhooks POST signed JSON on inbound/outbound mail, assignment, and status
-changes. The MCP server at `POST /mcp` exposes `search`, `get_thread`,
-`draft_reply`, `send`, `list_mailboxes`, `assign` — bring your own MCP client
-and model; core never calls an LLM. Details and a hello-world bot:
+Webhooks POST signed JSON (`X-Inbox-Signature`, HMAC-SHA256) on
+`thread.created`, `message.inbound`, `message.outbound`, `thread.assigned`,
+`thread.status`. Point any MCP client at `POST /mcp` with the same token.
+For in-process plugins and a hello-world bot that needs no PR to core, read
 [docs/EXTENDING.md](docs/EXTENDING.md).
-
-## Keyboard shortcuts
-
-`j`/`k` next/previous conversation · `e` close · `r` focus reply.
 
 ## Development
 
 ```sh
 bundle install
 bin/rails db:prepare
-(cd frontend && npm install && npm run dev) &   # Vite on 5173, proxies /api to Rails
+(cd frontend && npm install && npm run dev) &   # Vite on 5173, proxies /api
 bin/rails server                                 # API on 3000
-bin/jobs                                         # Solid Queue worker (fetch/send)
-bin/rails test                                   # backend test suite
+bin/jobs                                         # Solid Queue worker
+bin/rails test                                   # 53 tests
+bin/e2e-greenmail                                # live IMAP/SMTP round trip (needs Docker)
 ```
 
-`GET /health` reports the database and the last successful fetch per mailbox.
+The stack is deliberately frozen: Rails 8 API + Active Record + SQLite +
+Solid Queue, Vue 3 + Vite + Pinia SPA served by Rails in production.
+Read [PLAN.md](PLAN.md) for every decision and why.
 
-## Known limitations
+## Honesty section
 
-See [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md) — threading and charset
-edge cases are listed there, not hidden.
+Known threading, charset, and operational limitations are listed in
+[docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md) — not hidden. The OAuth flows
+are tested against stubbed endpoints; real-tenant reports welcome.
+
+## License
+
+[MIT](LICENSE) on every file in the tree. Contributions land under the same
+license. Sustainability is a core small enough that one person can keep it —
+not a second license.
