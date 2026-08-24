@@ -23,4 +23,17 @@ class Mailbox < ApplicationRecord
 
   def imap_configured? = imap_host.present? && imap_user.present? && imap_password.present?
   def smtp_configured? = smtp_host.present?
+
+  def smtp_options
+    opts = { address: smtp_host, port: smtp_port, domain: address.split("@").last }
+    if smtp_user.present?
+      opts.merge!(user_name: smtp_user, password: smtp_password, authentication: :plain)
+    end
+    case smtp_security
+    when "ssl"      then opts.merge!(tls: true)
+    when "starttls" then opts.merge!(enable_starttls_auto: true)
+    when "none"     then opts.merge!(enable_starttls_auto: false)
+    end
+    opts
+  end
 end
