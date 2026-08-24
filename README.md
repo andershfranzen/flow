@@ -143,7 +143,7 @@ bin/rails db:prepare
 (cd frontend && npm install && npm run dev) &   # Vite on 5173, proxies /api
 bin/rails server                                 # API on 3000
 bin/jobs                                         # Solid Queue worker
-bin/rails test                                   # 53 tests
+bin/rails test                                   # 57 tests
 bin/e2e-greenmail                                # live IMAP/SMTP round trip (needs Docker)
 ```
 
