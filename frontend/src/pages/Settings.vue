@@ -179,7 +179,7 @@ const NOTIFY_LABELS = {
         </div>
         <div v-if="editing.role !== 'admin'" style="margin-top:10px">
           <label>Mailbox access</label>
-          <label v-for="m in mailboxes" :key="m.id" style="display:inline-flex; gap:4px; margin-right:12px; color:var(--text)">
+          <label v-for="m in mailboxes" :key="m.id" class="choice">
             <input type="checkbox" :value="m.id" v-model="editing.mailbox_ids" /> {{ m.name }}
           </label>
         </div>
@@ -222,7 +222,7 @@ const NOTIFY_LABELS = {
           <div><label>Password {{ editing.imap_password_set ? '(set — blank keeps it)' : '' }}</label>
             <input v-model="editing.imap_password" type="password" style="width:100%" /></div>
           <div><label>Folder</label><input v-model="editing.imap_folder" style="width:100%" /></div>
-          <div><label style="display:inline">SSL </label><input type="checkbox" v-model="editing.imap_ssl" /></div>
+          <div style="align-self:end"><label class="choice"><input type="checkbox" v-model="editing.imap_ssl" /> SSL</label></div>
         </div>
         <h3 style="margin-top:14px">SMTP (outgoing)</h3>
         <div class="form-grid">
@@ -259,7 +259,7 @@ const NOTIFY_LABELS = {
         <div><label>Timezone</label><input v-model="profile.timezone" style="width:100%" /></div>
       </div>
       <h3 style="margin-top:14px">Email notifications</h3>
-      <label v-for="(label, key) in NOTIFY_LABELS" :key="key" style="display:flex; gap:6px; color:var(--text)">
+      <label v-for="(label, key) in NOTIFY_LABELS" :key="key" class="choice" style="display:flex">
         <input type="checkbox" v-model="profile.notify_prefs[key]" /> {{ label }}
       </label>
       <div class="form-actions"><button class="primary">{{ t.save }}</button></div>
@@ -343,11 +343,11 @@ const NOTIFY_LABELS = {
         <div><label>URL</label><input v-model="editing.url" required placeholder="https://…" style="width:100%" /></div>
         <div style="margin-top:8px">
           <label>Events (none = all)</label>
-          <label v-for="e in WEBHOOK_EVENTS" :key="e" style="display:inline-flex; gap:4px; margin-right:12px; color:var(--text)">
+          <label v-for="e in WEBHOOK_EVENTS" :key="e" class="choice">
             <input type="checkbox" :value="e" v-model="editing.events" /> {{ e }}
           </label>
         </div>
-        <div style="margin-top:8px"><label style="display:inline">Enabled </label><input type="checkbox" v-model="editing.enabled" /></div>
+        <div style="margin-top:8px"><label class="choice"><input type="checkbox" v-model="editing.enabled" /> Enabled</label></div>
         <p v-if="editing.secret" style="font-size:12px; color:var(--muted)">Secret: <code>{{ editing.secret }}</code></p>
         <div class="form-actions">
           <button class="primary">{{ t.save }}</button>

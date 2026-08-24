@@ -102,7 +102,7 @@ function eventText(e) {
       <details class="tag-menu">
         <summary class="pill" style="cursor:pointer">{{ t.tags }}</summary>
         <div class="card" style="position:absolute; z-index:5; margin-top:4px">
-          <label v-for="tag in tags" :key="tag.id" style="display:flex; gap:6px; align-items:center; color:var(--text)">
+          <label v-for="tag in tags" :key="tag.id" class="choice" style="display:flex; margin-right:0">
             <input type="checkbox" :checked="conv.tags.some((x) => x.id === tag.id)" @change="toggleTag(tag)" />
             <span class="tag-pill" :style="{ background: tag.color }">{{ tag.name }}</span>
           </label>

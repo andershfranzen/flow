@@ -1,12 +1,12 @@
 /* Flow — warm, bold, rounded. Inspired by HEY's design language:
    cream surfaces, ink text, one loud accent, chunky pills, initial avatars. */
 :root {
-  --bg: #faf4ea;            /* warm cream */
-  --panel: #fffdf8;
-  --panel-deep: #f4ecdf;
-  --border: #e8dfd0;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-deep: #f3f3f6;
+  --border: #e7e7ec;
   --text: #1f2024;
-  --muted: #7a7466;
+  --muted: #71717c;
   --accent: #5522fa;        /* electric purple */
   --accent-ink: #fff;
   --accent-soft: #ece5ff;
@@ -21,7 +21,7 @@
   --note-border: #f2e2a0;
   --radius: 14px;
   --radius-sm: 10px;
-  --shadow: 0 1px 3px rgba(60, 42, 6, .08);
+  --shadow: 0 1px 3px rgba(20, 20, 40, .07);
   --font-round: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -41,7 +41,7 @@ button {
   border: 2px solid transparent; background: var(--panel-deep); color: var(--text);
   padding: 7px 16px; border-radius: 999px;
 }
-button:hover { background: #ede3d1; }
+button:hover { background: #e9e9ef; }
 button.primary { background: var(--accent); color: var(--accent-ink); }
 button.primary:hover { background: #4315e0; }
 button.ghost { background: transparent; color: var(--muted); font-weight: 600; }
@@ -55,6 +55,10 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
 }
 label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+label.choice {
+  display: inline-flex; gap: 7px; align-items: center; margin: 0 14px 6px 0;
+  text-transform: none; letter-spacing: 0; font-size: 14px; font-weight: 600; color: var(--text);
+}
 table { border-collapse: collapse; width: 100%; }
 th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 10px; border-bottom: 2px solid var(--border); }
 td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
@@ -70,7 +74,7 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 /* App shell: rail | list | pane */
 .shell { display: flex; height: 100%; overflow: hidden; }
 .rail {
-  width: 230px; flex: none; background: var(--bg);
+  width: 230px; flex: none; background: var(--bg); border-right: 2px solid var(--border);
   display: flex; flex-direction: column; padding: 16px 10px; overflow-y: auto;
 }
 .rail .brand {
@@ -94,7 +98,7 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 .list-col {
   width: 360px; flex: none;
   display: flex; flex-direction: column; background: var(--panel); min-width: 0;
-  border-radius: 22px 0 0 22px; box-shadow: var(--shadow);
+  border-right: 2px solid var(--border);
 }
 .list-head { padding: 14px 14px 10px; display: flex; gap: 8px; align-items: center; }
 .list-head input[type="search"] { flex: 1; min-width: 0; border-radius: 999px; background: var(--panel-deep); border-color: transparent; }
@@ -121,14 +125,15 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 .pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .pane-head {
   padding: 14px 20px 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border-bottom: 2px solid var(--border);
 }
 .pane-head h2 { margin: 0; font-size: 20px; font-weight: 800; flex: 1; min-width: 200px; }
 .pane-head .number { color: var(--muted); font-weight: 700; font-size: 14px; }
 .pane-head select { border-radius: 999px; font-weight: 700; background: var(--panel); }
-.pane-body { flex: 1; overflow-y: auto; padding: 8px 20px 20px; display: flex; gap: 16px; }
+.pane-body { flex: 1; overflow-y: auto; padding: 16px 20px 20px; display: flex; gap: 16px; }
 .transcript { flex: 1; min-width: 0; max-width: 860px; }
 
-.msg { background: var(--panel); border-radius: var(--radius); margin-bottom: 14px; box-shadow: var(--shadow); border: 2px solid transparent; }
+.msg { background: var(--panel); border-radius: var(--radius); margin-bottom: 14px; box-shadow: var(--shadow); border: 2px solid var(--border); }
 .msg-head { display: flex; justify-content: space-between; gap: 8px; padding: 10px 14px 8px; font-size: 13px; color: var(--muted); flex-wrap: wrap; font-weight: 600; }
 .msg-body { padding: 2px 14px 14px; overflow-x: auto; }
 .msg-body img { max-width: 100%; border-radius: 8px; }
@@ -142,8 +147,8 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 
 .event-line { text-align: center; font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 12px 0; }
 
-.side-panel { width: 270px; flex: none; }
-.card { background: var(--panel); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; box-shadow: var(--shadow); }
+.side-panel { width: 270px; flex: none; position: sticky; top: 0; align-self: flex-start; }
+.card { background: var(--panel); border: 2px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
 .card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 
 .pill {
@@ -181,8 +186,8 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 /* Login */
 .login-wrap { height: 100%; display: grid; place-items: center; }
 .login-card {
-  width: 340px; background: var(--panel); border-radius: 24px; padding: 32px;
-  box-shadow: 0 4px 24px rgba(60, 42, 6, .10); display: flex; flex-direction: column; gap: 14px;
+  width: 340px; background: var(--panel); border: 2px solid var(--border); border-radius: 24px; padding: 32px;
+  box-shadow: 0 8px 32px rgba(20, 20, 40, .08); display: flex; flex-direction: column; gap: 14px;
 }
 .login-card h1 { font-size: 36px; font-weight: 900; }
 .login-card h1::after { content: "."; color: var(--accent); }
@@ -209,7 +214,7 @@ input, select { min-width: 0; max-width: 100%; }
   .list-col { width: 300px; }
 }
 @media (max-width: 950px) {
-  .list-col { width: auto; flex: 1; border-radius: 22px; }
+  .list-col { width: auto; flex: 1; border-right: 0; }
   .shell.viewing-conversation .list-col { display: none; }
   .shell:not(.viewing-conversation) .pane { display: none; }
 }
@@ -226,7 +231,7 @@ input, select { min-width: 0; max-width: 100%; }
   .rail .rail-item { width: auto; padding: 5px 12px; white-space: nowrap; gap: 6px; }
   .rail .foot { margin: 0 0 0 auto; padding: 0 0 0 8px; border: 0; display: flex; gap: 8px; align-items: center; white-space: nowrap; }
   .rail .foot div { margin: 0 !important; }
-  .list-col { width: 100%; flex: 1; border-radius: 22px 22px 0 0; }
+  .list-col { width: 100%; flex: 1; }
   .shell.viewing-conversation .list-col { display: none; }
   .shell:not(.viewing-conversation) .pane { display: none; }
   .pane-body { padding: 8px 10px 12px; }

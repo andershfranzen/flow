@@ -64,6 +64,11 @@ function search() {
   inbox.loadConversations()
 }
 
+function openNewConversation() {
+  newConv.value.mailbox_id ||= inbox.mailboxId || inbox.mailboxes[0]?.id
+  showNew.value = true
+}
+
 async function createConversation() {
   const payload = {
     mailbox_id: newConv.value.mailbox_id || inbox.mailboxes[0]?.id,
@@ -130,7 +135,7 @@ function timeAgo(iso) {
       <div class="list-head">
         <input v-model="searchInput" type="search" :placeholder="t.search"
                @keydown.enter="search" aria-label="Search conversations" />
-        <button class="primary" @click="showNew = true" title="New conversation">＋</button>
+        <button class="primary" @click="openNewConversation" title="New conversation">＋</button>
       </div>
       <ul class="conv-list">
         <li v-for="c in inbox.conversations" :key="c.id">
