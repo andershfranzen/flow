@@ -37,6 +37,8 @@ Rails.application.routes.draw do
     resource :org_settings, only: [ :show, :update ]
   end
 
+  post "mcp" => "mcp#handle"
+
   # SPA fallback: anything that isn't API/rails/mcp gets the Vue app (H18).
   get "*path", to: "spa#index",
     constraints: ->(req) { !req.path.start_with?("/api", "/rails", "/mcp", "/up", "/health") && req.format.html? }
