@@ -26,5 +26,7 @@ class PluginTest < ActiveSupport::TestCase
     end
     McpTools.register(tool)
     assert_includes McpTools.all, tool
+  ensure
+    McpTools.unregister(tool)
   end
 end
