@@ -4,8 +4,8 @@ class Notifier
     conversation = message.conversation
     recipients = agents_for(conversation.mailbox).select { |a| a.notify_prefs["new_unassigned"] }
     notify(recipients, conversation, "new_unassigned")
-    Webhook.emit("thread.created", conversation_payload(conversation))
-    Webhook.emit("message.inbound", message_payload(message))
+    DomainEvents.emit("thread.created", conversation_payload(conversation))
+    DomainEvents.emit("message.inbound", message_payload(message))
   end
 
   def self.customer_reply(message)
@@ -13,7 +13,7 @@ class Notifier
     if (assignee = conversation.assignee) && assignee.notify_prefs["customer_reply"]
       notify([ assignee ], conversation, "customer_reply")
     end
-    Webhook.emit("message.inbound", message_payload(message))
+    DomainEvents.emit("message.inbound", message_payload(message))
   end
 
   def self.assigned(conversation, by:)
@@ -21,11 +21,11 @@ class Notifier
     if assignee && assignee != by && assignee.notify_prefs["assigned_to_me"]
       notify([ assignee ], conversation, "assigned_to_me")
     end
-    Webhook.emit("thread.assigned", conversation_payload(conversation))
+    DomainEvents.emit("thread.assigned", conversation_payload(conversation))
   end
 
   def self.status_changed(conversation)
-    Webhook.emit("thread.status", conversation_payload(conversation))
+    DomainEvents.emit("thread.status", conversation_payload(conversation))
   end
 
   def self.note_added(message, author:)
@@ -37,7 +37,7 @@ class Notifier
   end
 
   def self.outbound_sent(message)
-    Webhook.emit("message.outbound", message_payload(message))
+    DomainEvents.emit("message.outbound", message_payload(message))
   end
 
   def self.agents_for(mailbox)

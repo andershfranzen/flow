@@ -131,5 +131,9 @@ module McpTools
     end
   end
 
-  ALL = [ Search, GetThread, DraftReply, Send, ListMailboxes, Assign ].freeze
+  @registry = [ Search, GetThread, DraftReply, Send, ListMailboxes, Assign ]
+
+  # Plugins add tools with McpTools.register(MyTool) — see docs/EXTENDING.md.
+  def self.register(tool) = @registry |= [ tool ]
+  def self.all = @registry.dup
 end

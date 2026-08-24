@@ -1,5 +1,37 @@
 import { createApp } from 'vue'
-import './style.css'
+import { createPinia } from 'pinia'
+import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
+import Login from './pages/Login.vue'
+import Inbox from './pages/Inbox.vue'
+import Settings from './pages/Settings.vue'
+import { useSession } from './stores/session'
+import './style.css'
 
-createApp(App).mount('#app')
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/login', component: Login },
+    { path: '/', redirect: '/inbox' },
+    { path: '/inbox', component: Inbox },
+    { path: '/conversations/:id', component: Inbox, props: true },
+    { path: '/settings/:tab?', component: Settings, props: true },
+  ],
+})
+
+const app = createApp(App)
+app.use(createPinia())
+app.use(router)
+
+const session = useSession()
+router.beforeEach(async (to) => {
+  if (!session.loaded) { try { await session.load() } catch { session.loaded = true } }
+  if (!session.agent && to.path !== '/login') return '/login'
+  if (session.agent && to.path === '/login') return '/inbox'
+})
+window.addEventListener('api:unauthorized', () => {
+  session.agent = null
+  router.push('/login')
+})
+
+app.mount('#app')

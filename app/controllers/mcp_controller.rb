@@ -10,7 +10,7 @@ class McpController < ApplicationController
     server = MCP::Server.new(
       name: OrgSetting.current.site_name,
       version: "1.0.0",
-      tools: McpTools::ALL,
+      tools: McpTools.all,
       server_context: { agent: current_agent, api_token: current_api_token }
     )
     render json: server.handle_json(request.body.read)
