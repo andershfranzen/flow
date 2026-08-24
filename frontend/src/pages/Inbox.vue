@@ -7,6 +7,7 @@ import { openStream } from '../sse'
 import { api } from '../api'
 import { t } from '../strings'
 import ThreadPane from '../components/ThreadPane.vue'
+import { avatarColor, initials } from '../avatar'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -135,16 +136,21 @@ function timeAgo(iso) {
         <li v-for="c in inbox.conversations" :key="c.id">
           <button class="conv-item" :class="{ active: c.id === currentId }"
                   @click="router.push(`/conversations/${c.id}`)">
-            <span class="row1">
-              <span class="who">{{ c.customer.name || c.customer.email }}</span>
-              <span class="when">{{ timeAgo(c.last_message_at) }}</span>
+            <span class="avatar" :style="{ background: avatarColor(c.customer.email) }">
+              {{ initials(c.customer.name || c.customer.email) }}
             </span>
-            <span class="subject">{{ c.starred ? '★ ' : '' }}#{{ c.number }} {{ c.subject || '(no subject)' }}</span>
-            <span class="preview">{{ c.preview }}</span>
-            <span class="meta">
-              <span class="pill" :class="`status-${c.status}`">{{ t.statuses[c.status] }}</span>
-              <span v-if="c.assignee" class="pill">{{ c.assignee.name }}</span>
-              <span v-for="tag in c.tags" :key="tag.id" class="tag-pill" :style="{ background: tag.color }">{{ tag.name }}</span>
+            <span class="conv-main">
+              <span class="row1">
+                <span class="who">{{ c.customer.name || c.customer.email }}</span>
+                <span class="when">{{ timeAgo(c.last_message_at) }}</span>
+              </span>
+              <span class="subject"><span v-if="c.starred" class="star">★</span> <span class="num">#{{ c.number }}</span>{{ c.subject || '(no subject)' }}</span>
+              <span class="preview">{{ c.preview }}</span>
+              <span class="meta">
+                <span class="pill" :class="`status-${c.status}`">{{ t.statuses[c.status] }}</span>
+                <span v-if="c.assignee" class="pill">{{ c.assignee.name }}</span>
+                <span v-for="tag in c.tags" :key="tag.id" class="tag-pill" :style="{ background: tag.color }">{{ tag.name }}</span>
+              </span>
             </span>
           </button>
         </li>

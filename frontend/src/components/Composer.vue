@@ -19,8 +19,9 @@ let savedDraftBody = ''
 
 const isNote = computed(() => mode.value === 'note')
 
+watch(() => props.conversation.customer.email, (email) => { to.value = email }, { immediate: true })
+
 onMounted(async () => {
-  to.value = props.conversation.customer.email
   savedReplies.value = await api.get('/api/saved_replies')
   const drafts = await api.get('/api/drafts')
   const draft = drafts.find((d) => d.conversation_id === props.conversation.id)

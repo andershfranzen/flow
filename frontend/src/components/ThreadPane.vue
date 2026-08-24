@@ -6,6 +6,7 @@ import { useInbox } from '../stores/inbox'
 import { api } from '../api'
 import { t } from '../strings'
 import Composer from './Composer.vue'
+import { avatarColor, initials } from '../avatar'
 
 const router = useRouter()
 const session = useSession()
@@ -149,8 +150,15 @@ function eventText(e) {
       <aside class="side-panel">
         <div class="card">
           <h3>Customer</h3>
-          <div>{{ conv.customer.name || '—' }}</div>
-          <div style="color:var(--muted); font-size:13px">{{ conv.customer.email }}</div>
+          <div style="display:flex; gap:10px; align-items:center">
+            <span class="avatar" :style="{ background: avatarColor(conv.customer.email) }">
+              {{ initials(conv.customer.name || conv.customer.email) }}
+            </span>
+            <div style="min-width:0">
+              <div style="font-weight:700">{{ conv.customer.name || '—' }}</div>
+              <div style="color:var(--muted); font-size:13px; overflow-wrap:anywhere">{{ conv.customer.email }}</div>
+            </div>
+          </div>
         </div>
       </aside>
     </div>

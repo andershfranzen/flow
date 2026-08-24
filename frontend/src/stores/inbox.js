@@ -33,8 +33,10 @@ export const useInbox = defineStore('inbox', {
       }
     },
     async open(id) {
-      this.current = await api.get(`/api/conversations/${id}`)
-      this.viewers = this.current.viewers || []
+      if (this.current?.id !== id) { this.current = null; this.viewers = [] }
+      const data = await api.get(`/api/conversations/${id}`)
+      this.current = data
+      this.viewers = data.viewers || []
     },
     async update(id, attrs) {
       const data = await api.patch(`/api/conversations/${id}`, attrs)
