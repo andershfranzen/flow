@@ -1,6 +1,6 @@
 // UI strings in one place so another locale can land without a rewrite (H16).
 export const t = {
-  appName: 'Shared Inbox',
+  appName: 'Flow',
   login: 'Log in', logout: 'Log out', email: 'Email', password: 'Password',
   loginFailed: 'Wrong email or password',
   folders: {

@@ -54,6 +54,15 @@ RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
 
 
+# Build the Vue SPA (H18); vite outputs to /public per vite.config.js
+FROM docker.io/library/node:22-slim AS frontend
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+COPY public/ /app/public/
+RUN npm run build
+
 # Final stage for app image
 FROM base
 
@@ -65,6 +74,7 @@ USER 1000:1000
 # Copy built artifacts: gems, application
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /rails /rails
+COPY --chown=rails:rails --from=frontend /app/public /rails/public
 
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]

@@ -1,4 +1,4 @@
-# Extending Shared Inbox
+# Extending Flow
 
 Bolt-ons are ordinary code. There are three tiers, from loosest to tightest
 coupling. Nothing needs a PR to core, a license key, or a marketplace.

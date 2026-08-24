@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+# Usage: bin/create-admin EMAIL NAME [PASSWORD]  (password prompted if omitted)
+require_relative "../config/environment"
+
+email, name, password = ARGV
+abort "usage: bin/create-admin EMAIL NAME [PASSWORD]" if email.nil? || name.nil?
+if password.nil?
+  require "io/console"
+  print "Password: "
+  password = $stdin.noecho(&:gets).chomp
+  puts
+end
+agent = Agent.create!(email: email, name: name, password: password, role: "admin")
+puts "Created admin #{agent.email}"

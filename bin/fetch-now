@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+# Usage: bin/fetch-now [MAILBOX_ADDRESS]  (all mailboxes if omitted)
+require_relative "../config/environment"
+
+mailboxes = ARGV[0] ? [ Mailbox.find_by!(address: ARGV[0]) ] : Mailbox.all
+mailboxes.each do |mb|
+  unless mb.imap_configured?
+    puts "#{mb.address}: IMAP not configured"
+    next
+  end
+  count = ImapFetcher.call(mb)
+  puts "#{mb.address}: fetched #{count} new message(s)"
+rescue StandardError => e
+  puts "#{mb.address}: FAILED #{e.class}: #{e.message}"
+end

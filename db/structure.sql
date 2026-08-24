@@ -15,7 +15,6 @@ FOREIGN KEY ("blob_id")
 CREATE UNIQUE INDEX "index_active_storage_variant_records_uniqueness" ON "active_storage_variant_records" ("blob_id", "variation_digest") /*application='SharedInbox'*/;
 CREATE TABLE "action_mailbox_inbound_emails" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "status" integer DEFAULT 0 NOT NULL, "message_id" varchar NOT NULL, "message_checksum" varchar NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
 CREATE UNIQUE INDEX "index_action_mailbox_inbound_emails_uniqueness" ON "action_mailbox_inbound_emails" ("message_id", "message_checksum") /*application='SharedInbox'*/;
-CREATE TABLE "org_settings" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "site_name" varchar DEFAULT 'Shared Inbox' NOT NULL, "base_url" varchar, "notify_from" varchar, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
 CREATE TABLE "agents" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "email" varchar NOT NULL, "name" varchar NOT NULL, "password_digest" varchar NOT NULL, "role" varchar DEFAULT 'user' NOT NULL, "locale" varchar DEFAULT 'en' NOT NULL, "timezone" varchar DEFAULT 'UTC' NOT NULL, "notify_prefs" json DEFAULT '{}' NOT NULL, "session_token" varchar NOT NULL, "last_seen_at" datetime(6), "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
 CREATE UNIQUE INDEX "index_agents_on_email" ON "agents" ("email") /*application='SharedInbox'*/;
 CREATE TABLE "mailboxes" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "address" varchar NOT NULL, "name" varchar NOT NULL, "from_name" varchar, "signature" text, "imap_host" varchar, "imap_port" integer DEFAULT 993, "imap_ssl" boolean DEFAULT TRUE NOT NULL, "imap_user" varchar, "imap_password" varchar, "imap_folder" varchar DEFAULT 'INBOX' NOT NULL, "smtp_host" varchar, "smtp_port" integer DEFAULT 587, "smtp_user" varchar, "smtp_password" varchar, "smtp_security" varchar DEFAULT 'starttls' NOT NULL, "uid_validity" integer, "last_uid" integer DEFAULT 0 NOT NULL, "last_fetched_at" datetime(6), "fetch_error" varchar, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
@@ -131,7 +130,9 @@ CREATE TABLE 'message_search_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) W
 CREATE TABLE 'message_search_content'(id INTEGER PRIMARY KEY, c0, c1, c2, c3);
 CREATE TABLE 'message_search_docsize'(id INTEGER PRIMARY KEY, sz BLOB);
 CREATE TABLE 'message_search_config'(k PRIMARY KEY, v) WITHOUT ROWID;
+CREATE TABLE "org_settings" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "site_name" varchar DEFAULT 'Flow' NOT NULL, "base_url" varchar, "notify_from" varchar, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
 INSERT INTO "schema_migrations" (version) VALUES
+('20260824210000'),
 ('20260824190000'),
 ('20260824180932'),
 ('20260824180931');

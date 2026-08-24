@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# Usage: bin/send-test MAILBOX_ADDRESS TO_EMAIL — sends a test mail over the mailbox's SMTP
+require_relative "../config/environment"
+
+address, to = ARGV
+abort "usage: bin/send-test MAILBOX_ADDRESS TO_EMAIL" if address.nil? || to.nil?
+mb = Mailbox.find_by!(address: address)
+abort "#{mb.address}: SMTP not configured" unless mb.smtp_configured?
+mail = Mail.new
+mail.from = mb.address
+mail.to = to
+mail.subject = "Flow SMTP test"
+mail.body = "This is a test mail from Flow (#{Time.now})."
+mail.delivery_method(:smtp, mb.smtp_options)
+mail.deliver!
+puts "Sent test mail from #{mb.address} to #{to}"

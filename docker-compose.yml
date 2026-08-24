@@ -1,0 +1,29 @@
+# Flow: web (Puma) + jobs (Solid Queue) + one volume (J1).
+# Required env (J2): SECRET_KEY_BASE (generate: openssl rand -hex 64), APP_URL.
+services:
+  web:
+    build: .
+    ports:
+      - "${PORT:-3000}:80"
+    environment:
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      RAILS_MAX_THREADS: "16"
+    volumes:
+      - flow_storage:/rails/storage
+    restart: unless-stopped
+
+  jobs:
+    build: .
+    command: ./bin/jobs
+    environment:
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+    volumes:
+      - flow_storage:/rails/storage
+    restart: unless-stopped
+    depends_on:
+      - web
+
+volumes:
+  flow_storage:

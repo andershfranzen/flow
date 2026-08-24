@@ -24,6 +24,9 @@ class Api::StreamController < Api::BaseController
           sse.write({ viewers: viewers }, event: "presence")
         end
       end
+      # Ping every tick: a dead client raises on write, freeing the Puma
+      # thread immediately instead of after the full loop.
+      sse.write({ t: Time.now.to_i }, event: "ping")
       sleep 3
     end
   rescue IOError, ActionController::Live::ClientDisconnected

@@ -409,4 +409,4 @@ Do not reimplement Help Scout or Zendesk. Do not copy FreeScout’s PHP or modul
 
 ## Open
 
-Only the public **name** (must not be “FreeScout”). Everything else in **Decided**.
+Nothing. The name is **Flow** (decided 2026-08-24). Everything else in **Decided**.
