@@ -46,7 +46,7 @@ function onKeydown(e) {
     inbox.update(currentId.value, { status: 'closed' })
     e.preventDefault()
   } else if (e.key === 'r' && currentId.value) {
-    document.querySelector('.composer textarea')?.focus()
+    document.querySelector('.composer .editor')?.focus()
     e.preventDefault()
   }
 }

@@ -55,6 +55,11 @@ watch(() => conv.value?.messages_count, async () => {
 function setStatus(status) { inbox.update(conv.value.id, { status }) }
 function setAssignee(e) { inbox.update(conv.value.id, { assignee_id: e.target.value || null }) }
 function toggleStar() { inbox.update(conv.value.id, { starred: !conv.value.starred }) }
+async function toggleFollow() {
+  if (conv.value.followed) await api.delete(`/api/conversations/${conv.value.id}/follow`)
+  else await api.post(`/api/conversations/${conv.value.id}/follow`)
+  conv.value.followed = !conv.value.followed
+}
 function toggleTag(tag) {
   const ids = conv.value.tags.map((x) => x.id)
   const next = ids.includes(tag.id) ? ids.filter((x) => x !== tag.id) : [...ids, tag.id]
@@ -101,12 +106,43 @@ async function onSent() {
 }
 
 // Inline images: rewrite cid: to attachment URLs (A20 display side).
+// Quoted history and signatures collapse behind a native <details> toggle.
+const QUOTE_SELECTOR = 'blockquote, .gmail_quote, [id^="divRplyFwdMsg"], [id^="appendonsend"], .OutlookMessageHeader, .moz-cite-prefix'
+const TEXT_QUOTE_MARKERS = [
+  /^>/, /^On .{0,200}wrote:\s*$/, /^-{2,}\s*Original Message\s*-{0,}/i,
+  /^Den .{0,200}skrev\b/, /^Fra:\s/, /^From:\s/, /^-- $/, /^_{10,}\s*$/,
+]
+
 function renderHtml(m) {
   let html = m.body_html || ''
   for (const a of m.attachments || []) {
     if (a.content_id) html = html.replaceAll(`cid:${a.content_id}`, a.url)
   }
-  return html
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    const first = doc.body.querySelector(QUOTE_SELECTOR)
+    if (first && first.textContent.trim()) {
+      const details = doc.createElement('details')
+      details.className = 'quoted'
+      details.innerHTML = '<summary>•••</summary>'
+      let node = first
+      const trail = []
+      while (node) { trail.push(node); node = node.nextElementSibling }
+      first.parentNode.insertBefore(details, first)
+      trail.forEach((n) => details.appendChild(n))
+    }
+    return doc.body.innerHTML
+  } catch { return html }
+}
+
+function splitText(text) {
+  const lines = (text || '').split('\n')
+  for (let i = 1; i < lines.length; i++) {
+    if (TEXT_QUOTE_MARKERS.some((re) => re.test(lines[i]))) {
+      return { main: lines.slice(0, i).join('\n').trimEnd(), quoted: lines.slice(i).join('\n') }
+    }
+  }
+  return { main: text, quoted: null }
 }
 
 function eventText(e) {
@@ -132,6 +168,9 @@ function eventText(e) {
         </button>
       </div>
       <div class="head-controls">
+        <button type="button" class="pill follow-pill" :class="{ on: conv.followed }" @click="toggleFollow">
+          {{ conv.followed ? '✓ Following' : 'Follow' }}
+        </button>
         <select :value="conv.assignee?.id || ''" @change="setAssignee" :aria-label="t.assignTo">
           <option value="">{{ t.unassigned }}</option>
           <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
@@ -186,7 +225,7 @@ function eventText(e) {
               </span>
             </div>
             <div v-if="item.body_html" class="msg-body" v-html="renderHtml(item)"></div>
-            <div v-else class="msg-body" style="white-space:pre-wrap">{{ item.body_text }}</div>
+            <div v-else class="msg-body" style="white-space:pre-wrap">{{ splitText(item.body_text).main }}<details v-if="splitText(item.body_text).quoted" class="quoted"><summary>•••</summary>{{ splitText(item.body_text).quoted }}</details></div>
             <div v-if="(item.attachments || []).some((a) => !a.content_id)" class="attachments">
               <a v-for="a in item.attachments.filter((a) => !a.content_id)" :key="a.id"
                  class="attachment" :href="a.url" target="_blank" rel="noopener">
@@ -210,6 +249,14 @@ function eventText(e) {
               <div style="font-weight:700">{{ conv.customer.name || '—' }}</div>
               <div style="color:var(--muted); font-size:13px; overflow-wrap:anywhere">{{ conv.customer.email }}</div>
             </div>
+          </div>
+        </div>
+        <div v-if="(conv.participants || []).length > 1" class="card">
+          <h3>On this thread</h3>
+          <div v-for="p in conv.participants" :key="p.email"
+               style="display:flex; gap:8px; align-items:center; margin-bottom:6px">
+            <span class="avatar small" :style="{ background: avatarColor(p.email) }">{{ initials(p.name || p.email) }}</span>
+            <span style="min-width:0; font-size:13px; overflow-wrap:anywhere">{{ p.name || p.email }}</span>
           </div>
         </div>
       </aside>
