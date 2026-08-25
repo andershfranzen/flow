@@ -1,8 +1,11 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSession } from '../stores/session'
 import { t } from '../strings'
+import { Eye, EyeOff } from 'lucide-vue-next'
+
+const showPassword = ref(false)
 
 const session = useSession()
 const router = useRouter()
@@ -15,6 +18,8 @@ const otpCode = ref('')
 
 // SSO on → Microsoft-only; the password form only exists when it's usable.
 const ssoOnly = computed(() => session.sso?.enabled && !session.sso?.password_login)
+
+onMounted(() => nextTick(() => document.querySelector('#email')?.focus()))
 
 async function submit() {
   busy.value = true
@@ -69,17 +74,27 @@ async function submit() {
       <template v-else>
         <div>
           <label for="email">{{ t.email }}</label>
-          <input id="email" v-model="email" type="email" autocomplete="username" required style="width:100%" />
+          <input id="email" name="email" v-model="email" type="email" autocomplete="username"
+                 autocapitalize="none" spellcheck="false" required autofocus style="width:100%" />
         </div>
         <div>
           <label for="password">{{ t.password }}</label>
-          <input id="password" v-model="password" type="password" autocomplete="current-password" required style="width:100%" />
+          <div class="password-field">
+            <input id="password" name="password" v-model="password" :type="showPassword ? 'text' : 'password'"
+                   autocomplete="current-password" required />
+            <button type="button" class="ghost reveal" :data-tip="showPassword ? 'Hide password' : 'Show password'"
+                    :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                    @click="showPassword = !showPassword">
+              <component :is="showPassword ? EyeOff : Eye" :size="16" />
+            </button>
+          </div>
         </div>
         <div v-if="otpNeeded">
           <label for="otp">Authenticator code</label>
-          <input id="otp" v-model="otpCode" inputmode="numeric" autocomplete="one-time-code" required style="width:100%" />
+          <input id="otp" name="otp" v-model="otpCode" inputmode="numeric" autocomplete="one-time-code"
+                 required style="width:100%" />
         </div>
-        <p v-if="error" class="error-text">{{ error }}</p>
+        <p v-if="error" class="error-text" role="alert">{{ error }}</p>
         <button class="primary" :disabled="busy">{{ t.login }}</button>
       </template>
     </form>

@@ -147,7 +147,10 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 /* Shrink-wraps to the logo width so "by Flow." centers under the logo itself */
 .brand-block { display: flex; flex-direction: column; align-items: center; align-self: flex-start; margin-left: 12px; }
 .company-logo { max-height: 44px; max-width: 180px; margin-bottom: 2px; object-fit: contain; }
-.brand.by-flow { font-size: 13px; padding: 0 0 14px; }
+.brand.by-flow {
+  font-size: 13px; padding: 0 0 14px;
+  font-family: var(--font-round); font-weight: 800; letter-spacing: -.01em; color: var(--text);
+}
 .brand-block > .brand:only-child { margin-left: -12px; }
 .rail nav { display: flex; flex-direction: column; }
 .rail .rail-item {
@@ -559,6 +562,13 @@ details.quoted { color: var(--muted); }
   from { transform: translateX(0) scaleY(1); }
   to { transform: translateX(12%) scaleY(1.18); }
 }
+
+.password-field { position: relative; }
+.password-field input { width: 100%; padding-right: 42px; }
+.password-field .reveal {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%); padding: 6px 8px;
+}
+.password-field .reveal:active { transform: translateY(-50%) scale(.96); }
 
 .open-source {
   position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; z-index: 1;
