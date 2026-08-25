@@ -16,6 +16,9 @@ const inbox = useInbox()
 const agents = ref([])
 const tags = ref([])
 const forwardSeed = ref(null)
+const customerDetail = ref(null)
+const editingCustomer = ref(false)
+const customerForm = ref({})
 const transcriptEl = ref(null)
 let heartbeatTimer = null
 
@@ -65,6 +68,39 @@ function toggleTag(tag) {
   const next = ids.includes(tag.id) ? ids.filter((x) => x !== tag.id) : [...ids, tag.id]
   inbox.update(conv.value.id, { tag_ids: next })
 }
+async function loadCustomer() {
+  if (!conv.value) return
+  customerDetail.value = await api.get(`/api/customers/${conv.value.customer.id}`)
+}
+watch(() => conv.value?.customer?.id, (id) => { if (id) loadCustomer() }, { immediate: true })
+
+function startEditCustomer() {
+  const c = customerDetail.value || conv.value.customer
+  customerForm.value = { name: c.name || '', company: c.company || '',
+                         phone: (c.phones || [])[0] || '', notes: c.notes || '' }
+  editingCustomer.value = true
+}
+
+async function saveCustomer() {
+  const f = customerForm.value
+  await api.patch(`/api/customers/${conv.value.customer.id}`, {
+    name: f.name, company: f.company, notes: f.notes, phones: f.phone ? [f.phone] : [],
+  })
+  editingCustomer.value = false
+  await loadCustomer()
+  conv.value.customer.name = f.name
+}
+
+async function mergeCustomer() {
+  const email = window.prompt(`${t.mergeCustomer}\nEmail address of the duplicate customer:`)
+  if (!email) return
+  try {
+    customerDetail.value = await api.post(`/api/customers/${conv.value.customer.id}/merge`, { source_email: email.trim() })
+  } catch (e) {
+    alert(e.status === 404 ? 'No customer with that address' : 'Merge failed')
+  }
+}
+
 // Merged conversations redirect to their target (B14).
 watch(() => conv.value?.merged_into_id, (id) => {
   if (id) router.replace(`/conversations/${id}`)
@@ -182,7 +218,7 @@ function eventText(e) {
       </div>
       <div class="head-controls">
         <button type="button" class="pill follow-pill" :class="{ on: conv.followed }" @click="toggleFollow">
-          {{ conv.followed ? '✓ Following' : 'Follow' }}
+          {{ conv.followed ? t.following : t.follow }}
         </button>
         <select :value="conv.assignee?.id || ''" @change="setAssignee" :aria-label="t.assignTo">
           <option value="">{{ t.unassigned }}</option>
@@ -260,15 +296,46 @@ function eventText(e) {
 
       <aside class="side-panel">
         <div class="card">
-          <h3>Customer</h3>
+          <h3 style="display:flex; justify-content:space-between; align-items:center">
+            {{ t.customer }}
+            <button v-if="!editingCustomer" class="ghost" style="padding:2px 8px; font-size:12px" @click="startEditCustomer">{{ t.edit }}</button>
+          </h3>
           <div style="display:flex; gap:10px; align-items:center">
             <span class="avatar" :style="{ background: avatarColor(conv.customer.email) }">
               {{ initials(conv.customer.name || conv.customer.email) }}
             </span>
             <div style="min-width:0">
-              <div style="font-weight:700">{{ conv.customer.name || '—' }}</div>
+              <div style="font-weight:700">{{ customerDetail?.name || conv.customer.name || '—' }}</div>
               <div style="color:var(--muted); font-size:13px; overflow-wrap:anywhere">{{ conv.customer.email }}</div>
             </div>
+          </div>
+          <template v-if="editingCustomer">
+            <div style="display:flex; flex-direction:column; gap:6px; margin-top:10px">
+              <input v-model="customerForm.name" :placeholder="t.customer" />
+              <input v-model="customerForm.company" :placeholder="t.company" />
+              <input v-model="customerForm.phone" :placeholder="t.phone" />
+              <textarea v-model="customerForm.notes" rows="2" :placeholder="t.notes"></textarea>
+              <div style="display:flex; gap:6px">
+                <button class="primary" style="padding:4px 12px" @click="saveCustomer">{{ t.save }}</button>
+                <button class="ghost" style="padding:4px 8px" @click="editingCustomer = false">{{ t.cancel }}</button>
+              </div>
+            </div>
+          </template>
+          <template v-else-if="customerDetail">
+            <div v-if="customerDetail.company" style="font-size:13px; margin-top:6px">🏢 {{ customerDetail.company }}</div>
+            <div v-if="(customerDetail.phones || []).length" style="font-size:13px">📞 {{ customerDetail.phones.join(', ') }}</div>
+            <div v-if="(customerDetail.emails || []).length" style="font-size:12px; color:var(--muted)">also: {{ customerDetail.emails.join(', ') }}</div>
+            <div v-if="customerDetail.notes" style="font-size:13px; color:var(--muted); margin-top:4px; white-space:pre-wrap">{{ customerDetail.notes }}</div>
+          </template>
+          <button class="ghost" style="margin-top:8px; padding:2px 8px; font-size:12px" @click="mergeCustomer">{{ t.mergeCustomer }}</button>
+        </div>
+        <div v-if="(customerDetail?.conversations || []).filter((c) => c.id !== conv.id).length" class="card">
+          <h3>{{ t.previousConversations }}</h3>
+          <div v-for="pc in customerDetail.conversations.filter((c) => c.id !== conv.id).slice(0, 6)" :key="pc.id"
+               style="margin-bottom:6px; font-size:13px">
+            <router-link :to="`/conversations/${pc.id}`" style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+              <span class="pill" :class="`status-${pc.status}`" style="margin-right:4px">#{{ pc.number }}</span>{{ pc.subject }}
+            </router-link>
           </div>
         </div>
         <div v-if="(conv.participants || []).length > 1" class="card">

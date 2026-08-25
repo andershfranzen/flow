@@ -48,6 +48,8 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
 - Conversations with global numbers (`#142`), statuses (active / pending /
   closed / spam / trash), folders (Unassigned, Mine, Assigned, Starred, …)
 - Assign, tag, star, follow, merge, move between mailboxes, forward
+- **Teams** with round-robin auto-assignment (via workflows), per-agent
+  signatures, editable customer profiles with merge and history
 - Internal notes with `@name` mentions, visually distinct from mail
 - Collision detection ("Ada is viewing") and live list updates over SSE
 - Rich-text replies with inline image paste, attachments, drafts that

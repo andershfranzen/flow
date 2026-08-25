@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSession } from '../stores/session'
 import { api } from '../api'
-import { t } from '../strings'
+import { t, setLocale } from '../strings'
 import WorkflowBuilder from '../components/WorkflowBuilder.vue'
 
 const props = defineProps({ tab: String })
@@ -12,7 +12,7 @@ const session = useSession()
 
 const TABS = computed(() => {
   const base = [['profile', 'My profile'], ['saved_replies', 'Saved replies'], ['tags', 'Tags'], ['tokens', 'API tokens']]
-  const admin = [['org', 'Organisation'], ['agents', 'Agents'], ['mailboxes', 'Mailboxes'], ['workflows', 'Workflows'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']]
+  const admin = [['org', 'Organisation'], ['agents', 'Agents'], ['teams', 'Teams'], ['mailboxes', 'Mailboxes'], ['workflows', 'Workflows'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']]
   return session.isAdmin ? [...admin, ...base] : base
 })
 const tab = computed(() => props.tab || (session.isAdmin ? 'org' : 'profile'))
@@ -30,6 +30,7 @@ const newToken = ref(null)
 const testResult = ref(null)
 
 const profile = ref({ name: '', password: '', notify_prefs: {}, muted_mailbox_ids: [] })
+const teams = ref([])
 const plugins = ref([])
 const restartHint = ref('')
 const installUrl = ref('')
@@ -45,6 +46,10 @@ async function load() {
     mailboxes.value = await api.get('/api/mailboxes')
   }
   if (tab.value === 'mailboxes' && session.isAdmin) mailboxes.value = await api.get('/api/mailboxes')
+  if (tab.value === 'teams' && session.isAdmin) {
+    teams.value = await api.get('/api/teams')
+    agents.value = await api.get('/api/agents')
+  }
   if (tab.value === 'saved_replies') {
     savedReplies.value = await api.get('/api/saved_replies')
     mailboxes.value = await api.get('/api/mailboxes')
@@ -61,6 +66,7 @@ async function load() {
     const me = await api.get('/api/me')
     mailboxes.value = await api.get('/api/mailboxes')
     profile.value = { name: me.name, password: '', locale: me.locale, timezone: me.timezone,
+                      signature: me.signature || '',
                       notify_prefs: me.notify_prefs, muted_mailbox_ids: me.muted_mailbox_ids || [] }
   }
 }
@@ -74,7 +80,16 @@ async function saveOrg() { org.value = await api.patch('/api/org_settings', org.
 async function saveProfile() {
   await api.patch('/api/me', profile.value)
   profile.value.password = ''
+  setLocale(profile.value.locale)
+  if (session.agent) session.agent.locale = profile.value.locale
   ok()
+}
+
+async function saveTeam() {
+  const x = editing.value
+  if (x.id) await api.patch(`/api/teams/${x.id}`, x)
+  else await api.post('/api/teams', x)
+  await load(); ok()
 }
 
 // Agents
@@ -266,6 +281,39 @@ const NOTIFY_LABELS = {
       </form>
     </div>
 
+    <!-- Teams -->
+    <div v-if="tab === 'teams'">
+      <div class="form-actions" style="margin:0 0 12px">
+        <button class="primary" @click="editing = { name: '', agent_ids: [] }">Add team</button>
+        <span class="hint-text" style="margin:0">Teams round-robin conversations via the workflow action "Assign to team".</span>
+      </div>
+      <table class="card" style="padding:0">
+        <tbody>
+          <tr v-for="x in teams" :key="x.id">
+            <td><strong>{{ x.name }}</strong></td>
+            <td style="color:var(--muted)">{{ x.agent_ids.length }} member{{ x.agent_ids.length === 1 ? '' : 's' }}</td>
+            <td style="text-align:right">
+              <button class="ghost" @click="editing = { ...x }">Edit</button>
+              <button class="ghost" @click="del(`/api/teams/${x.id}`)">{{ t.delete }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <form v-if="editing" class="card" @submit.prevent="saveTeam">
+        <div><label>Team name</label><input v-model="editing.name" required style="width:100%" /></div>
+        <div style="margin-top:10px">
+          <label>Members (round-robin order follows agent id)</label>
+          <label v-for="a in agents" :key="a.id" class="choice">
+            <input type="checkbox" :value="a.id" v-model="editing.agent_ids" /> {{ a.name }}
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="primary">{{ t.save }}</button>
+          <button type="button" @click="editing = null">{{ t.cancel }}</button>
+        </div>
+      </form>
+    </div>
+
     <!-- Mailboxes -->
     <div v-if="tab === 'mailboxes'">
       <div class="form-actions" style="margin:0 0 12px"><button class="primary" @click="newMailbox">Add mailbox</button></div>
@@ -392,6 +440,16 @@ const NOTIFY_LABELS = {
         <div><label>New password (blank keeps current)</label>
           <input v-model="profile.password" type="password" style="width:100%" /></div>
         <div><label>Timezone</label><input v-model="profile.timezone" style="width:100%" /></div>
+        <div><label>Language</label>
+          <select v-model="profile.locale" style="width:100%">
+            <option value="en">English</option>
+            <option value="da">Dansk</option>
+          </select></div>
+      </div>
+      <div style="margin-top:12px">
+        <label>My signature (used instead of the mailbox signature)</label>
+        <textarea v-model="profile.signature" rows="3" style="width:100%"
+                  placeholder="Best regards,&#10;Ada — Support"></textarea>
       </div>
       <h3 style="margin-top:14px">Email notifications</h3>
       <label v-for="(label, key) in NOTIFY_LABELS" :key="key" class="choice" style="display:flex">

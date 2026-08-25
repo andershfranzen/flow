@@ -6,6 +6,7 @@ import Login from './pages/Login.vue'
 import Inbox from './pages/Inbox.vue'
 import Settings from './pages/Settings.vue'
 import { useSession } from './stores/session'
+import { setLocale } from './strings'
 import './style.css'
 
 const router = createRouter({
@@ -26,6 +27,7 @@ app.use(router)
 const session = useSession()
 router.beforeEach(async (to) => {
   if (!session.loaded) { try { await session.load() } catch { session.loaded = true } }
+  if (session.agent?.locale) setLocale(session.agent.locale)
   if (!session.agent && to.path !== '/login') return '/login'
   if (session.agent && to.path === '/login') return '/inbox'
 })

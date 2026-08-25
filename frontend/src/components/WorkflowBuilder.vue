@@ -7,6 +7,7 @@ const meta = ref({ triggers: [], fields: [], operators: [], action_types: [], st
 const mailboxes = ref([])
 const agents = ref([])
 const savedReplies = ref([])
+const teams = ref([])
 const editing = ref(null) // deep copy of the workflow being built
 const flash = ref('')
 let dragIndex = null
@@ -29,7 +30,7 @@ const OPERATOR_LABELS = {
   starts_with: 'starts with', ends_with: 'ends with', matches_regex: 'matches regex',
 }
 const ACTION_LABELS = {
-  assign: 'Assign to agent', unassign: 'Unassign', add_tag: 'Add tag', remove_tag: 'Remove tag',
+  assign: 'Assign to agent', assign_team: 'Assign to team (round-robin)', unassign: 'Unassign', add_tag: 'Add tag', remove_tag: 'Remove tag',
   set_status: 'Set status', star: 'Star', move_mailbox: 'Move to mailbox',
   add_note: 'Add internal note', send_reply: 'Send reply to customer', forward_to: 'Forward to address',
 }
@@ -46,6 +47,7 @@ onMounted(async () => {
   mailboxes.value = await api.get('/api/mailboxes')
   agents.value = await api.get('/api/agents')
   savedReplies.value = await api.get('/api/saved_replies')
+  teams.value = await api.get('/api/teams')
 })
 
 function ok(msg) { flash.value = msg; setTimeout(() => (flash.value = ''), 2500) }
@@ -109,6 +111,7 @@ async function onListDrop(index) {
 
 function valueControl(action) {
   if (action.type === 'assign') return 'agent'
+  if (action.type === 'assign_team') return 'team'
   if (action.type === 'move_mailbox') return 'mailbox'
   if (action.type === 'set_status') return 'status'
   if (action.type === 'send_reply') return 'reply'
@@ -217,6 +220,9 @@ function valueControl(action) {
           <div class="wf-node-body" v-if="valueControl(a) !== 'none'">
             <select v-if="valueControl(a) === 'agent'" v-model="a.value" style="flex:1">
               <option v-for="ag in agents" :key="ag.id" :value="String(ag.id)">{{ ag.name }}</option>
+            </select>
+            <select v-else-if="valueControl(a) === 'team'" v-model="a.value" style="flex:1">
+              <option v-for="tm in teams" :key="tm.id" :value="String(tm.id)">{{ tm.name }}</option>
             </select>
             <select v-else-if="valueControl(a) === 'mailbox'" v-model="a.value" style="flex:1">
               <option v-for="m in mailboxes" :key="m.id" :value="String(m.id)">{{ m.name }}</option>
