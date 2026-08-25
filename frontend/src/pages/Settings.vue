@@ -11,6 +11,7 @@ import { ArrowLeft, ExternalLink } from 'lucide-vue-next'
 import { THEME_TOKENS, applyTheme } from '../theme'
 import ColorPicker from '../components/ColorPicker.vue'
 import SaveButton from '../components/SaveButton.vue'
+import TogglePills from '../components/TogglePills.vue'
 
 const props = defineProps({ tab: String })
 const router = useRouter()
@@ -50,6 +51,7 @@ const installUrl = ref('')
 const openSettingsFor = ref(null)
 const pluginBusy = ref(false)
 const otp = ref({ setup: null, code: '', enabled: false })
+const TIMEZONES = Intl.supportedValuesOf('timeZone')
 
 async function load() {
   flash.value = ''
@@ -185,6 +187,11 @@ async function saveTeam() {
 }
 
 // Agents
+function mailboxNames(a) {
+  const names = mailboxes.value.filter((m) => a.mailbox_ids.includes(m.id)).map((m) => m.name)
+  if (!names.length) return 'No access'
+  return names.length > 3 ? `${names.slice(0, 3).join(', ')} +${names.length - 3}` : names.join(', ')
+}
 function newAgent() { editing.value = { role: 'user', mailbox_ids: [], password: '' } }
 async function saveAgent() {
   const a = editing.value
@@ -290,7 +297,13 @@ async function removePlugin(p) {
   plugins.value = data.plugins
 }
 
-const WEBHOOK_EVENTS = ['thread.created', 'message.inbound', 'message.outbound', 'thread.assigned', 'thread.status']
+const WEBHOOK_EVENTS = [
+  { id: 'thread.created', label: 'thread.created', sub: 'New conversation opened' },
+  { id: 'message.inbound', label: 'message.inbound', sub: 'Customer message received' },
+  { id: 'message.outbound', label: 'message.outbound', sub: 'Agent reply sent' },
+  { id: 'thread.assigned', label: 'thread.assigned', sub: 'Conversation assigned' },
+  { id: 'thread.status', label: 'thread.status', sub: 'Status changed' },
+]
 const NOTIFY_LABELS = {
   new_unassigned: 'New unassigned conversation',
   assigned_to_me: 'Conversation assigned to me',
@@ -409,7 +422,7 @@ const NOTIFY_LABELS = {
         <tbody>
           <tr v-for="a in agents" :key="a.id">
             <td>{{ a.name }}</td><td>{{ a.email }}</td><td>{{ a.role }}</td>
-            <td>{{ a.role === 'admin' ? 'all' : a.mailbox_ids.length }}</td>
+            <td style="color:var(--muted)">{{ a.role === 'admin' ? 'All mailboxes' : mailboxNames(a) }}</td>
             <td style="text-align:right">
               <button class="ghost" @click="editing = { ...a, password: '' }">Edit</button>
               <button class="ghost" @click="deleteAgent(a)">{{ t.delete }}</button>
@@ -427,11 +440,16 @@ const NOTIFY_LABELS = {
           <div><label>Role</label>
             <select v-model="editing.role" style="width:100%"><option value="user">user</option><option value="admin">admin</option></select></div>
         </div>
-        <div v-if="editing.role !== 'admin'" style="margin-top:10px">
+        <div style="margin-top:12px">
           <label>Mailbox access</label>
-          <label v-for="m in mailboxes" :key="m.id" class="choice">
-            <input type="checkbox" :value="m.id" v-model="editing.mailbox_ids" /> {{ m.name }}
-          </label>
+          <p v-if="editing.role === 'admin'" class="hint-text" style="margin:0">
+            Admins always see every mailbox.</p>
+          <template v-else>
+            <TogglePills v-model="editing.mailbox_ids"
+                         :options="mailboxes.map((m) => ({ id: m.id, label: m.name, sub: m.address }))" />
+            <p v-if="!editing.mailbox_ids.length" class="hint-text" style="margin:6px 0 0">
+              No access yet — this agent will see an empty inbox until you grant a mailbox.</p>
+          </template>
         </div>
         <div class="form-actions">
           <button class="primary">{{ t.save }}</button>
@@ -462,9 +480,8 @@ const NOTIFY_LABELS = {
         <div><label>Team name</label><input v-model="editing.name" required style="width:100%" /></div>
         <div style="margin-top:10px">
           <label>Members (round-robin order follows agent id)</label>
-          <label v-for="a in agents" :key="a.id" class="choice">
-            <input type="checkbox" :value="a.id" v-model="editing.agent_ids" /> {{ a.name }}
-          </label>
+          <TogglePills v-model="editing.agent_ids"
+                       :options="agents.map((a) => ({ id: a.id, label: a.name, sub: a.email }))" />
         </div>
         <div class="form-actions">
           <button class="primary">{{ t.save }}</button>
@@ -521,7 +538,8 @@ const NOTIFY_LABELS = {
           <div v-if="editing.auth_kind === 'password'"><label>Password {{ editing.imap_password_set ? '(set — blank keeps it)' : '' }}</label>
             <input v-model="editing.imap_password" type="password" style="width:100%" /></div>
           <div><label>Folder</label><input v-model="editing.imap_folder" style="width:100%" /></div>
-          <div style="align-self:end"><label class="choice"><input type="checkbox" v-model="editing.imap_ssl" /> SSL</label></div>
+          <div><label>Encryption</label>
+            <label class="choice" style="padding:8px 0"><input type="checkbox" v-model="editing.imap_ssl" /> SSL</label></div>
         </div>
         <h3 style="margin-top:14px">SMTP (outgoing)</h3>
         <div class="form-grid">
@@ -599,9 +617,13 @@ const NOTIFY_LABELS = {
     <form v-if="tab === 'profile'" class="card" @submit.prevent="saveProfile">
       <div class="form-grid">
         <div><label>Name</label><input v-model="profile.name" style="width:100%" /></div>
-        <div><label>New password (blank keeps current)</label>
-          <input v-model="profile.password" type="password" style="width:100%" /></div>
-        <div><label>Timezone</label><input v-model="profile.timezone" style="width:100%" /></div>
+        <div><label>New password</label>
+          <input v-model="profile.password" type="password" autocomplete="new-password"
+                 placeholder="Blank keeps current" style="width:100%" /></div>
+        <div><label>Timezone</label>
+          <select v-model="profile.timezone" style="width:100%">
+            <option v-for="tz in TIMEZONES" :key="tz" :value="tz">{{ tz }}</option>
+          </select></div>
         <div><label>Language</label>
           <select v-model="profile.locale" style="width:100%">
             <option value="en">English</option>
@@ -686,15 +708,32 @@ const NOTIFY_LABELS = {
       <div class="form-actions" style="margin:0 0 12px">
         <button class="primary" @click="editing = { name: '', color: '#2563eb' }">Add tag</button>
       </div>
-      <div class="card" style="display:flex; gap:8px; flex-wrap:wrap">
-        <span v-for="x in tags" :key="x.id" class="tag-pill" :style="{ background: x.color, cursor: 'pointer' }"
-              @click="editing = { ...x }">{{ x.name }}</span>
-        <span v-if="!tags.length" style="color:var(--muted)">No tags yet</span>
-      </div>
+      <table class="card" style="padding:0">
+        <tbody>
+          <tr v-for="x in tags" :key="x.id">
+            <td><span class="tag-pill" :style="{ background: x.color }">{{ x.name }}</span></td>
+            <td style="color:var(--muted); font-family: ui-monospace, Menlo, monospace; font-size:13px">{{ x.color }}</td>
+            <td style="text-align:right">
+              <button class="ghost" @click="editing = { ...x }">{{ t.edit }}</button>
+              <button v-if="session.isAdmin" class="ghost" @click="del(`/api/tags/${x.id}`)">{{ t.delete }}</button>
+            </td>
+          </tr>
+          <tr v-if="!tags.length"><td style="color:var(--muted)">No tags yet</td></tr>
+        </tbody>
+      </table>
       <form v-if="editing" class="card" @submit.prevent="saveTag">
-        <div class="form-grid">
-          <div><label>Name</label><input v-model="editing.name" required style="width:100%" /></div>
-          <div><label>Colour</label><input v-model="editing.color" type="color" /></div>
+        <h3>{{ editing.id ? 'Edit tag' : 'New tag' }}</h3>
+        <div style="display:flex; align-items:flex-end; gap:14px">
+          <div style="flex:1"><label>Name</label><input v-model="editing.name" required style="width:100%" /></div>
+          <div><label>Colour</label>
+            <span class="swatch-wrap">
+              <button type="button" class="swatch" :style="{ background: editing.color }"
+                      aria-label="Pick tag colour" @click="openPicker = openPicker === 'tag' ? null : 'tag'" />
+              <ColorPicker v-if="openPicker === 'tag'" :model-value="editing.color"
+                           @update:model-value="(v) => (editing.color = v)" @close="openPicker = null" />
+            </span>
+          </div>
+          <div style="flex:1"><span class="tag-pill" :style="{ background: editing.color }">{{ editing.name || 'preview' }}</span></div>
         </div>
         <div class="form-actions">
           <button class="primary">{{ t.save }}</button>
@@ -726,9 +765,7 @@ const NOTIFY_LABELS = {
         <div><label>URL</label><input v-model="editing.url" required placeholder="https://…" style="width:100%" /></div>
         <div style="margin-top:8px">
           <label>Events (none = all)</label>
-          <label v-for="e in WEBHOOK_EVENTS" :key="e" class="choice">
-            <input type="checkbox" :value="e" v-model="editing.events" /> {{ e }}
-          </label>
+          <TogglePills v-model="editing.events" :options="WEBHOOK_EVENTS" />
         </div>
         <div style="margin-top:8px"><label class="choice"><input type="checkbox" v-model="editing.enabled" /> Enabled</label></div>
         <p v-if="editing.secret" style="font-size:12px; color:var(--muted)">Secret: <code>{{ editing.secret }}</code></p>

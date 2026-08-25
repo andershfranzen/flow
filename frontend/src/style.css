@@ -598,6 +598,24 @@ details.quoted { color: var(--muted); }
 .cp-preview { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .cp-chip { width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--border); }
 
+/* Toggleable multi-select cards (mailbox access, team members) */
+.pill-select { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 6px; }
+.pill-option {
+  display: flex; align-items: center; justify-content: flex-start; gap: 10px; text-align: left;
+  background: var(--panel); border: 2px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; font-weight: 600;
+}
+.pill-option:hover { background: var(--panel-deep); }
+.pill-option.on { border-color: var(--accent); background: var(--accent-soft); }
+.pill-check {
+  flex: none; width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center;
+  border: 2px solid var(--border); color: transparent; background: #fff;
+}
+.pill-option.on .pill-check { border-color: var(--accent); background: var(--accent); color: #fff; }
+.pill-texts { display: flex; flex-direction: column; min-width: 0; }
+.pill-label { line-height: 1.25; }
+.pill-sub { font-size: 12px; color: var(--muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .save-button { min-width: 96px; }
 .save-button.is-saved { background: var(--ok); pointer-events: none; }
 .save-button.is-saved:hover { background: var(--ok); }

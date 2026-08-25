@@ -73,8 +73,11 @@ class Sso
     unless domains.include?(email.split("@").last)
       raise Error, "#{email.split('@').last} is not in the allowed sign-in domains"
     end
-    Agent.create!(email: email, name: claims["name"].presence || email.split("@").first,
-                  role: "user", password: SecureRandom.hex(24))
+    agent = Agent.create!(email: email, name: claims["name"].presence || email.split("@").first,
+                          role: "user", password: SecureRandom.hex(24))
+    # Fresh sign-ins start with access to every mailbox; admins can trim per agent.
+    Mailbox.ids.each { |id| agent.mailbox_accesses.create!(mailbox_id: id) }
+    agent
   end
 
   # Microsoft signing keys, cached; keyed by tenant so a tenant change refetches.

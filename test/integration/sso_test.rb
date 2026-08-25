@@ -61,6 +61,7 @@ class SsoTest < ActionDispatch::IntegrationTest
     agent = Agent.find_by(email: "new@contoso.com")
     assert_equal "user", agent.role
     assert_equal "Some One", agent.name
+    assert_equal Mailbox.ids.sort, agent.mailbox_ids.sort, "new agents get every mailbox by default"
   end
 
   test "unknown domain is rejected, no agent created" do
