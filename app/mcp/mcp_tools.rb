@@ -33,11 +33,7 @@ module McpTools
     input_schema(properties: { query: { type: "string" } }, required: [ "query" ])
 
     def self.call(query:, server_context:)
-      sql = ActiveRecord::Base.sanitize_sql(
-        [ "SELECT DISTINCT conversation_id FROM message_search WHERE message_search MATCH ?",
-          query.split.map { |t| "\"#{t.delete('"')}\"" }.join(" ") ]
-      )
-      ids = ActiveRecord::Base.connection.select_values(sql) rescue []
+      ids = SearchIndex.search(query)
       conversations = Conversation.where(id: ids, mailbox: agent(server_context).accessible_mailboxes)
                                   .order(last_message_at: :desc).limit(25)
       text_response(conversations.map { |c| conversation_summary(c) })

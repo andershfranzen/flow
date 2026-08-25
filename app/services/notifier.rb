@@ -57,7 +57,8 @@ class Notifier
   end
 
   def self.agents_for(mailbox)
-    Agent.where(role: "admin").or(Agent.where(id: mailbox.agent_ids)).distinct
+    # No joins → no duplicate rows; DISTINCT would break on PG json columns.
+    Agent.where(role: "admin").or(Agent.where(id: mailbox.agent_ids))
   end
 
   def self.notify(agents, conversation, kind)

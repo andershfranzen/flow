@@ -178,16 +178,20 @@ class CreateCoreSchema < ActiveRecord::Migration[8.1]
     end
     add_index :api_tokens, :token_digest, unique: true
 
-    # SQLite FTS5 over message bodies + subject (E1). Kept in sync by Message callbacks.
+    # SQLite FTS5 over message bodies + subject (E1); SearchIndex also ensures
+    # it lazily, so this is just a fresh-install fast path. PG uses tsvector
+    # queries instead (see SearchIndex).
     reversible do |dir|
       dir.up do
-        execute <<~SQL
-          CREATE VIRTUAL TABLE message_search USING fts5(
-            subject, body, conversation_id UNINDEXED, message_id UNINDEXED
-          );
-        SQL
+        unless connection.adapter_name.match?(/postg/i)
+          execute <<~SQL
+            CREATE VIRTUAL TABLE IF NOT EXISTS message_search USING fts5(
+              subject, body, conversation_id UNINDEXED, message_id UNINDEXED
+            );
+          SQL
+        end
       end
-      dir.down { execute "DROP TABLE message_search;" }
+      dir.down { execute "DROP TABLE IF EXISTS message_search;" }
     end
   end
 end

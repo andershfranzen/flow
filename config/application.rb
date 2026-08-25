@@ -28,9 +28,6 @@ module Flow
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
 
-    # FTS5 virtual tables can't be expressed in schema.rb.
-    config.active_record.schema_format = :sql
-
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files

@@ -47,4 +47,9 @@ group :test do
 end
 
 gem "mcp"
+
+# PostgreSQL (J7): opt in with `bundle config set --local with postgres`.
+group :postgres, optional: true do
+  gem "pg"
+end
 gem "rqrcode"

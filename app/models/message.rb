@@ -24,16 +24,6 @@ class Message < ApplicationRecord
     )
   end
 
-  def index_for_search
-    sql = ActiveRecord::Base.sanitize_sql(
-      [ "INSERT INTO message_search(subject, body, conversation_id, message_id) VALUES (?, ?, ?, ?)",
-        conversation.subject, body_text.to_s, conversation_id, id ]
-    )
-    self.class.connection.execute(sql)
-  end
-
-  def deindex_for_search
-    sql = ActiveRecord::Base.sanitize_sql([ "DELETE FROM message_search WHERE message_id = ?", id ])
-    self.class.connection.execute(sql)
-  end
+  def index_for_search = SearchIndex.index_message(self)
+  def deindex_for_search = SearchIndex.deindex_message(id)
 end

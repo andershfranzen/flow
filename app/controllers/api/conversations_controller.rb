@@ -87,10 +87,7 @@ class Api::ConversationsController < Api::BaseController
       source.drafts.destroy_all
       target.tag_ids |= source.tag_ids
       source.conversation_tags.destroy_all
-      sql = ActiveRecord::Base.sanitize_sql(
-        [ "UPDATE message_search SET conversation_id = ? WHERE conversation_id = ?", target.id, source.id ]
-      )
-      ActiveRecord::Base.connection.execute(sql)
+      SearchIndex.reassign(source.id, target.id)
       source.update!(merged_into_id: target.id, status: "closed", assignee: nil)
       Conversation.reset_counters(source.id, :messages)
       Conversation.reset_counters(target.id, :messages)
@@ -148,18 +145,9 @@ class Api::ConversationsController < Api::BaseController
   private
 
   def search_ids(q)
-    sql = ActiveRecord::Base.sanitize_sql(
-      [ "SELECT DISTINCT conversation_id FROM message_search WHERE message_search MATCH ?", fts_quote(q) ]
-    )
-    ids = ActiveRecord::Base.connection.select_values(sql)
+    ids = SearchIndex.search(q)
     customer_ids = Customer.where("email LIKE :q OR name LIKE :q", q: "%#{q}%").ids
     ids | Conversation.where(customer_id: customer_ids).ids
-  rescue ActiveRecord::StatementInvalid
-    [] # bad FTS syntax from user input is not an error
-  end
-
-  def fts_quote(q)
-    q.split.map { |t| "\"#{t.delete('"')}\"" }.join(" ")
   end
 
   def folder_counts

@@ -32,11 +32,8 @@ class V11Test < ActionDispatch::IntegrationTest
     get "/api/conversations/#{@second.id}"
     assert_equal @first.id, response.parsed_body["merged_into_id"]
 
-    # FTS rows follow the merge
-    hits = ActiveRecord::Base.connection.select_values(
-      "SELECT DISTINCT conversation_id FROM message_search WHERE message_search MATCH 'hello'"
-    )
-    assert_equal [ @first.id ], hits
+    # search index follows the merge (FTS rows on SQLite; derived on PG)
+    assert_equal [ @first.id ], SearchIndex.search("hello").uniq
   end
 
   test "move to another mailbox records an event and enforces access" do

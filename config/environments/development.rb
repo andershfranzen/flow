@@ -3,7 +3,8 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Same queue backend as production so the fetch loop works in dev.
   config.active_job.queue_adapter = :solid_queue
-  config.solid_queue.connects_to = { database: { writing: :queue } }
+  # On PostgreSQL (DATABASE_URL) Solid Queue shares the primary database.
+  config.solid_queue.connects_to = { database: { writing: :queue } } unless ENV["DATABASE_URL"].present?
 
   # Settings specified here will take precedence over those in config/application.rb.
 

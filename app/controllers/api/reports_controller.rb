@@ -8,12 +8,16 @@ class Api::ReportsController < Api::BaseController
     mailbox_ids = current_agent.accessible_mailboxes.ids
     conversations = Conversation.where(mailbox_id: mailbox_ids)
 
-    new_per_day = conversations.where(created_at: from..).group("date(created_at)").count
+    pg = SearchIndex.postgres?
+    day = ->(col) { pg ? "CAST(#{col} AS DATE)" : "date(#{col})" }
+    status_is_closed = pg ? "data->>'status' = 'closed'" : "json_extract(data, '$.status') = 'closed'"
+
+    new_per_day = conversations.where(created_at: from..).group(Arel.sql(day.call("created_at"))).count
     closed_events = Event.joins(:conversation)
                          .where(conversations: { mailbox_id: mailbox_ids })
                          .where(kind: "status_changed", created_at: from..)
-                         .where("json_extract(data, '$.status') = 'closed'")
-    closed_per_day = closed_events.group("date(events.created_at)").count
+                         .where(Arel.sql(status_is_closed))
+    closed_per_day = closed_events.group(Arel.sql(day.call("events.created_at"))).count
 
     by_agent = Agent.order(:name).map do |agent|
       replies = Message.joins(:conversation)

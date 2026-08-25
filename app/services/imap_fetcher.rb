@@ -51,7 +51,11 @@ class ImapFetcher
     key = raw[/^Message-I[dD]:\s*(<[^>]+>|\S+)/i, 1]&.delete("<>")
     key ||= Digest::SHA256.hexdigest(raw) # fallback hash when no Message-ID (A9)
     begin
-      InboundDedup.create!(mailbox: @mailbox, dedup_key: key)
+      # Savepoint so the unique-violation doesn't poison an enclosing
+      # transaction (PostgreSQL aborts the whole tx otherwise).
+      InboundDedup.transaction(requires_new: true) do
+        InboundDedup.create!(mailbox: @mailbox, dedup_key: key)
+      end
     rescue ActiveRecord::RecordNotUnique
       return :duplicate
     end
