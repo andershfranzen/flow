@@ -47,6 +47,25 @@ class AuthTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  test "admin can upload, expose and remove a company logo" do
+    login("admin@example.com")
+    png = Rack::Test::UploadedFile.new(StringIO.new("\x89PNGfake"), "image/png", original_filename: "logo.png")
+    patch "/api/org_settings", params: { site_name: "acmecool", logo: png }
+    assert_response :success
+    logo_url = response.parsed_body["logo_url"]
+    assert logo_url.present?
+
+    get "/api/session"
+    assert_equal logo_url, response.parsed_body.dig("org", "logo_url")
+
+    bad = Rack::Test::UploadedFile.new(StringIO.new("<svg/>"), "image/svg+xml", original_filename: "evil.svg")
+    patch "/api/org_settings", params: { logo: bad }
+    assert_response :unprocessable_entity
+
+    patch "/api/org_settings", params: { remove_logo: "1" }
+    assert_nil response.parsed_body["logo_url"]
+  end
+
   test "api token authenticates and respects scope" do
     _, raw = ApiToken.issue(agent: @admin, name: "ci", scope: "read")
     get "/api/agents", headers: { "Authorization" => "Bearer #{raw}" }

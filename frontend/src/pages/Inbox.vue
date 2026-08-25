@@ -333,7 +333,13 @@ async function logout() {
 <template>
   <div class="shell" :class="{ 'viewing-conversation': !!currentId }">
     <aside class="rail" :class="{ dragging: !!dragging }">
-      <div class="brand">{{ t.appName }}</div>
+      <div class="brand-block">
+        <template v-if="session.org?.logo_url">
+          <img class="company-logo" :src="session.org.logo_url" :alt="session.org.site_name || 'Company logo'" draggable="false" />
+          <div class="brand by-flow">by {{ t.appName }}</div>
+        </template>
+        <div v-else class="brand">{{ t.appName }}</div>
+      </div>
       <nav aria-label="Mailboxes">
         <div class="section">Mailboxes</div>
         <button class="rail-item" :class="{ active: inbox.mailboxId === null }" @click="selectMailbox(null)">

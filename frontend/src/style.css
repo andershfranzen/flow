@@ -143,6 +143,10 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
   font-weight: 900; font-size: 24px; letter-spacing: -.02em;
 }
 .rail .brand::after { content: "."; color: var(--accent); }
+.brand, .company-logo { user-select: none; -webkit-user-select: none; cursor: default; }
+.brand-block { display: flex; flex-direction: column; align-items: flex-start; }
+.company-logo { max-height: 44px; max-width: 180px; margin: 0 0 2px 12px; object-fit: contain; }
+.brand.by-flow { font-size: 13px; padding: 0 12px 14px; }
 .rail nav { display: flex; flex-direction: column; }
 .rail .rail-item {
   display: flex; align-items: center; justify-content: space-between;
@@ -531,6 +535,8 @@ details.quoted { color: var(--muted); }
 .login-card h1 { font-size: 36px; font-weight: 900; }
 .login-card h1::after { content: "."; color: var(--accent); }
 .error-text { color: var(--danger); font-size: 13.5px; font-weight: 700; }
+.logo-row { display: flex; align-items: center; gap: 12px; }
+.logo-preview { max-height: 44px; max-width: 200px; object-fit: contain; }
 .hint-text { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
 .ok-text { color: var(--ok); font-size: 13.5px; font-weight: 700; }
 
@@ -581,6 +587,9 @@ input, select { min-width: 0; max-width: 100%; }
     border-bottom: 2px solid var(--border);
   }
   .rail .brand { padding: 0 10px 0 4px; font-size: 20px; }
+  .brand-block { flex-direction: row; align-items: center; flex: none; }
+  .company-logo { max-height: 26px; margin: 0 0 0 4px; }
+  .brand.by-flow { padding: 0 10px 0 6px; }
   .brand-row { padding-right: 0; }
   .brand-row .brand { padding-bottom: 0; }
   .notif-panel { width: auto; }

@@ -11,7 +11,16 @@ class Api::OrgSettingsController < Api::BaseController
                               :google_client_id, :google_client_secret)
     permitted.delete(:ms_client_secret) if permitted[:ms_client_secret].blank?
     permitted.delete(:google_client_secret) if permitted[:google_client_secret].blank?
-    OrgSetting.current.update!(permitted)
+    settings = OrgSetting.current
+    settings.update!(permitted)
+    if params[:logo].respond_to?(:content_type)
+      unless params[:logo].content_type.match?(%r{\Aimage/(png|jpeg|webp)\z}) && params[:logo].size <= 1.megabyte
+        return render json: { error: "invalid_logo", details: [ "PNG, JPEG or WebP up to 1 MB" ] },
+                      status: :unprocessable_entity
+      end
+      settings.logo.attach(params[:logo])
+    end
+    settings.logo.purge if params[:remove_logo].present?
     render json: settings_json
   end
 
@@ -20,7 +29,8 @@ class Api::OrgSettingsController < Api::BaseController
   def settings_json
     s = OrgSetting.current
     s.as_json(only: [ :site_name, :base_url, :notify_from, :default_signature, :ms_client_id, :ms_tenant, :google_client_id ])
-     .merge("ms_client_secret_set" => s.ms_client_secret.present?,
+     .merge("logo_url" => s.logo_url,
+            "ms_client_secret_set" => s.ms_client_secret.present?,
             "google_client_secret_set" => s.google_client_secret.present?,
             "microsoft_configured" => MailOauth.configured?("microsoft"),
             "google_configured" => MailOauth.configured?("google"))

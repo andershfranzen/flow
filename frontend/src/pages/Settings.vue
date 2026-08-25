@@ -89,6 +89,29 @@ watch(tab, load)
 function ok(msg = 'Saved') { flash.value = msg; setTimeout(() => (flash.value = ''), 2500) }
 
 async function saveOrg() { org.value = await api.patch('/api/org_settings', org.value); ok() }
+const logoError = ref('')
+const logoInput = ref(null)
+async function patchLogo(fd) {
+  logoError.value = ''
+  try {
+    org.value = await api.patch('/api/org_settings', fd)
+    if (session.org) session.org.logo_url = org.value.logo_url // rail updates live
+    ok()
+  } catch (e) { logoError.value = e.details?.[0] || e.message }
+}
+function uploadLogo(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  const fd = new FormData()
+  fd.append('logo', file)
+  patchLogo(fd)
+  e.target.value = ''
+}
+function removeLogo() {
+  const fd = new FormData()
+  fd.append('remove_logo', '1')
+  patchLogo(fd)
+}
 
 async function saveProfile() {
   await api.patch('/api/me', profile.value)
@@ -261,6 +284,18 @@ const NOTIFY_LABELS = {
         <div><label>Base URL</label><input v-model="org.base_url" placeholder="https://inbox.example.com" style="width:100%" /></div>
         <div><label>Notify from (email)</label><input v-model="org.notify_from" style="width:100%" /></div>
       </div>
+
+      <h3 style="margin-top:16px">Company logo</h3>
+      <p class="hint-text">Shown at the top of the sidebar for everyone, with a small "by Flow" underneath.
+        PNG, JPEG or WebP up to 1&nbsp;MB — a wide, transparent logo works best.</p>
+      <div class="logo-row">
+        <img v-if="org.logo_url" :src="org.logo_url" class="logo-preview" alt="Company logo" />
+        <input ref="logoInput" type="file" accept="image/png,image/jpeg,image/webp" @change="uploadLogo" hidden />
+        <button type="button" @click="logoInput?.click()">{{ org.logo_url ? 'Replace logo…' : 'Upload logo…' }}</button>
+        <button v-if="org.logo_url" type="button" class="ghost" @click="removeLogo">Remove</button>
+      </div>
+      <p v-if="logoError" class="error-text">{{ logoError }}</p>
+
       <h3 style="margin-top:16px">Company signature (all mailboxes)</h3>
       <p class="hint-text">Used when neither the agent nor the mailbox has its own signature.
         Leave every signature field empty if signatures are stamped centrally by your provider
