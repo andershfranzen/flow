@@ -1,10 +1,5 @@
-# In-process plugins: any plugins/*/plugin.rb is loaded at boot.
-# A plugin is ordinary Ruby — it can subscribe to DomainEvents, register MCP
-# tools via McpTools.register, and use every model and service in the app.
+# In-process plugins: enabled plugins/*/plugin.rb load at boot.
+# Managed from Settings -> Plugins; see docs/EXTENDING.md.
 Rails.application.config.after_initialize do
-  Dir[Rails.root.join("plugins/*/plugin.rb")].sort.each do |file|
-    require file
-  rescue StandardError => e
-    Rails.logger.error("plugin #{file} failed to load: #{e.class} #{e.message}")
-  end
+  PluginRegistry.load_enabled! if ActiveRecord::Base.connection.table_exists?("plugin_states") rescue nil
 end

@@ -75,8 +75,10 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
 - Signed webhooks on inbound/outbound mail, assignment, and status changes
 - An **MCP server** at `/mcp` (`search`, `get_thread`, `draft_reply`, `send`,
   `list_mailboxes`, `assign`) — bring your own model; core never calls an LLM
-- In-process plugins: drop a folder in `plugins/`, subscribe to domain
-  events, register MCP tools. See [docs/EXTENDING.md](docs/EXTENDING.md)
+- **In-process plugins, managed in the UI** (Settings → Plugins): install
+  from a git URL, enable/disable instantly, update, uninstall — with full
+  access to models, events, MCP tools, routes, and embeddable settings
+  pages. See [docs/EXTENDING.md](docs/EXTENDING.md)
 
 **Boring on purpose**
 - Rails 8 + SQLite + Solid Queue. One volume to back up. No Redis, no

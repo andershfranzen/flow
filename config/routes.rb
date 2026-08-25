@@ -41,6 +41,10 @@ Rails.application.routes.draw do
     delete "drafts/:id" => "drafts#destroy"
 
     resource :org_settings, only: [ :show, :update ]
+    resources :plugins, only: [ :index, :update, :destroy ], constraints: { id: /[\w.-]+/ } do
+      collection { post :install }
+      member { post :upgrade }
+    end
     post "oauth/:provider/start" => "oauth#start"
   end
 

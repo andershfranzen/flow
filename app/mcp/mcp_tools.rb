@@ -131,10 +131,18 @@ module McpTools
     end
   end
 
-  @registry = [ Search, GetThread, DraftReply, Send, ListMailboxes, Assign ]
+  @registry = [ Search, GetThread, DraftReply, Send, ListMailboxes, Assign ].map { |t| { tool: t, plugin: nil } }
 
   # Plugins add tools with McpTools.register(MyTool) — see docs/EXTENDING.md.
-  def self.register(tool) = @registry |= [ tool ]
-  def self.unregister(tool) = @registry.delete(tool)
-  def self.all = @registry.dup
+  # Tools registered while a plugin loads are tagged with it and disappear
+  # from the server when the plugin is disabled.
+  def self.register(tool)
+    @registry << { tool: tool, plugin: PluginRegistry.loading } unless @registry.any? { |e| e[:tool] == tool }
+  end
+
+  def self.unregister(tool) = @registry.reject! { |e| e[:tool] == tool }
+
+  def self.all
+    @registry.select { |e| PluginRegistry.enabled?(e[:plugin]) }.map { |e| e[:tool] }
+  end
 end

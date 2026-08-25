@@ -43,8 +43,29 @@ Point any MCP client at it; the client brings the LLM — core never calls one.
 
 ## 3. In-process plugins (Ruby, full access)
 
-Drop a directory in `plugins/` with a `plugin.rb`; it loads at boot with full
-access to models, services, and jobs. The two stable hook points:
+Plugins are managed from **Settings → Plugins**: install from a git URL
+(`https://…/your-plugin.git`), enable/disable with a toggle, update
+(`git pull`), and uninstall — WordPress-style, but distribution is any git
+host instead of a marketplace. A plugin is a directory containing:
+
+- `plugin.rb` — the entry point, plain Ruby with full access to models,
+  services, and jobs
+- `plugin.json` — optional manifest: `{"name", "version", "description",
+  "author", "url", "settings_path"}`
+
+Hooks registered through `DomainEvents.subscribe` and `McpTools.register`
+are tagged with the owning plugin, so disabling it silences them instantly.
+Ruby cannot unload classes, so fully removing code takes a restart (the UI
+says so). A plugin that raises at load shows its error on the Plugins page
+instead of breaking Flow.
+
+Deep integration is just Rails: a plugin can define models, enqueue jobs,
+add routes (`Rails.application.routes.append`), and serve its own pages —
+declare `"settings_path": "/plugins/yourname"` in the manifest and the page
+is embedded in Flow''s Settings UI. A complete example lives in
+[`examples/auto_tagger`](../examples/auto_tagger).
+
+The two stable hook points:
 
 ```ruby
 # plugins/auto_tagger/plugin.rb

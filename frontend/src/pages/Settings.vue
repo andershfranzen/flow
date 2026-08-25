@@ -11,7 +11,7 @@ const session = useSession()
 
 const TABS = computed(() => {
   const base = [['profile', 'My profile'], ['saved_replies', 'Saved replies'], ['tags', 'Tags'], ['tokens', 'API tokens']]
-  const admin = [['org', 'Organisation'], ['agents', 'Agents'], ['mailboxes', 'Mailboxes'], ['webhooks', 'Webhooks']]
+  const admin = [['org', 'Organisation'], ['agents', 'Agents'], ['mailboxes', 'Mailboxes'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']]
   return session.isAdmin ? [...admin, ...base] : base
 })
 const tab = computed(() => props.tab || (session.isAdmin ? 'org' : 'profile'))
@@ -29,6 +29,11 @@ const newToken = ref(null)
 const testResult = ref(null)
 
 const profile = ref({ name: '', password: '', notify_prefs: {}, muted_mailbox_ids: [] })
+const plugins = ref([])
+const restartHint = ref('')
+const installUrl = ref('')
+const openSettingsFor = ref(null)
+const pluginBusy = ref(false)
 
 async function load() {
   flash.value = ''
@@ -45,6 +50,11 @@ async function load() {
   }
   if (tab.value === 'tags') tags.value = await api.get('/api/tags')
   if (tab.value === 'webhooks' && session.isAdmin) webhooks.value = await api.get('/api/webhooks')
+  if (tab.value === 'plugins' && session.isAdmin) {
+    const data = await api.get('/api/plugins')
+    plugins.value = data.plugins
+    restartHint.value = data.restart_hint
+  }
   if (tab.value === 'tokens') tokens.value = await api.get('/api/api_tokens')
   if (tab.value === 'profile') {
     const me = await api.get('/api/me')
@@ -141,6 +151,36 @@ async function createToken() {
   await load()
 }
 async function del(path) { await api.delete(path); await load() }
+
+async function togglePlugin(p) {
+  const data = await api.patch(`/api/plugins/${p.name}`, { enabled: !p.enabled })
+  plugins.value = data.plugins
+}
+
+async function installPlugin() {
+  pluginBusy.value = true
+  try {
+    const data = await api.post('/api/plugins/install', { git_url: installUrl.value.trim() })
+    plugins.value = data.plugins
+    installUrl.value = ''
+    ok('Installed')
+  } catch (e) {
+    flash.value = e.details?.[0] || `Install failed: ${e.message}`
+  } finally {
+    pluginBusy.value = false
+  }
+}
+
+async function upgradePlugin(p) {
+  const data = await api.post(`/api/plugins/${p.name}/upgrade`)
+  ok(data.ok ? `Updated: ${data.output} — restart to apply` : `Update failed: ${data.output}`)
+}
+
+async function removePlugin(p) {
+  if (!confirm(`Uninstall plugin "${p.name}"? Its files are deleted.`)) return
+  const data = await api.delete(`/api/plugins/${p.name}`)
+  plugins.value = data.plugins
+}
 
 const WEBHOOK_EVENTS = ['thread.created', 'message.inbound', 'message.outbound', 'thread.assigned', 'thread.status']
 const NOTIFY_LABELS = {
@@ -303,6 +343,42 @@ const NOTIFY_LABELS = {
           </span>
         </div>
       </form>
+    </div>
+
+    <!-- Plugins -->
+    <div v-if="tab === 'plugins'">
+      <form class="card" @submit.prevent="installPlugin" style="display:flex; gap:8px; align-items:end">
+        <div style="flex:1">
+          <label>Install from git URL</label>
+          <input v-model="installUrl" required placeholder="https://github.com/someone/flow-plugin-example.git" style="width:100%" />
+        </div>
+        <button class="primary" :disabled="pluginBusy">Install</button>
+      </form>
+      <p class="hint-text">{{ restartHint }} Plugins run with full access to Flow — install only code you trust.
+        <a href="https://github.com/andershfranzen/flow/blob/main/docs/EXTENDING.md" target="_blank" rel="noopener">Write your own →</a></p>
+      <div v-for="p in plugins" :key="p.name" class="card">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+          <strong style="font-size:15px">{{ p.name }}</strong>
+          <span v-if="p.version" class="pill">v{{ p.version }}</span>
+          <span v-if="p.error || p.manifest_error" class="pill bounce" :title="p.error || p.manifest_error">error</span>
+          <span v-else-if="p.loaded" class="pill status-active">active</span>
+          <span v-else-if="p.enabled" class="pill status-pending">loads on restart</span>
+          <span class="spacer" style="flex:1"></span>
+          <button v-if="p.settings_path" class="ghost" @click="openSettingsFor = openSettingsFor === p.name ? null : p.name">Settings</button>
+          <button v-if="p.git" class="ghost" @click="upgradePlugin(p)">Update</button>
+          <button class="ghost" @click="removePlugin(p)">Uninstall</button>
+          <label class="choice" style="margin:0">
+            <input type="checkbox" :checked="p.enabled" @change="togglePlugin(p)" /> Enabled
+          </label>
+        </div>
+        <p v-if="p.description" style="margin:6px 0 0; color:var(--muted)">{{ p.description }}
+          <span v-if="p.author"> — {{ p.author }}</span>
+          <a v-if="p.url" :href="p.url" target="_blank" rel="noopener">↗</a></p>
+        <p v-if="p.error || p.manifest_error" class="error-text" style="margin:6px 0 0">{{ p.error || p.manifest_error }}</p>
+        <iframe v-if="openSettingsFor === p.name && p.settings_path" :src="p.settings_path"
+                style="width:100%; height:420px; border:2px solid var(--border); border-radius:10px; margin-top:10px"></iframe>
+      </div>
+      <p v-if="!plugins.length" class="empty">No plugins installed yet.</p>
     </div>
 
     <!-- Profile -->

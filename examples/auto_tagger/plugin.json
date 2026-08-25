@@ -1,0 +1,7 @@
+{
+  "name": "auto_tagger",
+  "version": "1.0.0",
+  "description": "Tags new conversations by subject keywords (billing, urgent). Copy to plugins/ or push to a git repo and install from Settings → Plugins.",
+  "author": "Flow examples",
+  "url": "https://github.com/andershfranzen/flow"
+}
