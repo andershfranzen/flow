@@ -8,7 +8,7 @@ import { t } from '../strings'
 import Composer from './Composer.vue'
 import { avatarColor, initials } from '../avatar'
 import Attachments from './Attachments.vue'
-import { ArrowLeft, Star, PanelRight, ChevronsRight, Ellipsis, Eye } from 'lucide-vue-next'
+import { ArrowLeft, Star, PanelRight, ChevronsRight, Ellipsis, Eye, Building2, Phone, MapPin, ExternalLink } from 'lucide-vue-next'
 import StyledSelect from './StyledSelect.vue'
 import { shortTime, fullTime } from '../format'
 
@@ -82,6 +82,22 @@ async function loadCustomer() {
   customerDetail.value = await api.get(`/api/customers/${conv.value.customer.id}`)
 }
 watch(() => conv.value?.customer?.id, (id) => { if (id) loadCustomer() }, { immediate: true })
+
+// Dynamics 365 lookup for the Insights bar (only when the org has CRM on).
+const crm = ref(null)
+const crmLoading = ref(false)
+watch(() => conv.value?.customer?.email, async (email) => {
+  crm.value = null
+  if (!email || !session.org?.crm_enabled) return
+  crmLoading.value = true
+  try {
+    crm.value = await api.get(`/api/crm/lookup?${new URLSearchParams({ email })}`)
+  } catch {
+    crm.value = { configured: true, error: 'lookup failed' }
+  } finally {
+    crmLoading.value = false
+  }
+}, { immediate: true })
 
 function startEditCustomer() {
   const c = customerDetail.value || conv.value.customer
@@ -351,12 +367,39 @@ function eventText(e) {
             </div>
           </template>
           <template v-else-if="customerDetail">
-            <div v-if="customerDetail.company" style="font-size:13px; margin-top:6px">🏢 {{ customerDetail.company }}</div>
-            <div v-if="(customerDetail.phones || []).length" style="font-size:13px">📞 {{ customerDetail.phones.join(', ') }}</div>
+            <div v-if="customerDetail.company" class="fact-line"><Building2 :size="13" /> {{ customerDetail.company }}</div>
+            <div v-if="(customerDetail.phones || []).length" class="fact-line"><Phone :size="13" /> {{ customerDetail.phones.join(', ') }}</div>
             <div v-if="(customerDetail.emails || []).length" style="font-size:12px; color:var(--muted)">also: {{ customerDetail.emails.join(', ') }}</div>
             <div v-if="customerDetail.notes" style="font-size:13px; color:var(--muted); margin-top:4px; white-space:pre-wrap">{{ customerDetail.notes }}</div>
           </template>
           <button class="ghost" style="margin-top:8px; padding:2px 8px; font-size:12px" @click="mergeCustomer">{{ t.mergeCustomer }}</button>
+        </div>
+        <div v-if="session.org?.crm_enabled" class="card">
+          <h3 style="display:flex; justify-content:space-between; align-items:center">
+            Dynamics 365
+            <a v-if="crm?.contact?.url || crm?.account?.url" class="ghost crm-open"
+               :href="crm.contact?.url || crm.account?.url" target="_blank" rel="noopener"
+               data-tip="Open in Dynamics"><ExternalLink :size="13" /></a>
+          </h3>
+          <div v-if="crmLoading" class="hint-text" style="margin:0">Looking up…</div>
+          <template v-else-if="crm?.contact || crm?.account">
+            <div v-if="crm.contact" style="margin-bottom:6px">
+              <div style="font-weight:700">{{ crm.contact.name }}</div>
+              <div v-if="crm.contact.title" class="fact-line muted">{{ crm.contact.title }}</div>
+              <div v-if="crm.contact.phone || crm.contact.mobile" class="fact-line">
+                <Phone :size="13" /> {{ [crm.contact.phone, crm.contact.mobile].filter(Boolean).join(' · ') }}</div>
+              <div v-if="crm.contact.city || crm.contact.country" class="fact-line muted">
+                <MapPin :size="13" /> {{ [crm.contact.city, crm.contact.country].filter(Boolean).join(', ') }}</div>
+            </div>
+            <div v-if="crm.account">
+              <div class="fact-line"><Building2 :size="13" /> <strong>{{ crm.account.name }}</strong></div>
+              <div v-if="crm.account.phone" class="fact-line"><Phone :size="13" /> {{ crm.account.phone }}</div>
+              <div v-if="crm.account.website" class="fact-line muted">
+                <a :href="crm.account.website" target="_blank" rel="noopener">{{ crm.account.website.replace(/^https?:\/\//, '') }}</a></div>
+            </div>
+          </template>
+          <div v-else-if="crm?.error" class="hint-text" style="margin:0">CRM lookup failed — check Settings → Organisation.</div>
+          <div v-else class="hint-text" style="margin:0">No CRM match for {{ conv.customer.email }}</div>
         </div>
         <div v-if="(customerDetail?.conversations || []).filter((c) => c.id !== conv.id).length" class="card">
           <h3>{{ t.previousConversations }}</h3>

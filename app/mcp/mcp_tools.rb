@@ -419,7 +419,7 @@ module McpTools
 
     FIELDS = %w[site_name base_url notify_from default_signature ms_client_id ms_client_secret
                 ms_tenant google_client_id google_client_secret ms_sso_enabled
-                sso_auto_provision sso_allowed_domains].freeze
+                sso_auto_provision sso_allowed_domains crm_enabled crm_url].freeze
 
     def self.call(attributes:, server_context:)
       require_admin!(server_context)
@@ -463,6 +463,18 @@ module McpTools
     end
   end
 
+  class CrmLookup < MCP::Tool
+    extend Helpers
+    tool_name "crm_lookup"
+    description "Look up a person and their company in Microsoft Dynamics 365 CRM by email address."
+    input_schema(properties: { email: { type: "string" } }, required: [ "email" ])
+
+    def self.call(email:, server_context:)
+      return text_response({ configured: false }) unless Crm.configured?
+      text_response(Crm.lookup(email) || {})
+    end
+  end
+
   class Report < MCP::Tool
     extend Helpers
     tool_name "report"
@@ -480,7 +492,7 @@ module McpTools
                 ListAgents, SaveAgent, SaveMailbox, TestMailbox, SaveTeam, SaveTag,
                 SaveSavedReply, ListWebhooks, SaveWebhook, ListWorkflows, SaveWorkflow,
                 GetOrgSettings, UpdateOrgSettings, ListPlugins, SetPluginEnabled,
-                Report ].map { |t| { tool: t, plugin: nil } }
+                CrmLookup, Report ].map { |t| { tool: t, plugin: nil } }
 
   # Plugins add tools with McpTools.register(MyTool) — see docs/EXTENDING.md.
   # Tools registered while a plugin loads are tagged with it and disappear

@@ -413,6 +413,17 @@ const NOTIFY_LABELS = {
         the full setup for you. Access always follows the token's scope and the agent's role.</p>
       <label class="choice"><input type="checkbox" v-model="org.mcp_enabled" /> Enable the MCP endpoint</label>
 
+      <h3 style="margin-top:16px">Microsoft Dynamics 365 CRM</h3>
+      <p class="hint-text">Shows the customer's CRM contact and company in the Insights sidebar.
+        Uses the Entra app above with a client-credentials login, so the tenant must be your real tenant ID
+        (not "common") and Dynamics needs an <em>application user</em> for the app with read access to
+        contacts and accounts.</p>
+      <label class="choice"><input type="checkbox" v-model="org.crm_enabled" /> Enable Dynamics 365 lookups</label>
+      <div class="form-grid">
+        <div><label>Dynamics org URL</label>
+          <input v-model="org.crm_url" placeholder="https://yourorg.crm4.dynamics.com" style="width:100%" /></div>
+      </div>
+
       <h3 style="margin-top:16px">Google OAuth app</h3>
       <p class="hint-text">Google Cloud OAuth client (web), scope <code>https://mail.google.com/</code>, same redirect URI.</p>
       <div class="form-grid">

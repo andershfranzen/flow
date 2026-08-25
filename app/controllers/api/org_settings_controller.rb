@@ -8,7 +8,7 @@ class Api::OrgSettingsController < Api::BaseController
   def update
     permitted = params.permit(:site_name, :base_url, :notify_from, :default_signature,
                               :ms_client_id, :ms_client_secret, :ms_tenant,
-                              :ms_sso_enabled, :sso_auto_provision, :sso_allowed_domains, :mcp_enabled,
+                              :ms_sso_enabled, :sso_auto_provision, :sso_allowed_domains, :mcp_enabled, :crm_enabled, :crm_url,
                               :google_client_id, :google_client_secret)
     permitted.delete(:ms_client_secret) if permitted[:ms_client_secret].blank?
     permitted.delete(:google_client_secret) if permitted[:google_client_secret].blank?
@@ -35,7 +35,7 @@ class Api::OrgSettingsController < Api::BaseController
   def settings_json
     s = OrgSetting.current
     s.as_json(only: [ :site_name, :base_url, :notify_from, :default_signature, :ms_client_id, :ms_tenant, :google_client_id,
-                      :ms_sso_enabled, :sso_auto_provision, :sso_allowed_domains, :mcp_enabled ])
+                      :ms_sso_enabled, :sso_auto_provision, :sso_allowed_domains, :mcp_enabled, :crm_enabled, :crm_url ])
      .merge("logo_url" => s.logo_url,
             "theme" => s.theme || {},
             "ms_client_secret_set" => s.ms_client_secret.present?,

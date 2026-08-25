@@ -598,6 +598,14 @@ details.quoted { color: var(--muted); }
 .cp-preview { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .cp-chip { width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--border); }
 
+/* Insights fact rows (customer + CRM cards) */
+.fact-line { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 3px; min-width: 0; }
+.fact-line.muted { color: var(--muted); }
+.fact-line svg { flex: none; color: var(--muted); }
+.fact-line a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.crm-open { display: inline-flex; padding: 2px 8px; color: var(--muted); border-radius: 999px; }
+a.crm-open:hover { color: var(--text); background: var(--panel-deep); }
+
 /* Styled select: pill trigger + popover listbox */
 .sel { position: relative; display: inline-block; min-width: 120px; }
 .sel-button {

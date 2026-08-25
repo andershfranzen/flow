@@ -38,6 +38,7 @@ Rails.application.routes.draw do
       member { post :merge }
     end
     resources :teams, only: [ :index, :create, :update, :destroy ]
+    get "crm/lookup" => "crm#lookup"
     resources :tags, only: [ :index, :create, :update, :destroy ]
     resources :saved_replies, only: [ :index, :create, :update, :destroy ] do
       member { get :render, action: :render_body }

@@ -156,3 +156,17 @@ still archives attachments.
 - Measured at 50,000 conversations / 125,000 messages on SQLite: conversation
   lists 3-13 ms, folder counts 4 ms, full-text search 9-16 ms, the reports page
   ~190 ms. No configuration needed at this scale.
+
+## Microsoft Dynamics 365 CRM
+
+Settings -> Organisation -> "Microsoft Dynamics 365 CRM": enable the toggle and
+enter your org URL (e.g. `https://yourorg.crm4.dynamics.com`). Flow authenticates
+with the same Entra app via client credentials, so:
+
+1. The tenant field must be your real tenant ID (not "common").
+2. In the Power Platform admin center, create an **application user** for the
+   app registration with a role that can read contacts and accounts.
+
+The Insights sidebar then shows the customer's CRM contact (title, phones,
+location) and their company, with a link into Dynamics. Lookups are cached for
+10 minutes; agents can also query it through the MCP `crm_lookup` tool.

@@ -53,6 +53,7 @@ class Api::SessionsController < Api::BaseController
       org: { default_signature: OrgSetting.current.default_signature,
              site_name: OrgSetting.current.site_name,
              logo_url: OrgSetting.current.logo_url,
-             theme: OrgSetting.current.theme || {} } }
+             theme: OrgSetting.current.theme || {},
+             crm_enabled: Crm.configured? } }
   end
 end
