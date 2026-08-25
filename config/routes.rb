@@ -58,7 +58,7 @@ Rails.application.routes.draw do
     patch "workflows/reorder" => "workflows#reorder"
     resources :workflows, only: [ :index, :create, :update, :destroy ]
     resources :plugins, only: [ :index, :update, :destroy ], constraints: { id: /[\w.-]+/ } do
-      collection { post :install }
+      collection { post :install; post :install_zip }
       member { post :upgrade }
     end
     post "oauth/:provider/start" => "oauth#start"

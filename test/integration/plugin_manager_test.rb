@@ -31,6 +31,87 @@ class PluginManagerTest < ActionDispatch::IntegrationTest
     File.write(dir.join("plugin.json"), manifest.to_json)
   end
 
+  def make_zip(entries)
+    buffer = Zip::OutputStream.write_buffer do |out|
+      entries.each { |name, content| out.put_next_entry(name); out.write(content) }
+    end
+    file = Tempfile.new([ "plugin", ".zip" ])
+    file.binmode
+    file.write(buffer.string)
+    file.rewind
+    file
+  end
+
+  def upload(zipfile, filename: "my_zip_plugin.zip")
+    post "/api/plugins/install_zip",
+         params: { file: Rack::Test::UploadedFile.new(zipfile.path, "application/zip",
+                                                      original_filename: filename) }
+  end
+
+  test "zip install: wrapped folder, flat zip, replace, and rejects" do
+    # WordPress-style: one top-level folder becomes the plugin name
+    upload(make_zip("zippy/plugin.rb" => "ZIPPY_LOADED = 1",
+                    "zippy/plugin.json" => { version: "2.0" }.to_json))
+    assert_response :created
+    names = response.parsed_body["plugins"].map { |p| p["name"] }
+    assert_includes names, "zippy"
+    assert File.exist?(@tmp.join("zippy", "plugin.rb"))
+
+    # flat zip installs under the zip's own name
+    upload(make_zip("plugin.rb" => "FLAT_OK = 1"))
+    assert_response :created
+    assert File.exist?(@tmp.join("my_zip_plugin", "plugin.rb"))
+
+    # re-upload replaces the previous zip install (old files gone)
+    File.write(@tmp.join("zippy", "stale.txt"), "old")
+    upload(make_zip("zippy/plugin.rb" => "ZIPPY_V2 = 1"))
+    assert_response :created
+    refute File.exist?(@tmp.join("zippy", "stale.txt")), "replace wipes old files"
+
+    # no plugin.rb → rejected
+    upload(make_zip("zippy2/readme.md" => "hi"))
+    assert_response :unprocessable_entity
+    assert_equal "not_a_plugin", response.parsed_body["error"]
+  end
+
+  test "zip install blocks zip-slip and git collisions" do
+    upload(make_zip("evil/plugin.rb" => "ok", "evil/../../escape.rb" => "pwn"))
+    assert_response :unprocessable_entity
+    refute File.exist?(@tmp.parent.join("escape.rb")), "zip-slip must not write outside plugins/"
+    refute File.exist?(@tmp.join("escape.rb"))
+
+    write_plugin("gitty", "GITTY = 1")
+    FileUtils.mkdir_p(@tmp.join("gitty", ".git"))
+    upload(make_zip("gitty/plugin.rb" => "GITTY2 = 1"))
+    assert_response :unprocessable_entity
+    assert_equal "installed_from_git", response.parsed_body["error"]
+  end
+
+  test "declared plugin settings save, filter, and mask secrets" do
+    write_plugin("cfg", "CFG = 1", manifest: {
+      "version" => "1.0", "description" => "cfg",
+      "settings" => [ { "key" => "url", "label" => "URL" },
+                      { "key" => "api_key", "label" => "Key", "type" => "password" } ] })
+
+    patch "/api/plugins/cfg", params: { settings: { url: "https://dgw.example", api_key: "s3cret", junk: "no" } }
+    assert_response :success
+    plugin = response.parsed_body["plugins"].find { |p| p["name"] == "cfg" }
+    assert_equal "https://dgw.example", plugin.dig("settings", "url")
+    assert plugin.dig("settings", "api_key_set")
+    assert_nil plugin.dig("settings", "api_key"), "secret never echoed"
+    assert_nil plugin.dig("settings", "junk"), "undeclared keys dropped"
+    assert_equal({ "url" => "https://dgw.example", "api_key" => "s3cret" }, PluginState.settings_for("cfg"))
+
+    # blank password keeps the stored secret; text fields update
+    patch "/api/plugins/cfg", params: { settings: { url: "https://new.example", api_key: "" } }
+    assert_equal "s3cret", PluginState.settings_for("cfg")["api_key"]
+    assert_equal "https://new.example", PluginState.settings_for("cfg")["url"]
+
+    # stored encrypted at rest
+    raw = PluginState.connection.select_value("SELECT settings FROM plugin_states WHERE name = 'cfg'")
+    refute_includes raw.to_s, "s3cret"
+  end
+
   test "discovery lists plugins with manifest data" do
     get "/api/plugins"
     plugin = response.parsed_body["plugins"].first

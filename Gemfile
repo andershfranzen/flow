@@ -54,6 +54,9 @@ group :postgres, optional: true do
 end
 gem "rqrcode"
 
+# Plugin .zip install/extraction (Settings -> Plugins)
+gem "rubyzip", require: "zip"
+
 # Optional error tracking — active only when SENTRY_DSN is set (docs/OPERATIONS.md)
 gem "sentry-ruby"
 gem "sentry-rails"

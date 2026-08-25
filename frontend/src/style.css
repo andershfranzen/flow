@@ -598,6 +598,12 @@ details.quoted { color: var(--muted); }
 .cp-preview { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .cp-chip { width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--border); }
 
+.plugin-settings {
+  margin-top: 12px; padding: 14px; background: var(--panel-deep);
+  border-radius: var(--radius-sm); max-width: 520px;
+}
+.plugin-settings input { background: #fff; }
+
 /* Insights fact rows (customer + CRM cards) */
 .fact-line { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 3px; min-width: 0; }
 .fact-line.muted { color: var(--muted); }

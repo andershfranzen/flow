@@ -80,7 +80,7 @@ class PluginRegistry
     def read_manifest(dir)
       path = File.join(dir, "plugin.json")
       return {} unless File.exist?(path)
-      JSON.parse(File.read(path)).slice("name", "version", "description", "author", "url", "settings_path")
+      JSON.parse(File.read(path)).slice("name", "version", "description", "author", "url", "settings_path", "settings")
     rescue JSON::ParserError => e
       { "error" => "invalid plugin.json: #{e.message}" }
     end

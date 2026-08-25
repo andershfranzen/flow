@@ -51,6 +51,7 @@ const restartHint = ref('')
 const installUrl = ref('')
 const openSettingsFor = ref(null)
 const pluginBusy = ref(false)
+const zipInput = ref(null)
 const otp = ref({ setup: null, code: '', enabled: false })
 const TIMEZONES = Intl.supportedValuesOf('timeZone')
 
@@ -271,6 +272,40 @@ async function del(path) { await api.delete(path); await load() }
 async function togglePlugin(p) {
   const data = await api.patch(`/api/plugins/${p.name}`, { enabled: !p.enabled })
   plugins.value = data.plugins
+}
+
+const pluginSettingsForm = ref({})
+function toggleSettingsFor(p) {
+  if (openSettingsFor.value === p.name) { openSettingsFor.value = null; return }
+  openSettingsFor.value = p.name
+  pluginSettingsForm.value = Object.fromEntries(
+    (p.settings_spec || []).map((f) => [f.key, f.type === 'password' ? '' : (p.settings?.[f.key] ?? '')]))
+}
+async function savePluginSettings(p) {
+  const data = await api.patch(`/api/plugins/${p.name}`, { settings: pluginSettingsForm.value })
+  plugins.value = data.plugins
+  const fresh = data.plugins.find((x) => x.name === p.name)
+  pluginSettingsForm.value = Object.fromEntries(
+    (fresh?.settings_spec || []).map((f) => [f.key, f.type === 'password' ? '' : (fresh.settings?.[f.key] ?? '')]))
+  ok()
+}
+
+async function installZip(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  pluginBusy.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const data = await api.post('/api/plugins/install_zip', fd)
+    plugins.value = data.plugins
+    ok('Installed')
+  } catch (err) {
+    flash.value = err.details?.[0] || `Install failed: ${err.message}`
+  } finally {
+    pluginBusy.value = false
+  }
 }
 
 async function installPlugin() {
@@ -598,12 +633,15 @@ const NOTIFY_LABELS = {
 
     <!-- Plugins -->
     <div v-if="tab === 'plugins'">
-      <form class="card" @submit.prevent="installPlugin" style="display:flex; gap:8px; align-items:end">
-        <div style="flex:1">
+      <form class="card" @submit.prevent="installPlugin" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap">
+        <div style="flex:1; min-width:240px">
           <label>Install from git URL</label>
           <input v-model="installUrl" required placeholder="https://github.com/someone/flow-plugin-example.git" style="width:100%" />
         </div>
         <button class="primary" :disabled="pluginBusy">Install</button>
+        <input ref="zipInput" type="file" accept=".zip,application/zip" hidden @change="installZip" />
+        <button type="button" :disabled="pluginBusy" @click="zipInput?.click()"
+                data-tip="Upload a plugin as a .zip — WordPress-style">Upload .zip…</button>
       </form>
       <p class="hint-text">{{ restartHint }} Plugins run with full access to Flow — install only code you trust.
         <a href="https://github.com/andershfranzen/flow/blob/main/docs/EXTENDING.md" target="_blank" rel="noopener">Write your own →</a></p>
@@ -615,7 +653,8 @@ const NOTIFY_LABELS = {
           <span v-else-if="p.loaded" class="pill status-active">active</span>
           <span v-else-if="p.enabled" class="pill status-pending">loads on restart</span>
           <span class="spacer" style="flex:1"></span>
-          <button v-if="p.settings_path" class="ghost" @click="openSettingsFor = openSettingsFor === p.name ? null : p.name">Settings</button>
+          <button v-if="p.settings_path || p.settings_spec?.length" class="ghost"
+                  @click="toggleSettingsFor(p)">Settings</button>
           <button v-if="p.git" class="ghost" @click="upgradePlugin(p)">Update</button>
           <button class="ghost" @click="removePlugin(p)">Uninstall</button>
           <label class="choice" style="margin:0">
@@ -626,6 +665,18 @@ const NOTIFY_LABELS = {
           <span v-if="p.author"> — {{ p.author }}</span>
           <a v-if="p.url" :href="p.url" target="_blank" rel="noopener" style="display:inline-flex"><ExternalLink :size="12" /></a></p>
         <p v-if="p.error || p.manifest_error" class="error-text" style="margin:6px 0 0">{{ p.error || p.manifest_error }}</p>
+        <form v-if="openSettingsFor === p.name && p.settings_spec?.length" class="plugin-settings"
+              @submit.prevent="savePluginSettings(p)">
+          <div v-for="f in p.settings_spec" :key="f.key" style="margin-bottom:10px">
+            <label>{{ f.label || f.key }}
+              <span v-if="f.type === 'password' && p.settings?.[f.key + '_set']"
+                    style="text-transform:none; letter-spacing:0"> (set — blank keeps it)</span></label>
+            <input v-model="pluginSettingsForm[f.key]" :type="f.type === 'password' ? 'password' : 'text'"
+                   :placeholder="f.placeholder || ''" autocomplete="off" style="width:100%" />
+            <p v-if="f.hint" class="hint-text" style="margin:3px 0 0; font-size:12.5px">{{ f.hint }}</p>
+          </div>
+          <SaveButton :saved="justSaved" />
+        </form>
         <iframe v-if="openSettingsFor === p.name && p.settings_path" :src="p.settings_path"
                 style="width:100%; height:420px; border:2px solid var(--border); border-radius:10px; margin-top:10px"></iframe>
       </div>

@@ -60,13 +60,33 @@ host instead of a marketplace. A plugin is a directory containing:
 - `plugin.rb` — the entry point, plain Ruby with full access to models,
   services, and jobs
 - `plugin.json` — optional manifest: `{"name", "version", "description",
-  "author", "url", "settings_path"}`
+  "author", "url", "settings_path", "settings"}`
 
 Hooks registered through `DomainEvents.subscribe` and `McpTools.register`
 are tagged with the owning plugin, so disabling it silences them instantly.
 Ruby cannot unload classes, so fully removing code takes a restart (the UI
 says so). A plugin that raises at load shows its error on the Plugins page
 instead of breaking Flow.
+
+**Plugin settings.** Declare fields in the manifest and Flow renders a form on
+the Plugins page, stores the values encrypted, and hands them back via
+`PluginState.settings_for("your-plugin")`:
+
+```json
+"settings": [
+  { "key": "api_url", "label": "API URL", "placeholder": "https://…" },
+  { "key": "api_key", "label": "API key", "type": "password",
+    "hint": "Stored encrypted; blank keeps the current value." }
+]
+```
+
+`type: "password"` fields are never echoed back to the browser — the form
+shows a set/unset flag and a blank submit keeps the stored secret.
+
+**Install options.** Besides a git URL, admins can upload a plugin as a
+**.zip** (WordPress-style): one wrapping folder becomes the plugin directory,
+re-uploading replaces a previous zip install, and git installs keep using
+Update/`git pull`.
 
 Deep integration is just Rails: a plugin can define models, enqueue jobs,
 add routes (`Rails.application.routes.append`), and serve its own pages —

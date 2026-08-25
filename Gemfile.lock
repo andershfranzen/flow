@@ -350,6 +350,7 @@ DEPENDENCIES
   puma (>= 5.0)
   rails (~> 8.1.3, >= 8.1.3.1)
   rqrcode
+  rubyzip
   selenium-webdriver
   sentry-rails
   sentry-ruby
