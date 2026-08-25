@@ -63,5 +63,8 @@ Rails.application.routes.draw do
 
   # SPA fallback: anything that isn't API/rails/mcp gets the Vue app (H18).
   get "*path", to: "spa#index",
-    constraints: ->(req) { !req.path.start_with?("/api", "/rails", "/mcp", "/up", "/health", "/oauth") && req.format.html? }
+    constraints: ->(req) {
+      !req.path.start_with?("/api", "/rails", "/mcp", "/up", "/health", "/oauth") &&
+        (req.format.nil? || req.format.html? || req.headers["Accept"].to_s.include?("*/*"))
+    }
 end
