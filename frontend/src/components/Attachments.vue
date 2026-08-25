@@ -3,6 +3,7 @@
 import { ref, computed } from 'vue'
 import { formatBytes } from '../format'
 import PreviewOverlay from './PreviewOverlay.vue'
+import { Image, FileText, Music, Film, FileSpreadsheet, Archive, Paperclip } from 'lucide-vue-next'
 
 const props = defineProps({ attachments: { type: Array, required: true } })
 
@@ -23,16 +24,16 @@ function kind(a) {
 
 function icon(a) {
   const k = kind(a)
-  if (k === 'image') return '🖼'
-  if (k === 'pdf') return '📕'
-  if (k === 'audio') return '🎵'
-  if (k === 'video') return '🎬'
-  if (k === 'text') return '📄'
+  if (k === 'image') return Image
+  if (k === 'pdf') return FileText
+  if (k === 'audio') return Music
+  if (k === 'video') return Film
+  if (k === 'text') return FileText
   const ext = extension(a)
-  if (/^(xls|xlsx|csv|numbers)$/.test(ext)) return '📊'
-  if (/^(doc|docx|odt|pages)$/.test(ext)) return '📝'
-  if (/^(zip|gz|tar|rar|7z)$/.test(ext)) return '🗜'
-  return '📎'
+  if (/^(xls|xlsx|csv|numbers)$/.test(ext)) return FileSpreadsheet
+  if (/^(doc|docx|odt|pages)$/.test(ext)) return FileText
+  if (/^(zip|gz|tar|rar|7z)$/.test(ext)) return Archive
+  return Paperclip
 }
 
 function extension(a) {
@@ -61,7 +62,7 @@ async function open(a) {
       <span v-if="kind(a) === 'image' && !broken[a.id]" class="att-thumb">
         <img :src="a.url" :alt="''" loading="lazy" @error="broken[a.id] = true" />
       </span>
-      <span v-else class="att-icon">{{ icon(a) }}</span>
+      <span v-else class="att-icon"><component :is="icon(a)" :size="17" /></span>
       <span class="att-meta">
         <span class="att-name">{{ a.filename }}</span>
         <span class="att-info">{{ extension(a).toUpperCase() }} · {{ formatBytes(a.byte_size) }}</span>

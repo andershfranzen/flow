@@ -10,6 +10,7 @@ import ThreadPane from '../components/ThreadPane.vue'
 import NewConversationModal from '../components/NewConversationModal.vue'
 import { avatarColor, initials } from '../avatar'
 import { shortTime } from '../format'
+import { Bell, Plus, X, Pencil, Star, Check, ArrowUp, ArrowDown, TriangleAlert, Settings as SettingsIcon, LogOut } from 'lucide-vue-next'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -188,15 +189,18 @@ const NOTIF_LABELS = {
 }
 
 const notifPanelStyle = ref({})
+const showUserMenu = ref(false)
 
 async function toggleNotifs(e) {
   showNotifs.value = !showNotifs.value
+  showUserMenu.value = false
   if (!showNotifs.value) return
   const r = e.currentTarget.getBoundingClientRect()
   const railRight = document.querySelector('.rail')?.getBoundingClientRect().right ?? r.right
-  // Desktop: fly out clear of the rail; top bar (mobile): drop below.
+  // Desktop: fly out clear of the rail, bottom-aligned with the bell.
   notifPanelStyle.value = window.innerWidth > 700
-    ? { left: `${Math.round(Math.max(r.right, railRight) + 10)}px`, top: `${Math.max(10, Math.round(r.top - 4))}px` }
+    ? { left: `${Math.round(Math.max(r.right, railRight) + 10)}px`,
+        bottom: `${Math.max(10, Math.round(window.innerHeight - r.bottom))}px` }
     : { left: '10px', right: '10px', top: `${Math.round(r.bottom + 8)}px` }
   const data = await api.get('/api/notifications')
   notifs.value = data.notifications
@@ -204,9 +208,12 @@ async function toggleNotifs(e) {
 }
 
 function onGlobalPointer(e) {
-  if (!showNotifs.value) return
-  if (e.target.closest?.('.notif-panel') || e.target.closest?.('.bell')) return
-  showNotifs.value = false
+  if (showNotifs.value && !e.target.closest?.('.notif-panel') && !e.target.closest?.('.bell')) {
+    showNotifs.value = false
+  }
+  if (showUserMenu.value && !e.target.closest?.('.user-menu') && !e.target.closest?.('.me-button')) {
+    showUserMenu.value = false
+  }
 }
 
 async function openNotif(n) {
@@ -326,12 +333,7 @@ async function logout() {
 <template>
   <div class="shell" :class="{ 'viewing-conversation': !!currentId }">
     <aside class="rail" :class="{ dragging: !!dragging }">
-      <div class="brand-row">
-        <div class="brand">{{ t.appName }}</div>
-        <button class="ghost bell" data-tip="Notifications" :aria-expanded="showNotifs" @click="toggleNotifs">
-          🔔<span v-if="inbox.unread" class="bell-badge">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</span>
-        </button>
-      </div>
+      <div class="brand">{{ t.appName }}</div>
       <nav aria-label="Mailboxes">
         <div class="section">Mailboxes</div>
         <button class="rail-item" :class="{ active: inbox.mailboxId === null }" @click="selectMailbox(null)">
@@ -341,7 +343,7 @@ async function logout() {
                 :class="{ active: inbox.mailboxId === m.id }" @click="selectMailbox(m.id)"
                 :data-tip="m.address">
           <span class="label-text">{{ m.name }}</span>
-          <span v-if="m.fetch_error" data-tip="Mail fetch is failing">⚠️</span>
+          <span v-if="m.fetch_error" data-tip="Mail fetch is failing" style="color:var(--warn); display:inline-flex"><TriangleAlert :size="14" /></span>
         </button>
       </nav>
       <nav aria-label="My folders" v-if="inbox.personalFolders.length || true">
@@ -356,8 +358,8 @@ async function logout() {
                 @drop.prevent="onDropPersonalFolder(pf)">
           <span class="label-text"><span class="pf-dot" :style="{ background: pf.color }"></span>{{ pf.name }}</span>
           <span class="pf-actions">
-            <span class="pf-act" :data-tip="`Rename`" @click.stop="renamePersonalFolder(pf)">✎</span>
-            <span class="pf-act" :data-tip="`Delete folder`" @click.stop="deletePersonalFolder(pf)">✕</span>
+            <span class="pf-act" :data-tip="`Rename`" @click.stop="renamePersonalFolder(pf)"><Pencil :size="11" /></span>
+            <span class="pf-act" :data-tip="`Delete folder`" @click.stop="deletePersonalFolder(pf)"><X :size="11" /></span>
           </span>
           <span class="count">{{ pf.count || '' }}</span>
         </button>
@@ -367,7 +369,7 @@ async function logout() {
                  @keydown.esc="cancelCreateFolder" @blur="commitCreateFolder" />
         </div>
         <button v-else class="rail-item pf-new" :class="{ 'drop-hidden': dragging }" @click="startCreateFolder">
-          <span class="label-text" style="color:var(--muted)">＋ {{ t.newFolder }}</span>
+          <span class="label-text" style="color:var(--muted); display:inline-flex; align-items:center; gap:5px"><Plus :size="14" /> {{ t.newFolder }}</span>
         </button>
       </nav>
       <nav aria-label="Folders">
@@ -389,10 +391,28 @@ async function logout() {
         </button>
       </nav>
       <div class="foot">
-        <div class="me" :title="session.agent?.email">{{ session.agent?.name }}</div>
-        <div style="display:flex; gap:8px; align-items:center">
-          <router-link to="/settings">{{ t.settings }}</router-link>
-          <button class="ghost" style="margin-left:auto; padding:4px 10px" @click="logout">{{ t.logout }}</button>
+        <Transition name="fade">
+          <div v-if="showUserMenu" class="user-menu card">
+            <router-link to="/settings" class="user-menu-item" @click="showUserMenu = false">
+              <SettingsIcon :size="15" /> {{ t.settings }}
+            </router-link>
+            <button class="user-menu-item" @click="logout">
+              <LogOut :size="15" /> {{ t.logout }}
+            </button>
+          </div>
+        </Transition>
+        <div class="foot-row">
+          <button class="me-button" :aria-expanded="showUserMenu" :data-tip="session.agent?.email"
+                  @click="showUserMenu = !showUserMenu; showNotifs = false">
+            <span class="avatar small" :style="{ background: avatarColor(session.agent?.email || '') }">
+              {{ initials(session.agent?.name || '?') }}
+            </span>
+            <span class="me-name">{{ session.agent?.name }}</span>
+          </button>
+          <button class="ghost bell" data-tip="Notifications" :aria-expanded="showNotifs" @click="toggleNotifs">
+            <Bell :size="17" />
+            <span v-if="inbox.unread" class="bell-badge">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</span>
+          </button>
         </div>
       </div>
 
@@ -422,9 +442,9 @@ async function logout() {
                aria-label="Search conversations" />
         <button class="ghost" @click="toggleSort"
                 :data-tip="inbox.sort === 'oldest' ? 'Oldest first (queue mode)' : 'Newest first'">
-          {{ inbox.sort === 'oldest' ? '↑' : '↓' }}
+          <ArrowUp v-if="inbox.sort === 'oldest'" :size="15" /><ArrowDown v-else :size="15" />
         </button>
-        <button class="primary" @click="openNewConversation" data-tip="New conversation">＋</button>
+        <button class="primary" @click="openNewConversation" data-tip="New conversation"><Plus :size="17" /></button>
       </div>
       <div class="filter-row">
         <select v-model="inbox.assigneeFilter" @change="setFilter" aria-label="Filter by assignee">
@@ -441,7 +461,7 @@ async function logout() {
           <div class="bulk-row">
             <strong>{{ selected.size }} selected</strong>
             <span style="flex:1"></span>
-            <button class="ghost" data-tip="Clear selection" @click="selected = new Set()">✕</button>
+            <button class="ghost" data-tip="Clear selection" @click="selected = new Set()"><X :size="14" /></button>
           </div>
           <div class="bulk-row">
             <button v-if="inbox.personalFolderId" @click="bulkRemoveFromFolder">Remove from folder</button>
@@ -466,7 +486,7 @@ async function logout() {
                 {{ initials(c.customer.name || c.customer.email) }}
               </span>
               <span class="select-overlay" :class="{ checked: selected.has(c.id) }"
-                    role="checkbox" :aria-checked="selected.has(c.id)" aria-label="Select conversation">✓</span>
+                    role="checkbox" :aria-checked="selected.has(c.id)" aria-label="Select conversation"><Check :size="18" /></span>
             </span>
             <span class="conv-main">
               <span class="row1">
@@ -474,7 +494,7 @@ async function logout() {
                 <span class="when">{{ shortTime(c.last_message_at) }}</span>
               </span>
               <span class="line2">
-                <span v-if="c.starred" class="star">★ </span><span class="subj">{{ c.subject || '(no subject)' }}</span><span class="prev"> — {{ c.preview }}</span>
+                <Star v-if="c.starred" :size="12" class="star" fill="currentColor" /><span class="subj">{{ c.subject || '(no subject)' }}</span><span class="prev"> — {{ c.preview }}</span>
               </span>
               <span v-if="c.assignee || c.tags.length || c.status === 'pending'" class="meta">
                 <span v-if="c.status === 'pending'" class="pill status-pending">{{ t.statuses.pending }}</span>

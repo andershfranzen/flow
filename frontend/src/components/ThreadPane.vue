@@ -8,6 +8,7 @@ import { t } from '../strings'
 import Composer from './Composer.vue'
 import { avatarColor, initials } from '../avatar'
 import Attachments from './Attachments.vue'
+import { ArrowLeft, Star, PanelRight, ChevronsRight, Ellipsis, Eye } from 'lucide-vue-next'
 import { shortTime, fullTime } from '../format'
 
 const router = useRouter()
@@ -228,18 +229,18 @@ function eventText(e) {
   <section v-if="conv" class="pane" aria-label="Conversation">
     <header class="pane-head">
       <div class="head-row">
-        <button class="ghost" @click="router.push('/inbox')" data-tip="Back to list">←</button>
+        <button class="ghost" @click="router.push('/inbox')" data-tip="Back to list"><ArrowLeft :size="17" /></button>
         <h2 class="head-title" :title="conv.subject">
           <span class="number">#{{ conv.number }}</span>
           {{ conv.subject || '(no subject)' }}
         </h2>
         <button class="ghost star-btn" :class="{ starred: conv.starred }" @click="toggleStar"
                 :data-tip="conv.starred ? 'Unstar' : 'Star'">
-          {{ conv.starred ? '★' : '☆' }}
+          <Star :size="16" :fill="conv.starred ? 'currentColor' : 'none'" />
         </button>
         <button class="ghost insights-toggle" @click="toggleInsights"
                 :data-tip="showInsights ? `Hide ${t.insights.toLowerCase()}` : `Show ${t.insights.toLowerCase()}`"
-                :aria-expanded="showInsights">◨</button>
+                :aria-expanded="showInsights"><PanelRight :size="16" /></button>
       </div>
       <div class="head-controls">
         <button type="button" class="pill follow-pill" :class="{ on: conv.followed }" @click="toggleFollow">
@@ -263,7 +264,7 @@ function eventText(e) {
           </div>
         </details>
         <details class="tag-menu">
-          <summary class="pill" style="cursor:pointer">⋯</summary>
+          <summary class="pill" style="cursor:pointer; display:inline-flex; align-items:center"><Ellipsis :size="15" /></summary>
           <div class="card menu-card" style="display:flex; flex-direction:column; gap:6px; min-width:190px">
             <button type="button" class="ghost" style="text-align:left" @click="startForward">Forward…</button>
             <button type="button" class="ghost" style="text-align:left" @click="mergeInto">Merge into #…</button>
@@ -291,7 +292,7 @@ function eventText(e) {
       <div class="transcript-col" ref="transcriptEl">
         <div class="transcript">
           <div v-if="inbox.viewers.length" class="collision" style="margin-bottom:12px">
-            👀 {{ inbox.viewers.map((v) => v.name).join(', ') }} {{ t.viewing }}
+            <Eye :size="15" style="vertical-align:-3px" /> {{ inbox.viewers.map((v) => v.name).join(', ') }} {{ t.viewing }}
           </div>
         <template v-for="item in timeline" :key="item._type + item.id">
           <div v-if="item._type === 'event'" class="event-line">{{ eventText(item) }} · {{ shortTime(item.created_at) }}</div>
@@ -326,7 +327,7 @@ function eventText(e) {
         <div class="insights-head">
           <span>{{ t.insights }}</span>
           <button class="ghost" style="padding:2px 8px" :data-tip="`Hide ${t.insights.toLowerCase()}`"
-                  @click="toggleInsights">»</button>
+                  @click="toggleInsights"><ChevronsRight :size="14" /></button>
         </div>
         <div class="card">
           <h3 style="display:flex; justify-content:space-between; align-items:center">

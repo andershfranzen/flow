@@ -7,6 +7,7 @@ import { t, setLocale } from '../strings'
 import WorkflowBuilder from '../components/WorkflowBuilder.vue'
 import RichEditor from '../components/RichEditor.vue'
 import ReportsPanel from '../components/ReportsPanel.vue'
+import { ArrowLeft, ExternalLink } from 'lucide-vue-next'
 
 const props = defineProps({ tab: String })
 const router = useRouter()
@@ -240,7 +241,7 @@ const NOTIFY_LABELS = {
 
 <template>
   <main class="settings-wrap">
-    <p><router-link to="/inbox">← Inbox</router-link></p>
+    <p><router-link to="/inbox" style="display:inline-flex; align-items:center; gap:5px"><ArrowLeft :size="14" /> Inbox</router-link></p>
     <h1>{{ t.settings }}</h1>
     <nav class="settings-nav">
       <div v-for="group in GROUPS" :key="group.label" class="settings-group">
@@ -470,7 +471,7 @@ const NOTIFY_LABELS = {
         </div>
         <p v-if="p.description" style="margin:6px 0 0; color:var(--muted)">{{ p.description }}
           <span v-if="p.author"> — {{ p.author }}</span>
-          <a v-if="p.url" :href="p.url" target="_blank" rel="noopener">↗</a></p>
+          <a v-if="p.url" :href="p.url" target="_blank" rel="noopener" style="display:inline-flex"><ExternalLink :size="12" /></a></p>
         <p v-if="p.error || p.manifest_error" class="error-text" style="margin:6px 0 0">{{ p.error || p.manifest_error }}</p>
         <iframe v-if="openSettingsFor === p.name && p.settings_path" :src="p.settings_path"
                 style="width:100%; height:420px; border:2px solid var(--border); border-radius:10px; margin-top:10px"></iframe>

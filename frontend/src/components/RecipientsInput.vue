@@ -2,6 +2,7 @@
 // Email chips like a real mail client: a finished address becomes a badge;
 // Backspace on an empty input turns the last badge back into editable text.
 import { ref, nextTick } from 'vue'
+import { X } from 'lucide-vue-next'
 
 const props = defineProps({
   modelValue: { type: Array, required: true },
@@ -60,7 +61,7 @@ defineExpose({ commit })
           class="recipient-chip" :class="{ invalid: !EMAIL_RE.test(email) }">
       {{ email }}
       <button type="button" class="chip-x" :aria-label="`Remove ${email}`" tabindex="-1"
-              @click.stop="remove(i)">✕</button>
+              @click.stop="remove(i)"><X :size="11" /></button>
     </span>
     <input ref="inputEl" v-model="text" :placeholder="modelValue.length ? '' : placeholder"
            :aria-label="ariaLabel" autocomplete="off" spellcheck="false"

@@ -7,6 +7,7 @@ import { useInbox } from '../stores/inbox'
 import RichEditor from './RichEditor.vue'
 import RecipientsInput from './RecipientsInput.vue'
 import PendingFiles from './PendingFiles.vue'
+import { Paperclip, X } from 'lucide-vue-next'
 
 const props = defineProps({
   conversation: { type: Object, required: true },
@@ -149,7 +150,7 @@ async function insertSavedReply(e) {
       <div v-if="subject !== null" class="field-row">
         <label style="margin:0; width:28px">Fwd</label>
         <input v-model="subject" aria-label="Subject" />
-        <button type="button" class="ghost" @click="cancelForward" title="Cancel forward">✕</button>
+        <button type="button" class="ghost" @click="cancelForward" data-tip="Cancel forward"><X :size="14" /></button>
       </div>
       <div class="field-row">
         <label style="margin:0; width:28px">{{ t.to }}</label>
@@ -181,7 +182,7 @@ async function insertSavedReply(e) {
         </select>
         <label style="margin:0">
           <input type="file" multiple style="display:none" @change="pickFiles" />
-          <span class="pill" style="cursor:pointer" data-tip="Attach files">📎 {{ files.length || '' }}</span>
+          <span class="pill" style="cursor:pointer; display:inline-flex; align-items:center; gap:4px" data-tip="Attach files"><Paperclip :size="13" /> {{ files.length || '' }}</span>
         </label>
       </template>
       <span class="spacer"></span>

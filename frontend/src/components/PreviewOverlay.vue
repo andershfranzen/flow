@@ -3,6 +3,7 @@
 // file: { name, size, url, kind: image|pdf|audio|video|text, text }
 import { onMounted, onUnmounted } from 'vue'
 import { formatBytes } from '../format'
+import { X, Download } from 'lucide-vue-next'
 
 defineProps({ file: { type: Object, required: true } })
 const emit = defineEmits(['close'])
@@ -20,8 +21,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
           <strong class="att-name" style="min-width:0">{{ file.name }}</strong>
           <span class="att-info">{{ formatBytes(file.size) }}</span>
           <span style="flex:1"></span>
-          <a v-if="file.url" :href="file.url" :download="file.name" class="pill">Download</a>
-          <button type="button" class="ghost" @click="emit('close')" aria-label="Close">✕</button>
+          <a v-if="file.url" :href="file.url" :download="file.name" class="pill" style="display:inline-flex; align-items:center; gap:4px"><Download :size="12" /> Download</a>
+          <button type="button" class="ghost" @click="emit('close')" aria-label="Close"><X :size="15" /></button>
         </header>
         <div class="preview-body">
           <img v-if="file.kind === 'image'" :src="file.url" :alt="file.name" />

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
+import { X, Plus } from 'lucide-vue-next'
 
 const workflows = ref([])
 const meta = ref({ triggers: [], fields: [], operators: [], action_types: [], statuses: [] })
@@ -197,9 +198,9 @@ function valueControl(action) {
               <option v-for="op in meta.operators" :key="op" :value="op">{{ OPERATOR_LABELS[op] }}</option>
             </select>
             <input v-model="c.value" placeholder="value" style="flex:1; min-width:80px" />
-            <button type="button" class="ghost" @click="editing.conditions.splice(i, 1)">✕</button>
+            <button type="button" class="ghost" @click="editing.conditions.splice(i, 1)"><X :size="13" /></button>
           </div>
-          <button type="button" class="ghost" style="align-self:flex-start" @click="addCondition">＋ Add condition</button>
+          <button type="button" class="ghost" style="align-self:flex-start" @click="addCondition"><Plus :size="14" /> Add condition</button>
         </div>
       </div>
 
@@ -215,7 +216,7 @@ function valueControl(action) {
               <option v-for="tp in meta.action_types" :key="tp" :value="tp">{{ ACTION_LABELS[tp] }}</option>
             </select>
             <span class="spacer" style="flex:1"></span>
-            <button v-if="editing.actions.length > 1" type="button" class="ghost" @click="editing.actions.splice(i, 1)">✕</button>
+            <button v-if="editing.actions.length > 1" type="button" class="ghost" @click="editing.actions.splice(i, 1)"><X :size="13" /></button>
           </div>
           <div class="wf-node-body" v-if="valueControl(a) !== 'none'">
             <select v-if="valueControl(a) === 'agent'" v-model="a.value" style="flex:1">
@@ -246,7 +247,7 @@ function valueControl(action) {
         <div class="wf-connector"></div>
       </div>
 
-      <button type="button" class="ghost" style="align-self:center" @click="addAction">＋ Add action</button>
+      <button type="button" class="ghost" style="align-self:center" @click="addAction"><Plus :size="14" /> Add action</button>
     </form>
   </div>
 </template>

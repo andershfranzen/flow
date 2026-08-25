@@ -6,6 +6,7 @@ import { useSession } from '../stores/session'
 import RichEditor from './RichEditor.vue'
 import RecipientsInput from './RecipientsInput.vue'
 import PendingFiles from './PendingFiles.vue'
+import { Paperclip } from 'lucide-vue-next'
 
 const props = defineProps({
   mailboxes: { type: Array, required: true },

@@ -4,6 +4,7 @@
 import { ref } from 'vue'
 import { formatBytes } from '../format'
 import PreviewOverlay from './PreviewOverlay.vue'
+import { Image, FileText, Music, Film, Paperclip, X } from 'lucide-vue-next'
 
 defineProps({ files: { type: Array, required: true } })
 const emit = defineEmits(['remove'])
@@ -21,7 +22,7 @@ function kind(f) {
 
 function icon(f) {
   const k = kind(f)
-  return { image: '🖼', pdf: '📕', audio: '🎵', video: '🎬', text: '📄' }[k] || '📎'
+  return { image: Image, pdf: FileText, audio: Music, video: Film, text: FileText }[k] || Paperclip
 }
 
 async function open(f) {
@@ -43,10 +44,10 @@ function close() {
     <span v-for="(f, i) in files" :key="`${f.name}-${i}`" class="pending-file"
           :data-tip="`${f.name} — ${formatBytes(f.size)}`" role="button" tabindex="0"
           @click="open(f)" @keydown.enter="open(f)">
-      <span>{{ icon(f) }}</span>
+      <span style="display:inline-flex"><component :is="icon(f)" :size="13" /></span>
       <span class="att-name">{{ f.name }}</span>
       <span class="att-info">{{ formatBytes(f.size) }}</span>
-      <button type="button" class="chip-x" :aria-label="`Remove ${f.name}`" @click.stop="emit('remove', i)">✕</button>
+      <button type="button" class="chip-x" :aria-label="`Remove ${f.name}`" @click.stop="emit('remove', i)"><X :size="11" /></button>
     </span>
     <PreviewOverlay v-if="preview" :file="preview" @close="close" />
   </div>

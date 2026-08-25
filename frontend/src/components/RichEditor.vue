@@ -3,6 +3,7 @@
 // Parents read content via the exposed methods; pasted images upload as CID
 // inline attachments named by their local placeholder.
 import { ref, watch, onMounted } from 'vue'
+import { Link2, List } from 'lucide-vue-next'
 
 const props = defineProps({
   placeholder: { type: String, default: '' },
@@ -96,8 +97,8 @@ defineExpose({
     <div class="fmt-bar">
       <button type="button" class="ghost fmt" data-tip="Bold" @mousedown.prevent="exec('bold')"><b>B</b></button>
       <button type="button" class="ghost fmt" data-tip="Italic" @mousedown.prevent="exec('italic')"><i>I</i></button>
-      <button type="button" class="ghost fmt" data-tip="Bullet list" @mousedown.prevent="exec('insertUnorderedList')">≡</button>
-      <button type="button" class="ghost fmt" data-tip="Link" @mousedown.prevent="addLink">🔗</button>
+      <button type="button" class="ghost fmt" data-tip="Bullet list" @mousedown.prevent="exec('insertUnorderedList')"><List :size="14" /></button>
+      <button type="button" class="ghost fmt" data-tip="Link" @mousedown.prevent="addLink"><Link2 :size="14" /></button>
     </div>
     <div ref="editorEl" class="editor" contenteditable="true" role="textbox" aria-multiline="true"
          :data-placeholder="placeholder" @input="onNativeInput" @paste="onPaste"></div>
