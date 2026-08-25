@@ -43,17 +43,23 @@ class SearchIndex
               to_conversation_id, from_conversation_id)
     end
 
-    # → conversation ids matching the query
+    # → conversation ids matching the query. Terms match by PREFIX so
+    # live search hits while the user is still typing ("frid" → fridge).
     def search(query)
       ensure!
+      terms = query.to_s.split.first(8)
+      return [] if terms.empty?
       if postgres?
+        cleaned = terms.map { |t| t.gsub(/[^[:alnum:]@.\-]/, "") }.reject(&:blank?)
+        return [] if cleaned.empty?
+        tsquery = cleaned.map { |t| "#{t}:*" }.join(" & ")
         Message.where(
-          "to_tsvector('simple', coalesce(subject, '') || ' ' || coalesce(body_text, '')) @@ websearch_to_tsquery('simple', ?)",
-          query
+          "to_tsvector('simple', coalesce(subject, '') || ' ' || coalesce(body_text, '')) @@ to_tsquery('simple', ?)",
+          tsquery
         ).distinct.pluck(:conversation_id) |
           Conversation.where("subject ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(query)}%").ids
       else
-        quoted = query.split.map { |t| "\"#{t.delete('"')}\"" }.join(" ")
+        quoted = terms.map { |t| "\"#{t.delete('"')}\"*" }.join(" ")
         sql = ActiveRecord::Base.sanitize_sql(
           [ "SELECT DISTINCT conversation_id FROM message_search WHERE message_search MATCH ?", quoted ]
         )

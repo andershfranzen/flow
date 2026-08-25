@@ -151,9 +151,21 @@ function selectMailbox(id) {
   inbox.loadConversations()
 }
 
+let searchTimer = null
+function onSearchInput() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(search, 200)
+}
+
 function search() {
-  inbox.query = searchInput.value
+  clearTimeout(searchTimer)
+  inbox.query = searchInput.value.trim()
   inbox.loadConversations()
+}
+
+function clearSearch() {
+  searchInput.value = ''
+  search()
 }
 
 function openNewConversation() { showNew.value = true }
@@ -218,7 +230,8 @@ async function logout() {
     <section class="list-col" aria-label="Conversations">
       <div class="list-head">
         <input v-model="searchInput" type="search" :placeholder="t.search"
-               @keydown.enter="search" aria-label="Search conversations" />
+               @input="onSearchInput" @keydown.enter="search" @keydown.esc="clearSearch"
+               aria-label="Search conversations" />
         <button class="ghost" @click="toggleSort"
                 :data-tip="inbox.sort === 'oldest' ? 'Oldest first (queue mode)' : 'Newest first'">
           {{ inbox.sort === 'oldest' ? '↑' : '↓' }}

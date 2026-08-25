@@ -70,10 +70,14 @@ class ApiFlowTest < ActionDispatch::IntegrationTest
     assert_no_enqueued_jobs only: SendMessageJob
   end
 
-  test "search finds the subject" do
+  test "search finds the subject, including by prefix while typing" do
     login("a@example.com")
     get "/api/conversations", params: { q: "fridge" }
     assert_equal 1, response.parsed_body["conversations"].size
+    get "/api/conversations", params: { q: "frid" }
+    assert_equal 1, response.parsed_body["conversations"].size, "prefix must match for live search"
+    get "/api/conversations", params: { q: "frid beep" }
+    assert_equal 1, response.parsed_body["conversations"].size, "multi-term prefixes must AND"
     get "/api/conversations", params: { q: "nonexistentterm" }
     assert_equal 0, response.parsed_body["conversations"].size
   end

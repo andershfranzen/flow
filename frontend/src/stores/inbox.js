@@ -23,6 +23,8 @@ export const useInbox = defineStore('inbox', {
       if (this.mailboxId && !this.mailboxes.some(m => m.id === this.mailboxId)) this.mailboxId = null
     },
     async loadConversations() {
+      this._seq = (this._seq || 0) + 1
+      const seq = this._seq
       this.loading = true
       try {
         const params = new URLSearchParams({ folder: this.folder })
@@ -32,6 +34,7 @@ export const useInbox = defineStore('inbox', {
         if (this.assigneeFilter) params.set('assignee_id', this.assigneeFilter)
         if (this.tagFilter) params.set('tag', this.tagFilter)
         const data = await api.get(`/api/conversations?${params}`)
+        if (seq !== this._seq) return // a newer keystroke superseded this request
         this.conversations = data.conversations
         this.folderCounts = data.folder_counts
       } finally {
