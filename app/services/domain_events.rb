@@ -10,8 +10,10 @@ class DomainEvents
     # "*" subscribes to everything (payload gets :event merged in).
     # Subscriptions made while a plugin loads are tagged with it, so
     # disabling the plugin silences them instantly — no restart needed.
-    def subscribe(event = "*", &block)
-      @subscribers[event] << { plugin: PluginRegistry.loading, block: block }
+    # A `key:` makes the subscription idempotent: re-subscribing replaces it.
+    def subscribe(event = "*", key: nil, &block)
+      @subscribers[event].reject! { |s| key && s[:key] == key }
+      @subscribers[event] << { plugin: PluginRegistry.loading, key: key, block: block }
     end
 
     def emit(event, payload)

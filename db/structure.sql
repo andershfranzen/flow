@@ -158,7 +158,14 @@ CREATE UNIQUE INDEX "index_conversation_reads_on_agent_id_and_conversation_id" O
 CREATE INDEX "index_conversations_on_snoozed_until" ON "conversations" ("snoozed_until") /*application='Flow'*/;
 CREATE TABLE "plugin_states" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "name" varchar NOT NULL, "enabled" boolean DEFAULT TRUE NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
 CREATE UNIQUE INDEX "index_plugin_states_on_name" ON "plugin_states" ("name") /*application='Flow'*/;
+CREATE TABLE "workflows" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "name" varchar NOT NULL, "enabled" boolean DEFAULT TRUE NOT NULL, "trigger" varchar DEFAULT 'message.inbound' NOT NULL, "mailbox_id" integer, "match_type" varchar DEFAULT 'all' NOT NULL, "conditions" json DEFAULT '[]' NOT NULL, "actions" json DEFAULT '[]' NOT NULL, "position" integer DEFAULT 0 NOT NULL, "runs_count" integer DEFAULT 0 NOT NULL, "last_run_at" datetime(6), "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_32fa3c4168"
+FOREIGN KEY ("mailbox_id")
+  REFERENCES "mailboxes" ("id")
+);
+CREATE INDEX "index_workflows_on_mailbox_id" ON "workflows" ("mailbox_id") /*application='Flow'*/;
+CREATE INDEX "index_workflows_on_enabled_and_trigger_and_position" ON "workflows" ("enabled", "trigger", "position") /*application='Flow'*/;
 INSERT INTO "schema_migrations" (version) VALUES
+('20260825010000'),
 ('20260825000000'),
 ('20260824240000'),
 ('20260824230000'),

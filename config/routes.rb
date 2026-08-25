@@ -41,6 +41,8 @@ Rails.application.routes.draw do
     delete "drafts/:id" => "drafts#destroy"
 
     resource :org_settings, only: [ :show, :update ]
+    patch "workflows/reorder" => "workflows#reorder"
+    resources :workflows, only: [ :index, :create, :update, :destroy ]
     resources :plugins, only: [ :index, :update, :destroy ], constraints: { id: /[\w.-]+/ } do
       collection { post :install }
       member { post :upgrade }
