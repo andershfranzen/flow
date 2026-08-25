@@ -173,6 +173,34 @@ function selectPersonalFolder(id) {
   router.push('/inbox')
 }
 
+const showNotifs = ref(false)
+const notifs = ref([])
+const NOTIF_LABELS = {
+  new_unassigned: 'New conversation', assigned_to_me: 'Assigned to you',
+  customer_reply: 'Customer replied', note_on_mine: 'New note', mention: 'You were mentioned',
+}
+
+async function toggleNotifs() {
+  showNotifs.value = !showNotifs.value
+  if (showNotifs.value) {
+    const data = await api.get('/api/notifications')
+    notifs.value = data.notifications
+    inbox.unread = data.unread
+  }
+}
+
+async function openNotif(n) {
+  showNotifs.value = false
+  api.post('/api/notifications/read', { ids: [n.id] }).then(() => inbox.refreshUnread())
+  router.push(`/conversations/${n.conversation.id}`)
+}
+
+async function markAllRead() {
+  inbox.unread = 0 // optimistic
+  notifs.value = notifs.value.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
+  await api.post('/api/notifications/read')
+}
+
 const creatingFolder = ref(false)
 const newFolderName = ref('')
 const newFolderInput = ref(null)
@@ -336,10 +364,27 @@ async function logout() {
         </button>
       </nav>
       <div class="foot">
+        <Transition name="fade">
+          <div v-if="showNotifs" class="notif-panel card">
+            <div class="insights-head" style="margin-bottom:6px">
+              <span>Notifications</span>
+              <button v-if="inbox.unread" class="ghost" style="padding:2px 8px; font-size:11px"
+                      @click="markAllRead">Mark all read</button>
+            </div>
+            <button v-for="n in notifs" :key="n.id" class="notif-item" :class="{ unread: !n.read_at }"
+                    @click="openNotif(n)">
+              <span class="notif-kind">{{ NOTIF_LABELS[n.kind] || n.kind }} · {{ shortTime(n.created_at) }}</span>
+              <span class="notif-subject">#{{ n.conversation.number }} {{ n.conversation.subject || '(no subject)' }}</span>
+            </button>
+            <div v-if="!notifs.length" class="empty" style="padding:16px">Nothing yet</div>
+          </div>
+        </Transition>
         <div class="me" :title="session.agent?.email">{{ session.agent?.name }}</div>
         <div style="display:flex; gap:8px; align-items:center">
           <router-link to="/settings">{{ t.settings }}</router-link>
-          <span v-if="inbox.unread" class="pill">{{ inbox.unread }}</span>
+          <button class="ghost bell" data-tip="Notifications" :aria-expanded="showNotifs" @click="toggleNotifs">
+            🔔<span v-if="inbox.unread" class="bell-badge">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</span>
+          </button>
           <button class="ghost" style="margin-left:auto; padding:4px 10px" @click="logout">{{ t.logout }}</button>
         </div>
       </div>

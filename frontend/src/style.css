@@ -174,7 +174,27 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
   padding: 5px 12px; border-radius: 999px; border: 2px solid var(--accent);
   background: var(--panel);
 }
+.rail .foot { position: relative; }
 .rail .foot .me { font-weight: 800; font-family: var(--font-round); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bell { position: relative; padding: 4px 8px; font-size: 14px; }
+.bell-badge {
+  position: absolute; top: -4px; right: -4px;
+  background: var(--accent); color: #fff; font-size: 10px; font-weight: 800;
+  border-radius: 99px; padding: 0 5px; min-width: 16px; text-align: center; line-height: 16px;
+}
+.notif-panel {
+  position: absolute; bottom: calc(100% + 6px); left: 0; width: 290px; z-index: 30;
+  max-height: 55vh; overflow-y: auto; box-shadow: 0 8px 28px rgba(20, 20, 40, .16);
+}
+.notif-item {
+  display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left;
+  border: 0; background: none; padding: 8px 10px; border-radius: var(--radius-sm);
+}
+.notif-item:hover { background: var(--panel-deep); }
+.notif-item.unread { background: var(--accent-soft); margin-bottom: 3px; }
+.notif-item .notif-kind { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.notif-item.unread .notif-kind { color: var(--accent); }
+.notif-item .notif-subject { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .list-col {
   width: 360px; flex: none;
