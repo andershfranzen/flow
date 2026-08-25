@@ -76,10 +76,10 @@ defineExpose({
 <template>
   <div class="rich-editor">
     <div class="fmt-bar">
-      <button type="button" class="ghost fmt" title="Bold" @mousedown.prevent="exec('bold')"><b>B</b></button>
-      <button type="button" class="ghost fmt" title="Italic" @mousedown.prevent="exec('italic')"><i>I</i></button>
-      <button type="button" class="ghost fmt" title="Bullet list" @mousedown.prevent="exec('insertUnorderedList')">≡</button>
-      <button type="button" class="ghost fmt" title="Link" @mousedown.prevent="addLink">🔗</button>
+      <button type="button" class="ghost fmt" data-tip="Bold" @mousedown.prevent="exec('bold')"><b>B</b></button>
+      <button type="button" class="ghost fmt" data-tip="Italic" @mousedown.prevent="exec('italic')"><i>I</i></button>
+      <button type="button" class="ghost fmt" data-tip="Bullet list" @mousedown.prevent="exec('insertUnorderedList')">≡</button>
+      <button type="button" class="ghost fmt" data-tip="Link" @mousedown.prevent="addLink">🔗</button>
     </div>
     <div ref="editorEl" class="editor" contenteditable="true" role="textbox" aria-multiline="true"
          :data-placeholder="placeholder" @input="emit('input')" @paste="onPaste"></div>

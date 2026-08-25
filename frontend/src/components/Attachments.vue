@@ -1,14 +1,13 @@
 <script setup>
-// Attachment cards + in-app preview overlay: images, PDF, audio, video,
-// and text-ish files render in place; everything else downloads.
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+// Attachment cards + preview for stored message attachments.
+import { ref, computed } from 'vue'
 import { formatBytes } from '../format'
+import PreviewOverlay from './PreviewOverlay.vue'
 
 const props = defineProps({ attachments: { type: Array, required: true } })
 
 const visible = computed(() => props.attachments.filter((a) => !a.content_id))
 const preview = ref(null)
-const textContent = ref(null)
 const TEXT_LIMIT = 2 * 1048576
 
 function kind(a) {
@@ -41,24 +40,23 @@ function extension(a) {
 }
 
 async function open(a) {
-  if (kind(a) === 'file') { window.open(a.url, '_blank'); return }
-  preview.value = a
-  textContent.value = null
-  if (kind(a) === 'text') {
-    if (a.byte_size > TEXT_LIMIT) { textContent.value = '(file too large to preview — download instead)'; return }
-    textContent.value = await fetch(a.url, { credentials: 'same-origin' }).then((r) => r.text())
+  const k = kind(a)
+  if (k === 'file') { window.open(a.url, '_blank'); return }
+  const file = { name: a.filename, size: a.byte_size, url: a.url, kind: k, text: null }
+  preview.value = file
+  if (k === 'text') {
+    file.text = a.byte_size > TEXT_LIMIT
+      ? '(file too large to preview — download instead)'
+      : await fetch(a.url, { credentials: 'same-origin' }).then((r) => r.text())
+    preview.value = { ...file }
   }
 }
-
-function onKey(e) { if (e.key === 'Escape' && preview.value) preview.value = null }
-onMounted(() => window.addEventListener('keydown', onKey))
-onUnmounted(() => window.removeEventListener('keydown', onKey))
 </script>
 
 <template>
   <div v-if="visible.length" class="attachments">
     <button v-for="a in visible" :key="a.id" type="button" class="attachment-card"
-            :title="`${a.filename} — ${formatBytes(a.byte_size)}`" @click="open(a)">
+            :data-tip="`${a.filename} — ${formatBytes(a.byte_size)}`" @click="open(a)">
       <span v-if="kind(a) === 'image'" class="att-thumb">
         <img :src="a.url" :alt="a.filename" loading="lazy" />
       </span>
@@ -68,28 +66,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
         <span class="att-info">{{ extension(a).toUpperCase() }} · {{ formatBytes(a.byte_size) }}</span>
       </span>
     </button>
-
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="preview" class="preview-backdrop" @click.self="preview = null">
-          <div class="preview-frame">
-            <header class="preview-head">
-              <strong class="att-name" style="min-width:0">{{ preview.filename }}</strong>
-              <span class="att-info">{{ formatBytes(preview.byte_size) }}</span>
-              <span style="flex:1"></span>
-              <a :href="preview.url" :download="preview.filename" class="pill">Download</a>
-              <button type="button" class="ghost" @click="preview = null" aria-label="Close">✕</button>
-            </header>
-            <div class="preview-body">
-              <img v-if="kind(preview) === 'image'" :src="preview.url" :alt="preview.filename" />
-              <iframe v-else-if="kind(preview) === 'pdf'" :src="preview.url" :title="preview.filename"></iframe>
-              <audio v-else-if="kind(preview) === 'audio'" :src="preview.url" controls autoplay></audio>
-              <video v-else-if="kind(preview) === 'video'" :src="preview.url" controls></video>
-              <pre v-else-if="kind(preview) === 'text'">{{ textContent ?? 'Loading…' }}</pre>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <PreviewOverlay v-if="preview" :file="preview" @close="preview = null" />
   </div>
 </template>

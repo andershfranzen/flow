@@ -143,9 +143,9 @@ async function logout() {
         </button>
         <button v-for="m in inbox.mailboxes" :key="m.id" class="rail-item"
                 :class="{ active: inbox.mailboxId === m.id }" @click="selectMailbox(m.id)"
-                :title="m.address">
+                :data-tip="m.address">
           <span class="label-text">{{ m.name }}</span>
-          <span v-if="m.fetch_error" title="Fetch failing">⚠️</span>
+          <span v-if="m.fetch_error" data-tip="Mail fetch is failing">⚠️</span>
         </button>
       </nav>
       <nav aria-label="Folders">
@@ -171,10 +171,10 @@ async function logout() {
         <input v-model="searchInput" type="search" :placeholder="t.search"
                @keydown.enter="search" aria-label="Search conversations" />
         <button class="ghost" @click="toggleSort"
-                :title="inbox.sort === 'oldest' ? 'Oldest first (queue mode)' : 'Newest first'">
+                :data-tip="inbox.sort === 'oldest' ? 'Oldest first (queue mode)' : 'Newest first'">
           {{ inbox.sort === 'oldest' ? '↑' : '↓' }}
         </button>
-        <button class="primary" @click="openNewConversation" title="New conversation">＋</button>
+        <button class="primary" @click="openNewConversation" data-tip="New conversation">＋</button>
       </div>
       <div class="filter-row">
         <select v-model="inbox.assigneeFilter" @change="setFilter" aria-label="Filter by assignee">

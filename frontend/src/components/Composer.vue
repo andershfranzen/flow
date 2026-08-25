@@ -164,7 +164,7 @@ async function insertSavedReply(e) {
         </select>
         <label style="margin:0">
           <input type="file" multiple style="display:none" @change="pickFiles" />
-          <span class="pill" style="cursor:pointer">📎 {{ files.length || '' }}</span>
+          <span class="pill" style="cursor:pointer" data-tip="Attach files">📎 {{ files.length || '' }}</span>
         </label>
       </template>
       <span class="spacer"></span>

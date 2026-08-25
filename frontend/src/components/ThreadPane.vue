@@ -213,13 +213,13 @@ function eventText(e) {
   <section v-if="conv" class="pane" aria-label="Conversation">
     <header class="pane-head">
       <div class="head-row">
-        <button class="ghost" @click="router.push('/inbox')" title="Back">←</button>
+        <button class="ghost" @click="router.push('/inbox')" data-tip="Back to list">←</button>
         <h2 class="head-title" :title="conv.subject">
           <span class="number">#{{ conv.number }}</span>
           {{ conv.subject || '(no subject)' }}
         </h2>
         <button class="ghost star-btn" :class="{ starred: conv.starred }" @click="toggleStar"
-                :title="conv.starred ? 'Unstar' : 'Star'">
+                :data-tip="conv.starred ? 'Unstar' : 'Star'">
           {{ conv.starred ? '★' : '☆' }}
         </button>
       </div>
@@ -284,7 +284,7 @@ function eventText(e) {
                 <span v-if="item.bounce" class="pill bounce">{{ t.bounced }}</span>
                 <span v-if="item.status === 'queued'" class="pill">{{ t.queued }}</span>
                 <button v-if="item.status === 'queued' && item.kind === 'outbound'" type="button"
-                        class="ghost" style="padding:0 8px; font-size:12px" @click="undoSend(item)">Undo</button>
+                        class="ghost" style="padding:0 8px; font-size:12px" data-tip="Cancel before it sends" @click="undoSend(item)">Undo</button>
                 <span v-if="item.status === 'failed'" class="pill bounce">{{ t.failed }}</span>
                 <time :title="fullTime(item.created_at)">{{ shortTime(item.created_at) }}</time>
               </span>
