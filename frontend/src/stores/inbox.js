@@ -43,6 +43,15 @@ export const useInbox = defineStore('inbox', {
         if (seq !== this._seq) return // a newer keystroke superseded this request
         this.conversations = data.conversations
         this.folderCounts = data.folder_counts
+      } catch (e) {
+        // The personal folder vanished (deleted in another tab): self-heal.
+        if (e.status === 404 && this.personalFolderId) {
+          this.personalFolderId = null
+          this.folder = 'unassigned'
+          this.loadPersonalFolders()
+          return this.loadConversations()
+        }
+        throw e
       } finally {
         this.loading = false
       }

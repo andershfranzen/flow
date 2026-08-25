@@ -80,17 +80,18 @@ function onDragEnd() {
   document.removeEventListener('drop', allowDropEverywhere)
 }
 
-async function onDropFolder(folder) {
+function onDropFolder(folder) {
   if (!dragging.value || !DROP_FOLDERS.value.includes(folder)) return
   const ids = selected.value.has(dragging.value) && selected.value.size > 1
     ? [...selected.value] : [dragging.value]
   const attrs = folder === 'mine' ? { assignee_id: session.agent.id }
     : folder === 'unassigned' ? { assignee_id: '' }
     : { status: folder }
-  await api.patch('/api/conversations/bulk', { ids, ...attrs })
   onDragEnd()
+  removeRowsLocally(ids)
   selected.value = new Set()
-  await inbox.loadConversations()
+  if (inbox.folderCounts[folder] != null) inbox.folderCounts[folder] += ids.length
+  backgroundPatch({ ids, ...attrs })
 }
 
 function toggleSelect(id, e) {
@@ -100,10 +101,24 @@ function toggleSelect(id, e) {
   selected.value = next
 }
 
-async function bulk(attrs) {
-  await api.patch('/api/conversations/bulk', { ids: [...selected.value], ...attrs })
+// Optimistic: rows leave the view the instant you act; the server call runs
+// behind it and a failure falls back to a full reload.
+function removeRowsLocally(ids) {
+  const gone = new Set(ids)
+  inbox.conversations = inbox.conversations.filter((c) => !gone.has(c.id))
+}
+
+function backgroundPatch(payload) {
+  api.patch('/api/conversations/bulk', payload)
+    .then(() => inbox.loadConversations())
+    .catch(() => inbox.loadConversations())
+}
+
+function bulk(attrs) {
+  const ids = [...selected.value]
+  removeRowsLocally(ids)
   selected.value = new Set()
-  await inbox.loadConversations()
+  backgroundPatch({ ids, ...attrs })
 }
 
 function bulkAssign(e) {
@@ -192,30 +207,35 @@ async function renamePersonalFolder(pf) {
   await inbox.loadPersonalFolders()
 }
 
-async function deletePersonalFolder(pf) {
+function deletePersonalFolder(pf) {
   if (!confirm(`Delete folder "${pf.name}"? Conversations stay untouched.`)) return
-  await api.delete(`/api/personal_folders/${pf.id}`)
-  if (inbox.personalFolderId === pf.id) { inbox.personalFolderId = null; inbox.folder = 'unassigned' }
-  await inbox.loadPersonalFolders()
-  await inbox.loadConversations()
+  inbox.personalFolders = inbox.personalFolders.filter((f) => f.id !== pf.id) // instant
+  const wasViewing = inbox.personalFolderId === pf.id
+  if (wasViewing) { inbox.personalFolderId = null; inbox.folder = 'unassigned' }
+  api.delete(`/api/personal_folders/${pf.id}`)
+    .catch(() => inbox.loadPersonalFolders())
+  if (wasViewing) inbox.loadConversations()
 }
 
-async function onDropPersonalFolder(pf) {
+function onDropPersonalFolder(pf) {
   if (!dragging.value) return
   const ids = selected.value.has(dragging.value) && selected.value.size > 1
     ? [...selected.value] : [dragging.value]
-  await api.post(`/api/personal_folders/${pf.id}/items`, { conversation_ids: ids })
   onDragEnd()
   selected.value = new Set()
-  await inbox.loadPersonalFolders()
+  pf.count = (pf.count || 0) + ids.length // optimistic; reconciled below
+  api.post(`/api/personal_folders/${pf.id}/items`, { conversation_ids: ids })
+    .then(() => inbox.loadPersonalFolders())
+    .catch(() => inbox.loadPersonalFolders())
 }
 
-async function bulkRemoveFromFolder() {
-  await api.patch('/api/conversations/bulk', {
-    ids: [...selected.value], remove_from_folder_id: inbox.personalFolderId,
-  })
+function bulkRemoveFromFolder() {
+  const ids = [...selected.value]
+  removeRowsLocally(ids)
   selected.value = new Set()
-  await Promise.all([inbox.loadConversations(), inbox.loadPersonalFolders()])
+  api.patch('/api/conversations/bulk', { ids, remove_from_folder_id: inbox.personalFolderId })
+    .then(() => inbox.loadPersonalFolders())
+    .catch(() => { inbox.loadConversations(); inbox.loadPersonalFolders() })
 }
 
 function selectMailbox(id) {
