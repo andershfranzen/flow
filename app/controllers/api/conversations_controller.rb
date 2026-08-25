@@ -8,17 +8,26 @@ class Api::ConversationsController < Api::BaseController
     else
       scope = Conversation.where(mailbox: current_agent.accessible_mailboxes)
     end
-    scope = scope.in_folder(params[:folder].presence || "all", current_agent)
+    if params[:personal_folder_id].present?
+      personal_folder = current_agent.personal_folders.find(params[:personal_folder_id])
+      scope = scope.joins(:personal_folder_items)
+                   .where(personal_folder_items: { personal_folder_id: personal_folder.id })
+    else
+      scope = scope.in_folder(params[:folder].presence || "all", current_agent)
+    end
     scope = scope.joins(:tags).where(tags: { name: params[:tag] }) if params[:tag].present?
     scope = scope.where(assignee_id: params[:assignee_id]) if params[:assignee_id].present?
     scope = scope.where(id: search_ids(params[:q])) if params[:q].present?
     order = params[:sort] == "oldest" ? { last_message_at: :asc, id: :asc } : { last_message_at: :desc, id: :desc }
     scope = scope.includes(:customer, :assignee, :tags).order(order)
     conversations = paginate(scope).to_a
-    reads = ConversationRead.where(agent: current_agent, conversation_id: conversations.map(&:id))
+    ids = conversations.map(&:id)
+    reads = ConversationRead.where(agent: current_agent, conversation_id: ids)
                             .pluck(:conversation_id, :last_read_at).to_h
+    my_stars = Star.where(agent: current_agent, conversation_id: ids).pluck(:conversation_id).to_set
     render json: { conversations: conversations.map { |c|
-                     conversation_json(c).merge("unread" => unread?(c, reads[c.id])) },
+                     conversation_json(c).merge("unread" => unread?(c, reads[c.id]),
+                                                "starred" => my_stars.include?(c.id)) },
                    folder_counts: folder_counts }
   end
 
@@ -37,7 +46,11 @@ class Api::ConversationsController < Api::BaseController
         conversation.assign!(assignee, agent: current_agent)
         Notifier.assigned(conversation, by: current_agent) if assignee
       end
-      conversation.update!(starred: params[:starred]) if params.key?(:starred)
+      set_starred(conversation, params[:starred]) if params.key?(:starred)
+      if params[:remove_from_folder_id].present?
+        current_agent.personal_folders.find_by(id: params[:remove_from_folder_id])
+          &.personal_folder_items&.where(conversation_id: conversation.id)&.delete_all
+      end
       updated += 1
     end
     render json: { updated: updated }
@@ -158,7 +171,7 @@ class Api::ConversationsController < Api::BaseController
       conversation.assign!(assignee, agent: current_agent)
       Notifier.assigned(conversation, by: current_agent)
     end
-    conversation.update!(starred: params[:starred]) if params.key?(:starred)
+    set_starred(conversation, params[:starred]) if params.key?(:starred)
     if params.key?(:snooze_until)
       conversation.update!(snoozed_until: params[:snooze_until].presence)
     end
@@ -182,12 +195,21 @@ class Api::ConversationsController < Api::BaseController
     { unassigned: open.where(assignee_id: nil).count,
       mine: open.where(assignee_id: current_agent.id).count,
       assigned: open.where.not(assignee_id: nil).count,
-      starred: base.where(starred: true).where.not(status: %w[spam trash]).count,
+      starred: base.joins(:stars).where(stars: { agent_id: current_agent.id }).where.not(status: %w[spam trash]).count,
       closed: base.where(status: "closed").count,
       spam: base.where(status: "spam").count,
       trash: base.where(status: "trash").count,
       snoozed: base.where(status: %w[active pending]).snoozed.count,
       drafts: current_agent.drafts.count }
+  end
+
+  # Stars are personal (D-layer): toggle for the current agent only.
+  def set_starred(conversation, value)
+    if ActiveModel::Type::Boolean.new.cast(value)
+      Star.find_or_create_by!(agent: current_agent, conversation: conversation)
+    else
+      Star.where(agent: current_agent, conversation: conversation).delete_all
+    end
   end
 
   def unread?(conversation, last_read_at)
@@ -231,8 +253,9 @@ class Api::ConversationsController < Api::BaseController
   end
 
   def conversation_json(c, full: false)
-    json = c.as_json(only: [ :id, :number, :subject, :status, :preview, :starred,
+    json = c.as_json(only: [ :id, :number, :subject, :status, :preview,
                              :messages_count, :last_message_at, :mailbox_id, :created_at, :snoozed_until ])
+    json["starred"] = c.stars.loaded? ? c.stars.any? { |s| s.agent_id == current_agent.id } : c.stars.exists?(agent_id: current_agent.id)
     json["customer"] = c.customer.as_json(only: [ :id, :email, :name ])
     json["assignee"] = c.assignee&.as_json(only: [ :id, :name ])
     json["tags"] = c.tags.map { |t| t.as_json(only: [ :id, :name, :color ]) }
@@ -242,6 +265,8 @@ class Api::ConversationsController < Api::BaseController
       json["participants"] = participants(c)
       json["reply_all"] = reply_all_defaults(c)
       json["followed"] = c.followers.exists?(agent_id: current_agent.id)
+      json["personal_folder_ids"] = current_agent.personal_folders.joins(:personal_folder_items)
+                                                 .where(personal_folder_items: { conversation_id: c.id }).ids
       json["events"] = c.events.order(:created_at).map { |e|
         e.as_json(only: [ :id, :kind, :data, :created_at ]).merge("agent" => e.agent&.as_json(only: [ :id, :name ]))
       }

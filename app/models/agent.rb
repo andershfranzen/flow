@@ -16,6 +16,8 @@ class Agent < ApplicationRecord
   has_many :api_tokens, dependent: :destroy
   has_many :notifications, dependent: :destroy
   has_many :drafts, dependent: :destroy
+  has_many :personal_folders, dependent: :destroy
+  has_many :stars, dependent: :delete_all
 
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :name, presence: true

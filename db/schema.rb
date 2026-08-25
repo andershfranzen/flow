@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_060000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_25_070000) do
   create_table "action_mailbox_inbound_emails", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "message_checksum", null: false
@@ -112,7 +112,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_060000) do
     t.integer "number", null: false
     t.string "preview", default: "", null: false
     t.datetime "snoozed_until"
-    t.boolean "starred", default: false, null: false
     t.string "status", default: "active", null: false
     t.string "subject", default: "", null: false
     t.datetime "updated_at", null: false
@@ -278,6 +277,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_060000) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "personal_folder_items", force: :cascade do |t|
+    t.integer "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "personal_folder_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id"], name: "index_personal_folder_items_on_conversation_id"
+    t.index ["personal_folder_id", "conversation_id"], name: "index_personal_folder_items_uniqueness", unique: true
+    t.index ["personal_folder_id"], name: "index_personal_folder_items_on_personal_folder_id"
+  end
+
+  create_table "personal_folders", force: :cascade do |t|
+    t.integer "agent_id", null: false
+    t.string "color", default: "#5522fa", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_id", "name"], name: "index_personal_folders_on_agent_id_and_name", unique: true
+    t.index ["agent_id"], name: "index_personal_folders_on_agent_id"
+  end
+
   create_table "plugin_states", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.boolean "enabled", default: true, null: false
@@ -293,6 +313,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_060000) do
     t.string "name", null: false
     t.datetime "updated_at", null: false
     t.index ["mailbox_id"], name: "index_saved_replies_on_mailbox_id"
+  end
+
+  create_table "stars", force: :cascade do |t|
+    t.integer "agent_id", null: false
+    t.integer "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_id", "conversation_id"], name: "index_stars_on_agent_id_and_conversation_id", unique: true
+    t.index ["agent_id"], name: "index_stars_on_agent_id"
+    t.index ["conversation_id"], name: "index_stars_on_conversation_id"
   end
 
   create_table "tags", force: :cascade do |t|
@@ -372,7 +402,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_060000) do
   add_foreign_key "messages", "conversations"
   add_foreign_key "notifications", "agents"
   add_foreign_key "notifications", "conversations"
+  add_foreign_key "personal_folder_items", "conversations"
+  add_foreign_key "personal_folder_items", "personal_folders"
+  add_foreign_key "personal_folders", "agents"
   add_foreign_key "saved_replies", "mailboxes"
+  add_foreign_key "stars", "agents"
+  add_foreign_key "stars", "conversations"
   add_foreign_key "team_members", "agents"
   add_foreign_key "team_members", "teams"
   add_foreign_key "workflows", "mailboxes"

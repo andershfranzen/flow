@@ -31,7 +31,7 @@ class WorkflowTest < ActionDispatch::IntegrationTest
     conversation = ingest(subject: "Invoice 900 is wrong")
     assert_equal [ "billing" ], conversation.tags.pluck(:name)
     assert_equal @admin.id, conversation.assignee_id
-    assert conversation.starred
+    assert Star.exists?(agent: @admin, conversation: conversation), "star action stars for the assignee"
     assert_equal "workflow", conversation.events.last.kind
     assert_equal 1, Workflow.first.reload.runs_count
 

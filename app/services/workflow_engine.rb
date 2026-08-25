@@ -65,7 +65,10 @@ class WorkflowEngine
       conversation.set_status!(value)
       Notifier.status_changed(conversation)
     when "star"
-      conversation.update!(starred: true)
+      # Stars are personal: star for the assignee (no-op when unassigned).
+      if conversation.assignee
+        Star.find_or_create_by!(agent: conversation.assignee, conversation: conversation)
+      end
     when "move_mailbox"
       mailbox = Mailbox.find_by(id: action["value"])
       conversation.update!(mailbox: mailbox) if mailbox && mailbox.id != conversation.mailbox_id

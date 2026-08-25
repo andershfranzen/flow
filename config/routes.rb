@@ -17,6 +17,12 @@ Rails.application.routes.draw do
     end
 
     patch "conversations/bulk" => "conversations#bulk"
+    resources :personal_folders, only: [ :index, :create, :update, :destroy ] do
+      member do
+        post :items, action: :add_items
+        delete "items/:conversation_id", action: :remove_item
+      end
+    end
     resources :conversations, only: [ :index, :show, :create, :update ] do
       resources :messages, only: [ :create, :destroy ]
       member { post :presence }
