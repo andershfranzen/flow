@@ -144,9 +144,11 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 }
 .rail .brand::after { content: "."; color: var(--accent); }
 .brand, .company-logo { user-select: none; -webkit-user-select: none; cursor: default; }
-.brand-block { display: flex; flex-direction: column; align-items: flex-start; }
-.company-logo { max-height: 44px; max-width: 180px; margin: 0 0 2px 12px; object-fit: contain; }
-.brand.by-flow { font-size: 13px; padding: 0 12px 14px; }
+/* Shrink-wraps to the logo width so "by Flow." centers under the logo itself */
+.brand-block { display: flex; flex-direction: column; align-items: center; align-self: flex-start; margin-left: 12px; }
+.company-logo { max-height: 44px; max-width: 180px; margin-bottom: 2px; object-fit: contain; }
+.brand.by-flow { font-size: 13px; padding: 0 0 14px; }
+.brand-block > .brand:only-child { margin-left: -12px; }
 .rail nav { display: flex; flex-direction: column; }
 .rail .rail-item {
   display: flex; align-items: center; justify-content: space-between;
@@ -587,7 +589,8 @@ input, select { min-width: 0; max-width: 100%; }
     border-bottom: 2px solid var(--border);
   }
   .rail .brand { padding: 0 10px 0 4px; font-size: 20px; }
-  .brand-block { flex-direction: row; align-items: center; flex: none; }
+  .brand-block { flex-direction: row; align-items: center; flex: none; margin-left: 0; }
+  .brand-block > .brand:only-child { margin-left: 0; }
   .company-logo { max-height: 26px; margin: 0 0 0 4px; }
   .brand.by-flow { padding: 0 10px 0 6px; }
   .brand-row { padding-right: 0; }
