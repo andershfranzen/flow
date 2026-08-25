@@ -4,6 +4,7 @@ import { api } from '../api'
 import { t } from '../strings'
 import RichEditor from './RichEditor.vue'
 import RecipientsInput from './RecipientsInput.vue'
+import PendingFiles from './PendingFiles.vue'
 
 const props = defineProps({
   conversation: { type: Object, required: true },
@@ -149,6 +150,7 @@ async function insertSavedReply(e) {
     </div>
     <RichEditor ref="editor" :placeholder="isNote ? `${t.internalNote} — @name notifies` : `${t.reply}…`"
                 @input="onInput" />
+    <PendingFiles :files="files" @remove="(i) => files.splice(i, 1)" />
     <div class="actions">
       <template v-if="isNote">
         <button type="button" class="primary" :disabled="busy" @click="submit(false)">{{ t.saveNote }}</button>

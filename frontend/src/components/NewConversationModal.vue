@@ -5,6 +5,7 @@ import { t } from '../strings'
 import { useSession } from '../stores/session'
 import RichEditor from './RichEditor.vue'
 import RecipientsInput from './RecipientsInput.vue'
+import PendingFiles from './PendingFiles.vue'
 
 const props = defineProps({
   mailboxes: { type: Array, required: true },
@@ -103,6 +104,7 @@ async function submit() {
         <div class="modal-editor">
           <RichEditor ref="editor" placeholder="Write your message — paste screenshots directly…" />
         </div>
+        <PendingFiles :files="files" @remove="(i) => files.splice(i, 1)" />
       </div>
       <p v-if="error" class="error-text" style="margin:8px 0 0">{{ error }}</p>
       <div style="display:flex; gap:8px; align-items:center; margin-top:14px">

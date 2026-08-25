@@ -7,6 +7,7 @@ import { api } from '../api'
 import { t } from '../strings'
 import Composer from './Composer.vue'
 import { avatarColor, initials } from '../avatar'
+import Attachments from './Attachments.vue'
 import { shortTime, fullTime } from '../format'
 
 const router = useRouter()
@@ -290,12 +291,7 @@ function eventText(e) {
             </div>
             <div v-if="item.body_html" class="msg-body" v-html="renderHtml(item)"></div>
             <div v-else class="msg-body" style="white-space:pre-wrap">{{ splitText(item.body_text).main }}<details v-if="splitText(item.body_text).quoted" class="quoted"><summary>•••</summary>{{ splitText(item.body_text).quoted }}</details></div>
-            <div v-if="(item.attachments || []).some((a) => !a.content_id)" class="attachments">
-              <a v-for="a in item.attachments.filter((a) => !a.content_id)" :key="a.id"
-                 class="attachment" :href="a.url" target="_blank" rel="noopener">
-                📎 {{ a.filename }} ({{ Math.round(a.byte_size / 1024) }} KB)
-              </a>
-            </div>
+            <Attachments :attachments="item.attachments || []" />
           </article>
         </template>
 

@@ -13,3 +13,10 @@ export function shortTime(iso) {
 export function fullTime(iso) {
   return iso ? new Date(iso).toLocaleString() : ''
 }
+
+export function formatBytes(n) {
+  if (n == null) return ''
+  if (n < 1024) return `${n} B`
+  if (n < 1048576) return `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`
+  return `${(n / 1048576).toFixed(1)} MB`
+}
