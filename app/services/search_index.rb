@@ -53,8 +53,11 @@ class SearchIndex
         cleaned = terms.map { |t| t.gsub(/[^[:alnum:]@.\-]/, "") }.reject(&:blank?)
         return [] if cleaned.empty?
         tsquery = cleaned.map { |t| "#{t}:*" }.join(" & ")
-        Message.where(
-          "to_tsvector('simple', coalesce(subject, '') || ' ' || coalesce(body_text, '')) @@ to_tsquery('simple', ?)",
+        # The conversation subject joins the vector so multi-term queries can
+        # span subject + body, matching SQLite's snapshot semantics.
+        # ponytail: expression scan per search; materialize a tsvector column when PG scale hurts
+        Message.joins(:conversation).where(
+          "to_tsvector('simple', coalesce(conversations.subject, '') || ' ' || coalesce(messages.subject, '') || ' ' || coalesce(messages.body_text, '')) @@ to_tsquery('simple', ?)",
           tsquery
         ).distinct.pluck(:conversation_id) |
           Conversation.where("subject ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(query)}%").ids
