@@ -174,7 +174,8 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
   padding: 5px 12px; border-radius: 999px; border: 2px solid var(--accent);
   background: var(--panel);
 }
-.rail .foot { position: relative; }
+.brand-row { display: flex; align-items: center; justify-content: space-between; padding-right: 6px; }
+.brand-row .brand { padding-bottom: 12px; }
 .rail .foot .me { font-weight: 800; font-family: var(--font-round); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bell { position: relative; padding: 4px 8px; font-size: 14px; }
 .bell-badge {
@@ -183,8 +184,10 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
   border-radius: 99px; padding: 0 5px; min-width: 16px; text-align: center; line-height: 16px;
 }
 .notif-panel {
-  position: absolute; bottom: calc(100% + 6px); left: 0; width: 290px; z-index: 30;
-  max-height: 55vh; overflow-y: auto; box-shadow: 0 8px 28px rgba(20, 20, 40, .16);
+  position: fixed; width: 330px; z-index: 50;
+  max-height: 70vh; overflow-y: auto;
+  box-shadow: 0 10px 34px rgba(20, 20, 40, .18);
+  animation: flow-pop .15s var(--ease) both; transform-origin: top left;
 }
 .notif-item {
   display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left;
@@ -552,6 +555,9 @@ input, select { min-width: 0; max-width: 100%; }
     border-bottom: 2px solid var(--border);
   }
   .rail .brand { padding: 0 10px 0 4px; font-size: 20px; }
+  .brand-row { padding-right: 0; }
+  .brand-row .brand { padding-bottom: 0; }
+  .notif-panel { width: auto; }
   .rail nav { flex-direction: row; }
   .rail .section { display: none; }
   .rail .rail-item { width: auto; padding: 5px 12px; white-space: nowrap; gap: 6px; max-height: none; }

@@ -55,6 +55,8 @@ function onKeydown(e) {
   } else if (e.key === 'e' && currentId.value) {
     inbox.update(currentId.value, { status: 'closed' })
     e.preventDefault()
+  } else if (e.key === 'Escape' && showNotifs.value) {
+    showNotifs.value = false
   } else if (e.key === 'r' && currentId.value) {
     document.querySelector('.composer .editor')?.focus()
     e.preventDefault()
@@ -136,6 +138,7 @@ function setFilter() { inbox.loadConversations() }
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
+  document.addEventListener('mousedown', onGlobalPointer)
   api.get('/api/agents').then((a) => (agents.value = a))
   api.get('/api/tags').then((x) => (tags.value = x))
   inbox.loadPersonalFolders()
@@ -145,7 +148,11 @@ onMounted(async () => {
   if (currentId.value) inbox.open(currentId.value)
   restream()
 })
-onUnmounted(() => { stream?.close(); window.removeEventListener('keydown', onKeydown) })
+onUnmounted(() => {
+  stream?.close()
+  window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('mousedown', onGlobalPointer)
+})
 
 watch(currentId, (id) => {
   if (id) inbox.open(id)
@@ -180,13 +187,26 @@ const NOTIF_LABELS = {
   customer_reply: 'Customer replied', note_on_mine: 'New note', mention: 'You were mentioned',
 }
 
-async function toggleNotifs() {
+const notifPanelStyle = ref({})
+
+async function toggleNotifs(e) {
   showNotifs.value = !showNotifs.value
-  if (showNotifs.value) {
-    const data = await api.get('/api/notifications')
-    notifs.value = data.notifications
-    inbox.unread = data.unread
-  }
+  if (!showNotifs.value) return
+  const r = e.currentTarget.getBoundingClientRect()
+  const railRight = document.querySelector('.rail')?.getBoundingClientRect().right ?? r.right
+  // Desktop: fly out clear of the rail; top bar (mobile): drop below.
+  notifPanelStyle.value = window.innerWidth > 700
+    ? { left: `${Math.round(Math.max(r.right, railRight) + 10)}px`, top: `${Math.max(10, Math.round(r.top - 4))}px` }
+    : { left: '10px', right: '10px', top: `${Math.round(r.bottom + 8)}px` }
+  const data = await api.get('/api/notifications')
+  notifs.value = data.notifications
+  inbox.unread = data.unread
+}
+
+function onGlobalPointer(e) {
+  if (!showNotifs.value) return
+  if (e.target.closest?.('.notif-panel') || e.target.closest?.('.bell')) return
+  showNotifs.value = false
 }
 
 async function openNotif(n) {
@@ -306,7 +326,12 @@ async function logout() {
 <template>
   <div class="shell" :class="{ 'viewing-conversation': !!currentId }">
     <aside class="rail" :class="{ dragging: !!dragging }">
-      <div class="brand">{{ t.appName }}</div>
+      <div class="brand-row">
+        <div class="brand">{{ t.appName }}</div>
+        <button class="ghost bell" data-tip="Notifications" :aria-expanded="showNotifs" @click="toggleNotifs">
+          🔔<span v-if="inbox.unread" class="bell-badge">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</span>
+        </button>
+      </div>
       <nav aria-label="Mailboxes">
         <div class="section">Mailboxes</div>
         <button class="rail-item" :class="{ active: inbox.mailboxId === null }" @click="selectMailbox(null)">
@@ -364,8 +389,16 @@ async function logout() {
         </button>
       </nav>
       <div class="foot">
+        <div class="me" :title="session.agent?.email">{{ session.agent?.name }}</div>
+        <div style="display:flex; gap:8px; align-items:center">
+          <router-link to="/settings">{{ t.settings }}</router-link>
+          <button class="ghost" style="margin-left:auto; padding:4px 10px" @click="logout">{{ t.logout }}</button>
+        </div>
+      </div>
+
+      <Teleport to="body">
         <Transition name="fade">
-          <div v-if="showNotifs" class="notif-panel card">
+          <div v-if="showNotifs" class="notif-panel card" :style="notifPanelStyle">
             <div class="insights-head" style="margin-bottom:6px">
               <span>Notifications</span>
               <button v-if="inbox.unread" class="ghost" style="padding:2px 8px; font-size:11px"
@@ -379,15 +412,7 @@ async function logout() {
             <div v-if="!notifs.length" class="empty" style="padding:16px">Nothing yet</div>
           </div>
         </Transition>
-        <div class="me" :title="session.agent?.email">{{ session.agent?.name }}</div>
-        <div style="display:flex; gap:8px; align-items:center">
-          <router-link to="/settings">{{ t.settings }}</router-link>
-          <button class="ghost bell" data-tip="Notifications" :aria-expanded="showNotifs" @click="toggleNotifs">
-            🔔<span v-if="inbox.unread" class="bell-badge">{{ inbox.unread > 99 ? '99+' : inbox.unread }}</span>
-          </button>
-          <button class="ghost" style="margin-left:auto; padding:4px 10px" @click="logout">{{ t.logout }}</button>
-        </div>
-      </div>
+      </Teleport>
     </aside>
 
     <section class="list-col" aria-label="Conversations">
