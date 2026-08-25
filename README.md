@@ -58,6 +58,9 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
 - **Per-agent unread state** (bold rows), **snooze** ("until Monday 09:00",
   woken early by customer replies), **bulk actions** (close / assign / tag
   many at once), oldest-first queue mode, and assignee/tag filters
+- **Workflows** — a visual, drag-and-drop automation builder (trigger →
+  conditions → actions): auto-tag, auto-assign, auto-reply, forward, move,
+  close, prioritised rules per mailbox or global
 
 **The pipeline**
 - IMAP polling plus optional IMAP IDLE for instant fetch

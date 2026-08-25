@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useSession } from '../stores/session'
 import { api } from '../api'
 import { t } from '../strings'
+import WorkflowBuilder from '../components/WorkflowBuilder.vue'
 
 const props = defineProps({ tab: String })
 const router = useRouter()
@@ -11,7 +12,7 @@ const session = useSession()
 
 const TABS = computed(() => {
   const base = [['profile', 'My profile'], ['saved_replies', 'Saved replies'], ['tags', 'Tags'], ['tokens', 'API tokens']]
-  const admin = [['org', 'Organisation'], ['agents', 'Agents'], ['mailboxes', 'Mailboxes'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']]
+  const admin = [['org', 'Organisation'], ['agents', 'Agents'], ['mailboxes', 'Mailboxes'], ['workflows', 'Workflows'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']]
   return session.isAdmin ? [...admin, ...base] : base
 })
 const tab = computed(() => props.tab || (session.isAdmin ? 'org' : 'profile'))
@@ -344,6 +345,9 @@ const NOTIFY_LABELS = {
         </div>
       </form>
     </div>
+
+    <!-- Workflows -->
+    <WorkflowBuilder v-if="tab === 'workflows'" />
 
     <!-- Plugins -->
     <div v-if="tab === 'plugins'">
