@@ -3,6 +3,10 @@ class McpController < ApplicationController
   skip_forgery_protection
 
   def handle
+    unless OrgSetting.current.mcp_enabled
+      return render json: { jsonrpc: "2.0", error: { code: -32000, message: "mcp_disabled" }, id: nil },
+                    status: :not_found
+    end
     unless current_agent
       return render json: { jsonrpc: "2.0", error: { code: -32000, message: "unauthorized" }, id: nil },
                     status: :unauthorized

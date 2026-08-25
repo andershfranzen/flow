@@ -38,6 +38,15 @@ def hook():
 ## 2. MCP (bring your own model)
 
 The MCP endpoint at `POST /mcp` (streamable HTTP, same Bearer token) exposes
+the full product — an agent with a write-scope token from an admin account can
+set up a fresh Flow end to end: `save_mailbox`, `test_mailbox`, `save_agent`,
+`save_team`, `save_tag`, `save_saved_reply`, `save_workflow`, `save_webhook`,
+`update_org_settings` (branding/theme/SSO), `list_plugins`/`set_plugin_enabled`,
+and `report` for metrics, plus the triage tools (`search`, `get_thread`,
+`draft_reply`, `send`, `assign`, `set_status`, `add_note`, `tag_conversation`).
+Fork Flow, hand your agent a token, and let it do the setup. Admin-only tools
+check the token owner's role; the endpoint can be disabled under Settings →
+Organisation → Agent access. It also exposes
 `search`, `get_thread`, `draft_reply`, `send`, `list_mailboxes`, `assign`.
 Point any MCP client at it; the client brings the LLM — core never calls one.
 

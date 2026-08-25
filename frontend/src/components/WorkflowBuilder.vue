@@ -1,7 +1,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
-import { X, Plus } from 'lucide-vue-next'
+import { X, Plus, Zap, HelpCircle, Cog } from 'lucide-vue-next'
+import StyledSelect from './StyledSelect.vue'
 
 const workflows = ref([])
 const meta = ref({ triggers: [], fields: [], operators: [], action_types: [], statuses: [] })
@@ -166,15 +167,12 @@ function valueControl(action) {
       </div>
 
       <div class="wf-node trigger">
-        <div class="wf-node-head"><span class="wf-icon">⚡</span> When</div>
+        <div class="wf-node-head"><span class="wf-icon"><Zap :size="14" /></span> When</div>
         <div class="wf-node-body">
-          <select v-model="editing.trigger">
-            <option v-for="tr in meta.triggers" :key="tr" :value="tr">{{ TRIGGER_LABELS[tr] }}</option>
-          </select>
-          <select v-model="editing.mailbox_id">
-            <option :value="null">in any mailbox</option>
-            <option v-for="m in mailboxes" :key="m.id" :value="m.id">in {{ m.name }}</option>
-          </select>
+          <StyledSelect v-model="editing.trigger"
+                        :options="meta.triggers.map((tr) => ({ value: tr, label: TRIGGER_LABELS[tr] }))" />
+          <StyledSelect v-model="editing.mailbox_id"
+                        :options="[{ value: null, label: 'in any mailbox' }, ...mailboxes.map((m) => ({ value: m.id, label: 'in ' + m.name }))]" />
         </div>
       </div>
 
@@ -182,21 +180,17 @@ function valueControl(action) {
 
       <div class="wf-node condition">
         <div class="wf-node-head">
-          <span class="wf-icon">❓</span> If
-          <select v-model="editing.match_type" style="margin-left:6px">
-            <option value="all">all conditions match</option>
-            <option value="any">any condition matches</option>
-          </select>
+          <span class="wf-icon"><HelpCircle :size="14" /></span> If
+          <StyledSelect v-model="editing.match_type" style="margin-left:6px"
+                        :options="[{ value: 'all', label: 'all conditions match' }, { value: 'any', label: 'any condition matches' }]" />
           <span v-if="!editing.conditions.length" class="hint-text" style="margin:0 0 0 6px">(always runs)</span>
         </div>
         <div class="wf-node-body" style="flex-direction:column; align-items:stretch">
           <div v-for="(c, i) in editing.conditions" :key="i" class="wf-step">
-            <select v-model="c.field">
-              <option v-for="f in meta.fields" :key="f" :value="f">{{ FIELD_LABELS[f] }}</option>
-            </select>
-            <select v-model="c.operator">
-              <option v-for="op in meta.operators" :key="op" :value="op">{{ OPERATOR_LABELS[op] }}</option>
-            </select>
+            <StyledSelect v-model="c.field"
+                          :options="meta.fields.map((f) => ({ value: f, label: FIELD_LABELS[f] }))" />
+            <StyledSelect v-model="c.operator"
+                          :options="meta.operators.map((op) => ({ value: op, label: OPERATOR_LABELS[op] }))" />
             <input v-model="c.value" placeholder="value" style="flex:1; min-width:80px" />
             <button type="button" class="ghost" @click="editing.conditions.splice(i, 1)"><X :size="13" /></button>
           </div>
@@ -211,31 +205,25 @@ function valueControl(action) {
              @dragstart="dragIndex = i" @dragover.prevent @drop="onDrop(i)">
           <div class="wf-node-head">
             <span class="wf-grip" title="Drag to reorder">⠿</span>
-            <span class="wf-icon">⚙</span> Then
-            <select v-model="a.type" style="margin-left:6px">
-              <option v-for="tp in meta.action_types" :key="tp" :value="tp">{{ ACTION_LABELS[tp] }}</option>
-            </select>
+            <span class="wf-icon"><Cog :size="14" /></span> Then
+            <StyledSelect v-model="a.type" style="margin-left:6px"
+                          :options="meta.action_types.map((tp) => ({ value: tp, label: ACTION_LABELS[tp] }))" />
             <span class="spacer" style="flex:1"></span>
             <button v-if="editing.actions.length > 1" type="button" class="ghost" @click="editing.actions.splice(i, 1)"><X :size="13" /></button>
           </div>
           <div class="wf-node-body" v-if="valueControl(a) !== 'none'">
-            <select v-if="valueControl(a) === 'agent'" v-model="a.value" style="flex:1">
-              <option v-for="ag in agents" :key="ag.id" :value="String(ag.id)">{{ ag.name }}</option>
-            </select>
-            <select v-else-if="valueControl(a) === 'team'" v-model="a.value" style="flex:1">
-              <option v-for="tm in teams" :key="tm.id" :value="String(tm.id)">{{ tm.name }}</option>
-            </select>
-            <select v-else-if="valueControl(a) === 'mailbox'" v-model="a.value" style="flex:1">
-              <option v-for="m in mailboxes" :key="m.id" :value="String(m.id)">{{ m.name }}</option>
-            </select>
-            <select v-else-if="valueControl(a) === 'status'" v-model="a.value" style="flex:1">
-              <option v-for="st in meta.statuses" :key="st" :value="st">{{ st }}</option>
-            </select>
+            <StyledSelect v-if="valueControl(a) === 'agent'" v-model="a.value" style="flex:1"
+                          :options="agents.map((ag) => ({ value: String(ag.id), label: ag.name }))" />
+            <StyledSelect v-else-if="valueControl(a) === 'team'" v-model="a.value" style="flex:1"
+                          :options="teams.map((tm) => ({ value: String(tm.id), label: tm.name }))" />
+            <StyledSelect v-else-if="valueControl(a) === 'mailbox'" v-model="a.value" style="flex:1"
+                          :options="mailboxes.map((m) => ({ value: String(m.id), label: m.name }))" />
+            <StyledSelect v-else-if="valueControl(a) === 'status'" v-model="a.value" style="flex:1"
+                          :options="meta.statuses.map((st) => ({ value: st, label: st }))" />
             <template v-else-if="valueControl(a) === 'reply'">
-              <select v-model="a.value" style="flex:1">
-                <option value="">Custom text…</option>
-                <option v-for="r in savedReplies" :key="r.id" :value="String(r.id)">Saved reply: {{ r.name }}</option>
-              </select>
+              <StyledSelect v-model="a.value" style="flex:1" placeholder="Custom text…"
+                            :options="[{ value: '', label: 'Custom text…' },
+                                       ...savedReplies.map((r) => ({ value: String(r.id), label: 'Saved reply: ' + r.name }))]" />
               <textarea v-if="!savedReplies.some((r) => String(r.id) === a.value)" v-model="a.value"
                         rows="2" placeholder="Reply text — {{customer.name}} works" style="flex:2"></textarea>
             </template>

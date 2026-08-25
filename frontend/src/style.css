@@ -598,6 +598,36 @@ details.quoted { color: var(--muted); }
 .cp-preview { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .cp-chip { width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--border); }
 
+/* Styled select: pill trigger + popover listbox */
+.sel { position: relative; display: inline-block; min-width: 120px; }
+.sel-button {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  background: #fff; border: 2px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 12px; font-weight: 600; color: var(--text); text-align: left;
+}
+.sel-button:hover { background: var(--panel-deep); }
+.sel-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-value.placeholder { color: var(--muted); }
+.sel-chevron { flex: none; color: var(--muted); transition: transform var(--dur) var(--ease); }
+.sel-chevron.open { transform: rotate(180deg); }
+.sel-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 70; min-width: 100%; max-width: 320px;
+  background: var(--panel); border: 2px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 10px 34px rgba(20, 20, 40, .18); padding: 6px;
+  animation: flow-pop .13s var(--ease) both; transform-origin: top left;
+}
+.sel-search { width: 100%; margin-bottom: 6px; padding: 6px 10px; font-size: 14px; }
+.sel-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; }
+.sel-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  background: none; border: 0; border-radius: 8px; padding: 7px 10px;
+  font-weight: 600; text-align: left; white-space: nowrap; color: var(--text);
+}
+.sel-option-label { overflow: hidden; text-overflow: ellipsis; }
+.sel-option.active { background: var(--panel-deep); }
+.sel-option.selected { color: var(--accent); }
+.sel-empty { padding: 8px 10px; color: var(--muted); font-size: 13.5px; }
+
 /* Toggleable multi-select cards (mailbox access, team members) */
 .pill-select { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 6px; }
 .pill-option {

@@ -93,7 +93,8 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
 - **If the UI can do it, the API can do it** — REST with token auth and
   read/write scopes
 - Signed webhooks on inbound/outbound mail, assignment, and status changes
-- An **MCP server** at `/mcp` (`search`, `get_thread`, `draft_reply`, `send`,
+- An **agent-native MCP server** at `/mcp` — 25 tools covering the whole product,
+  from triage (`search`, `get_thread`, `draft_reply`, `send`,
   `list_mailboxes`, `assign`) — bring your own model; core never calls an LLM
 - **In-process plugins, managed in the UI** (Settings → Plugins): install
   from a git URL, enable/disable instantly, update, uninstall — with full

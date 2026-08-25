@@ -11,6 +11,7 @@ import NewConversationModal from '../components/NewConversationModal.vue'
 import { avatarColor, initials } from '../avatar'
 import { shortTime } from '../format'
 import { Bell, Plus, X, Pencil, Star, Check, ArrowUp, ArrowDown, TriangleAlert, Settings as SettingsIcon, LogOut } from 'lucide-vue-next'
+import StyledSelect from '../components/StyledSelect.vue'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -453,14 +454,10 @@ async function logout() {
         <button class="primary" @click="openNewConversation" data-tip="New conversation"><Plus :size="17" /></button>
       </div>
       <div class="filter-row">
-        <select v-model="inbox.assigneeFilter" @change="setFilter" aria-label="Filter by assignee">
-          <option value="">Anyone</option>
-          <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
-        </select>
-        <select v-if="tags.length" v-model="inbox.tagFilter" @change="setFilter" aria-label="Filter by tag">
-          <option value="">Any tag</option>
-          <option v-for="x in tags" :key="x.id" :value="x.name">{{ x.name }}</option>
-        </select>
+        <StyledSelect v-model="inbox.assigneeFilter" aria-label="Filter by assignee" @change="setFilter"
+                      :options="[{ value: '', label: 'Anyone' }, ...agents.map((a) => ({ value: a.id, label: a.name }))]" />
+        <StyledSelect v-if="tags.length" v-model="inbox.tagFilter" aria-label="Filter by tag" @change="setFilter"
+                      :options="[{ value: '', label: 'Any tag' }, ...tags.map((x) => ({ value: x.name, label: x.name }))]" />
       </div>
       <Transition name="bulkbar">
         <div v-if="selected.size" class="bulk-bar">
@@ -474,11 +471,9 @@ async function logout() {
             <button @click="bulk({ status: 'closed' })">Close</button>
             <button @click="bulk({ status: 'spam' })">Spam</button>
             <button @click="bulk({ status: 'trash' })">Trash</button>
-            <select @change="bulkAssign" aria-label="Assign selected" style="flex:1; min-width:0">
-              <option value="">Assign…</option>
-              <option value="none">Unassign</option>
-              <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
-            </select>
+            <StyledSelect :model-value="''" placeholder="Assign…" aria-label="Assign selected" style="flex:1; min-width:0"
+                          @change="(v) => bulkAssign({ target: { value: v } })"
+                          :options="[{ value: 'none', label: 'Unassign' }, ...agents.map((a) => ({ value: a.id, label: a.name }))]" />
           </div>
         </div>
       </Transition>

@@ -12,6 +12,7 @@ import { THEME_TOKENS, applyTheme } from '../theme'
 import ColorPicker from '../components/ColorPicker.vue'
 import SaveButton from '../components/SaveButton.vue'
 import TogglePills from '../components/TogglePills.vue'
+import StyledSelect from '../components/StyledSelect.vue'
 
 const props = defineProps({ tab: String })
 const router = useRouter()
@@ -404,6 +405,14 @@ const NOTIFY_LABELS = {
         <div><label>Allowed sign-in domains (comma-separated)</label>
           <input v-model="org.sso_allowed_domains" placeholder="acmecool.com" style="width:100%" /></div>
       </div>
+      <h3 style="margin-top:16px">Agent access (MCP)</h3>
+      <p class="hint-text">Flow speaks the Model Context Protocol at
+        <code>{{ (org.base_url || '&lt;base url&gt;') + '/mcp' }}</code>. Connect any MCP-capable AI agent using an
+        API token (Settings → API tokens) as the Bearer token. A write-scope token from an admin account can
+        configure this entire Flow — mailboxes, agents, teams, workflows, webhooks, branding — so an agent can do
+        the full setup for you. Access always follows the token's scope and the agent's role.</p>
+      <label class="choice"><input type="checkbox" v-model="org.mcp_enabled" /> Enable the MCP endpoint</label>
+
       <h3 style="margin-top:16px">Google OAuth app</h3>
       <p class="hint-text">Google Cloud OAuth client (web), scope <code>https://mail.google.com/</code>, same redirect URI.</p>
       <div class="form-grid">
@@ -438,7 +447,8 @@ const NOTIFY_LABELS = {
           <div><label>Password {{ editing.id ? '(leave blank to keep)' : '' }}</label>
             <input v-model="editing.password" type="password" :required="!editing.id" style="width:100%" /></div>
           <div><label>Role</label>
-            <select v-model="editing.role" style="width:100%"><option value="user">user</option><option value="admin">admin</option></select></div>
+            <StyledSelect v-model="editing.role" style="width:100%"
+                          :options="[{ value: 'user', label: 'User' }, { value: 'admin', label: 'Admin' }]" /></div>
         </div>
         <div style="margin-top:12px">
           <label>Mailbox access</label>
@@ -517,11 +527,10 @@ const NOTIFY_LABELS = {
         <h3 style="margin-top:14px">Authentication</h3>
         <div class="form-grid">
           <div><label>Method</label>
-            <select v-model="editing.auth_kind" style="width:100%">
-              <option value="password">Password (IMAP/SMTP)</option>
-              <option value="microsoft">Microsoft 365 (OAuth)</option>
-              <option value="google">Google (OAuth)</option>
-            </select></div>
+            <StyledSelect v-model="editing.auth_kind" style="width:100%"
+                          :options="[{ value: 'password', label: 'Password (IMAP/SMTP)' },
+                                     { value: 'microsoft', label: 'Microsoft 365 (OAuth)' },
+                                     { value: 'google', label: 'Google (OAuth)' }]" /></div>
           <div v-if="editing.auth_kind !== 'password'" style="align-self:end; display:flex; gap:8px; align-items:center">
             <button type="button" class="primary" @click="connectOauth">
               Connect {{ editing.auth_kind === 'microsoft' ? 'Microsoft 365' : 'Google' }}
@@ -549,9 +558,8 @@ const NOTIFY_LABELS = {
           <div v-if="editing.auth_kind === 'password'"><label>Password {{ editing.smtp_password_set ? '(set — blank keeps it)' : '' }}</label>
             <input v-model="editing.smtp_password" type="password" style="width:100%" /></div>
           <div><label>Security</label>
-            <select v-model="editing.smtp_security" style="width:100%">
-              <option value="starttls">STARTTLS</option><option value="ssl">SSL/TLS</option><option value="none">None</option>
-            </select></div>
+            <StyledSelect v-model="editing.smtp_security" style="width:100%"
+                          :options="[{ value: 'starttls', label: 'STARTTLS' }, { value: 'ssl', label: 'SSL/TLS' }, { value: 'none', label: 'None' }]" /></div>
         </div>
         <h3 style="margin-top:14px">Auto-reply</h3>
         <label class="choice"><input type="checkbox" v-model="editing.auto_reply_enabled" /> Send "we got your mail" once per new conversation</label>
@@ -621,14 +629,11 @@ const NOTIFY_LABELS = {
           <input v-model="profile.password" type="password" autocomplete="new-password"
                  placeholder="Blank keeps current" style="width:100%" /></div>
         <div><label>Timezone</label>
-          <select v-model="profile.timezone" style="width:100%">
-            <option v-for="tz in TIMEZONES" :key="tz" :value="tz">{{ tz }}</option>
-          </select></div>
+          <StyledSelect v-model="profile.timezone" searchable style="width:100%"
+                        :options="TIMEZONES" /></div>
         <div><label>Language</label>
-          <select v-model="profile.locale" style="width:100%">
-            <option value="en">English</option>
-            <option value="da">Dansk</option>
-          </select></div>
+          <StyledSelect v-model="profile.locale" style="width:100%"
+                        :options="[{ value: 'en', label: 'English' }, { value: 'da', label: 'Dansk' }]" /></div>
       </div>
       <div style="margin-top:12px">
         <label>My signature (used instead of the mailbox signature)</label>
@@ -692,10 +697,8 @@ const NOTIFY_LABELS = {
         <div><label>Name</label><input v-model="editing.name" required style="width:100%" /></div>
         <div style="margin-top:8px"><label>Body</label><textarea v-model="editing.body" rows="5" required style="width:100%"></textarea></div>
         <div style="margin-top:8px"><label>Mailbox (blank = global)</label>
-          <select v-model="editing.mailbox_id" style="width:100%">
-            <option :value="null">Global</option>
-            <option v-for="m in mailboxes" :key="m.id" :value="m.id">{{ m.name }}</option>
-          </select></div>
+          <StyledSelect v-model="editing.mailbox_id" style="width:100%"
+                        :options="[{ value: null, label: 'Global' }, ...mailboxes.map((m) => ({ value: m.id, label: m.name }))]" /></div>
         <div class="form-actions">
           <button class="primary">{{ t.save }}</button>
           <button type="button" @click="editing = null">{{ t.cancel }}</button>
@@ -797,7 +800,8 @@ const NOTIFY_LABELS = {
         <div class="form-grid">
           <div><label>Name</label><input v-model="editing.name" required style="width:100%" /></div>
           <div><label>Scope</label>
-            <select v-model="editing.scope" style="width:100%"><option value="read">read</option><option value="write">write</option></select></div>
+            <StyledSelect v-model="editing.scope" style="width:100%"
+                          :options="[{ value: 'read', label: 'Read only' }, { value: 'write', label: 'Read + write' }]" /></div>
         </div>
         <div class="form-actions">
           <button class="primary">Create</button>

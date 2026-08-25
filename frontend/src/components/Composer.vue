@@ -8,6 +8,7 @@ import RichEditor from './RichEditor.vue'
 import RecipientsInput from './RecipientsInput.vue'
 import PendingFiles from './PendingFiles.vue'
 import { Paperclip, X } from 'lucide-vue-next'
+import StyledSelect from './StyledSelect.vue'
 
 const props = defineProps({
   conversation: { type: Object, required: true },
@@ -176,10 +177,9 @@ async function insertSavedReply(e) {
       <template v-else>
         <button type="submit" class="primary" :disabled="busy">{{ t.send }}</button>
         <button type="button" :disabled="busy" @click="submit(true)">{{ t.sendAndClose }}</button>
-        <select @change="insertSavedReply" aria-label="Saved replies">
-          <option value="">{{ t.savedReplies }}</option>
-          <option v-for="r in savedReplies" :key="r.id" :value="r.id">{{ r.name }}</option>
-        </select>
+        <StyledSelect :model-value="''" :placeholder="t.savedReplies" aria-label="Saved replies"
+                      @change="(v) => insertSavedReply({ target: { value: v } })"
+                      :options="savedReplies.map((r) => ({ value: r.id, label: r.name }))" />
         <label style="margin:0">
           <input type="file" multiple style="display:none" @change="pickFiles" />
           <span class="pill" style="cursor:pointer; display:inline-flex; align-items:center; gap:4px" data-tip="Attach files"><Paperclip :size="13" /> {{ files.length || '' }}</span>

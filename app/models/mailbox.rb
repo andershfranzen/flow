@@ -52,4 +52,42 @@ class Mailbox < ApplicationRecord
     end
     opts
   end
+
+  # Try a real IMAP login and SMTP connect; used by the API test button and
+  # the MCP test_mailbox tool.
+  def connection_test = { imap: test_imap, smtp: test_smtp }
+
+  def test_imap
+    return { ok: false, error: "not configured" } unless imap_configured?
+    imap = Net::IMAP.new(imap_host, port: imap_port, ssl: imap_ssl)
+    if oauth?
+      imap.authenticate("XOAUTH2", imap_user, MailOauth.access_token!(self))
+    else
+      imap.login(imap_user, imap_password)
+    end
+    imap.examine(imap_folder)
+    { ok: true }
+  rescue StandardError => e
+    { ok: false, error: e.message.truncate(200) }
+  ensure
+    imap&.disconnect rescue nil
+  end
+
+  def test_smtp
+    return { ok: false, error: "not configured" } unless smtp_configured?
+    opts = smtp_options
+    smtp = Net::SMTP.new(opts[:address], opts[:port])
+    smtp.enable_starttls_auto if opts[:enable_starttls_auto]
+    smtp.enable_tls if opts[:tls]
+    smtp.open_timeout = 5
+    if opts[:user_name]
+      smtp.start(opts[:domain], opts[:user_name], opts[:password], :plain) {}
+    else
+      smtp.start(opts[:domain]) {}
+    end
+    { ok: true }
+  rescue StandardError => e
+    { ok: false, error: e.message.truncate(200) }
+  end
+
 end

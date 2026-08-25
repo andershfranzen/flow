@@ -1,4 +1,5 @@
 <script setup>
+import StyledSelect from './StyledSelect.vue'
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
 import { t } from '../strings'
@@ -74,26 +75,21 @@ async function submit() {
       <div class="modal-grid">
         <div>
           <label>Mailbox</label>
-          <select v-model="form.mailbox_id" style="width:100%">
-            <option v-for="m in mailboxes" :key="m.id" :value="m.id">{{ m.name }} ({{ m.address }})</option>
-          </select>
+          <StyledSelect v-model="form.mailbox_id" style="width:100%"
+                        :options="mailboxes.map((m) => ({ value: m.id, label: `${m.name} (${m.address})` }))" />
         </div>
         <div>
           <label>{{ t.assignTo }}</label>
-          <select v-model="form.assignee_id" style="width:100%">
-            <option :value="null">{{ t.unassigned }}</option>
-            <option v-for="a in agents" :key="a.id" :value="a.id">
-              {{ a.name }}{{ a.id === session.agent?.id ? ' (me)' : '' }}
-            </option>
-          </select>
+          <StyledSelect v-model="form.assignee_id" style="width:100%"
+                        :options="[{ value: null, label: t.unassigned },
+                                   ...agents.map((a) => ({ value: a.id, label: a.name + (a.id === session.agent?.id ? ' (me)' : '') }))]" />
         </div>
         <div>
           <label>Status after send</label>
-          <select v-model="form.status" style="width:100%">
-            <option value="active">{{ t.statuses.active }}</option>
-            <option value="pending">{{ t.statuses.pending }}</option>
-            <option value="closed">{{ t.statuses.closed }} (log &amp; archive)</option>
-          </select>
+          <StyledSelect v-model="form.status" style="width:100%"
+                        :options="[{ value: 'active', label: t.statuses.active },
+                                   { value: 'pending', label: t.statuses.pending },
+                                   { value: 'closed', label: t.statuses.closed + ' (log & archive)' }]" />
         </div>
       </div>
       <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px">

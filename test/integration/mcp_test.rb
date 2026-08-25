@@ -29,10 +29,71 @@ class McpTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
-  test "lists the six tools" do
+  test "lists the full tool surface" do
     body = rpc("tools/list")
     names = body.dig("result", "tools").map { |t| t["name"] }
-    assert_equal %w[assign draft_reply get_thread list_mailboxes search send].sort, names.sort
+    %w[assign draft_reply get_thread list_mailboxes search send
+       set_status add_note tag_conversation list_agents save_agent save_mailbox test_mailbox
+       save_team save_tag save_saved_reply list_webhooks save_webhook list_workflows
+       save_workflow get_org_settings update_org_settings list_plugins set_plugin_enabled
+       report].each { |t| assert_includes names, t }
+  end
+
+  def tool_text(body) = JSON.parse(body.dig("result", "content").first["text"])
+
+  test "an agent can set up a whole flow through mcp" do
+    out = tool_text(call_tool("save_mailbox", { address: "sales@example.com",
+      attributes: { name: "Sales", imap_host: "imap.example.com", imap_port: 993, imap_ssl: true,
+                    imap_user: "sales@example.com", imap_password: "pw",
+                    smtp_host: "smtp.example.com", smtp_port: 587, smtp_user: "sales@example.com",
+                    smtp_password: "pw", smtp_security: "starttls" } }))
+    assert out["imap_configured"]
+    assert out["smtp_configured"]
+
+    out = tool_text(call_tool("save_agent", { email: "new@example.com", name: "Newbie",
+                                              mailbox_addresses: [ "sales@example.com" ] }))
+    assert_equal [ "sales@example.com" ], out["mailboxes"]
+
+    out = tool_text(call_tool("save_team", { name: "Support", agent_emails: [ "new@example.com" ] }))
+    assert_equal [ "new@example.com" ], out["members"]
+
+    tool_text(call_tool("save_tag", { name: "billing", color: "#aa3311" }))
+    assert_equal "#aa3311", Tag.find_by(name: "billing").color
+
+    out = tool_text(call_tool("save_workflow", { name: "Auto-tag billing", trigger: "message.inbound",
+      conditions: [ { "field" => "subject", "operator" => "contains", "value" => "invoice" } ],
+      actions: [ { "type" => "add_tag", "value" => "billing" } ] }))
+    assert_equal "message.inbound", out["trigger"]
+
+    out = tool_text(call_tool("save_webhook", { url: "https://hooks.example.com/flow", events: [ "thread.created" ] }))
+    assert out["secret"].present?
+
+    out = tool_text(call_tool("update_org_settings", { attributes: {
+      "site_name" => "acmecool Support", "theme" => { "accent" => "#1e3a8a", "bogus" => "nope" } } }))
+    assert_equal "acmecool Support", out["site_name"]
+    assert_equal({ "accent" => "#1e3a8a" }, out["theme"])
+
+    out = tool_text(call_tool("report", {}))
+    assert out["totals"].key?("open_now")
+  end
+
+  test "admin tools reject non-admin agents and read tokens" do
+    user = Agent.create!(email: "u@example.com", name: "U", password: "secret123", role: "user")
+    _, user_token = ApiToken.issue(agent: user, name: "u", scope: "write")
+    body = call_tool("save_mailbox", { address: "x@example.com", attributes: {} }, token: user_token)
+    assert body.dig("result", "isError") || body["error"].present?, "non-admin must not reach admin tools"
+    assert_nil Mailbox.find_by(address: "x@example.com")
+
+    body = call_tool("set_status", { number: @conversation.number, status: "closed" }, token: @read_token)
+    assert body.dig("result", "isError") || body["error"].present?, "read tokens must not write"
+    assert_not_equal "closed", @conversation.reload.status
+  end
+
+  test "mcp endpoint can be disabled in org settings" do
+    OrgSetting.current.update!(mcp_enabled: false)
+    post "/mcp", params: { jsonrpc: "2.0", id: 1, method: "tools/list" }.to_json,
+                 headers: { "Content-Type" => "application/json", "Authorization" => "Bearer #{@raw_token}" }
+    assert_response :not_found
   end
 
   test "search then get_thread then send" do

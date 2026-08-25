@@ -9,6 +9,7 @@ import Composer from './Composer.vue'
 import { avatarColor, initials } from '../avatar'
 import Attachments from './Attachments.vue'
 import { ArrowLeft, Star, PanelRight, ChevronsRight, Ellipsis, Eye } from 'lucide-vue-next'
+import StyledSelect from './StyledSelect.vue'
 import { shortTime, fullTime } from '../format'
 
 const router = useRouter()
@@ -246,13 +247,11 @@ function eventText(e) {
         <button type="button" class="pill follow-pill" :class="{ on: conv.followed }" @click="toggleFollow">
           {{ conv.followed ? t.following : t.follow }}
         </button>
-        <select :value="conv.assignee?.id || ''" @change="setAssignee" :aria-label="t.assignTo">
-          <option value="">{{ t.unassigned }}</option>
-          <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
-        </select>
-        <select :value="conv.status" @change="setStatus($event.target.value)" aria-label="Status">
-          <option v-for="(label, s) in t.statuses" :key="s" :value="s">{{ label }}</option>
-        </select>
+        <StyledSelect :model-value="conv.assignee?.id || ''" :aria-label="t.assignTo"
+                      @change="(v) => setAssignee({ target: { value: v } })"
+                      :options="[{ value: '', label: t.unassigned }, ...agents.map((a) => ({ value: a.id, label: a.name }))]" />
+        <StyledSelect :model-value="conv.status" aria-label="Status" @change="setStatus"
+                      :options="Object.entries(t.statuses).map(([s, label]) => ({ value: s, label }))" />
         <details class="tag-menu">
           <summary class="pill" style="cursor:pointer">{{ t.tags }}</summary>
           <div class="card menu-card">
@@ -268,21 +267,17 @@ function eventText(e) {
           <div class="card menu-card" style="display:flex; flex-direction:column; gap:6px; min-width:190px">
             <button type="button" class="ghost" style="text-align:left" @click="startForward">Forward…</button>
             <button type="button" class="ghost" style="text-align:left" @click="mergeInto">Merge into #…</button>
-            <select v-if="inbox.personalFolders.length" @change="addToPersonalFolder" aria-label="Add to personal folder">
-              <option value="">Add to my folder…</option>
-              <option v-for="pf in inbox.personalFolders" :key="pf.id" :value="pf.id">{{ pf.name }}</option>
-            </select>
-            <select @change="snoozeUntil" aria-label="Snooze">
-              <option value="">Snooze…</option>
-              <option value="tomorrow">Until tomorrow 09:00</option>
-              <option value="3days">For 3 days</option>
-              <option value="monday">Until Monday 09:00</option>
-              <option v-if="conv.snoozed_until" value="wake">Unsnooze</option>
-            </select>
-            <select v-if="inbox.mailboxes.length > 1" @change="moveTo" aria-label="Move to mailbox">
-              <option value="">Move to…</option>
-              <option v-for="m in inbox.mailboxes.filter((x) => x.id !== conv.mailbox_id)" :key="m.id" :value="m.id">{{ m.name }}</option>
-            </select>
+            <StyledSelect v-if="inbox.personalFolders.length" :model-value="''" placeholder="Add to my folder…"
+                          aria-label="Add to personal folder" @change="(v) => addToPersonalFolder({ target: { value: v } })"
+                          :options="inbox.personalFolders.map((pf) => ({ value: pf.id, label: pf.name }))" />
+            <StyledSelect :model-value="''" placeholder="Snooze…" aria-label="Snooze"
+                          @change="(v) => snoozeUntil({ target: { value: v } })"
+                          :options="[{ value: 'tomorrow', label: 'Until tomorrow 09:00' }, { value: '3days', label: 'For 3 days' },
+                                     { value: 'monday', label: 'Until Monday 09:00' },
+                                     ...(conv.snoozed_until ? [{ value: 'wake', label: 'Unsnooze' }] : [])]" />
+            <StyledSelect v-if="inbox.mailboxes.length > 1" :model-value="''" placeholder="Move to…"
+                          aria-label="Move to mailbox" @change="(v) => moveTo({ target: { value: v } })"
+                          :options="inbox.mailboxes.filter((x) => x.id !== conv.mailbox_id).map((m) => ({ value: m.id, label: m.name }))" />
           </div>
         </details>
       </div>
