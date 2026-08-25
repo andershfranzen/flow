@@ -248,28 +248,36 @@ async function logout() {
           <option v-for="x in tags" :key="x.id" :value="x.name">{{ x.name }}</option>
         </select>
       </div>
-      <div v-if="selected.size" class="bulk-bar">
-        <strong>{{ selected.size }}</strong>
-        <button class="ghost" @click="bulk({ status: 'closed' })">Close</button>
-        <button class="ghost" @click="bulk({ status: 'spam' })">Spam</button>
-        <button class="ghost" @click="bulk({ status: 'trash' })">Trash</button>
-        <select @change="bulkAssign" aria-label="Assign selected">
-          <option value="">Assign…</option>
-          <option value="none">Unassign</option>
-          <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
-        </select>
-        <button class="ghost" @click="selected = new Set()">✕</button>
-      </div>
+      <Transition name="bulkbar">
+        <div v-if="selected.size" class="bulk-bar">
+          <div class="bulk-row">
+            <strong>{{ selected.size }} selected</strong>
+            <span style="flex:1"></span>
+            <button class="ghost" data-tip="Clear selection" @click="selected = new Set()">✕</button>
+          </div>
+          <div class="bulk-row">
+            <button @click="bulk({ status: 'closed' })">Close</button>
+            <button @click="bulk({ status: 'spam' })">Spam</button>
+            <button @click="bulk({ status: 'trash' })">Trash</button>
+            <select @change="bulkAssign" aria-label="Assign selected" style="flex:1; min-width:0">
+              <option value="">Assign…</option>
+              <option value="none">Unassign</option>
+              <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+            </select>
+          </div>
+        </div>
+      </Transition>
       <TransitionGroup tag="ul" name="list" class="conv-list">
         <li v-for="c in inbox.conversations" :key="c.id">
-          <button class="conv-item" :class="{ active: c.id === currentId, unread: c.unread, selecting: selected.size, 'being-dragged': dragging === c.id }"
+          <button class="conv-item" :class="{ active: c.id === currentId, unread: c.unread, selecting: selected.size, selected: selected.has(c.id), 'being-dragged': dragging === c.id }"
                   draggable="true" @dragstart="onDragStart(c, $event)" @dragend="onDragEnd"
                   @click="router.push(`/conversations/${c.id}`)">
-            <span class="select-box" @click="toggleSelect(c.id, $event)">
-              <input type="checkbox" :checked="selected.has(c.id)" tabindex="-1" aria-label="Select conversation" />
-            </span>
-            <span class="avatar" :style="{ background: avatarColor(c.customer.email) }">
-              {{ initials(c.customer.name || c.customer.email) }}
+            <span class="avatar-select" @click="toggleSelect(c.id, $event)">
+              <span class="avatar" :style="{ background: avatarColor(c.customer.email) }">
+                {{ initials(c.customer.name || c.customer.email) }}
+              </span>
+              <span class="select-overlay" :class="{ checked: selected.has(c.id) }"
+                    role="checkbox" :aria-checked="selected.has(c.id)" aria-label="Select conversation">✓</span>
             </span>
             <span class="conv-main">
               <span class="row1">
