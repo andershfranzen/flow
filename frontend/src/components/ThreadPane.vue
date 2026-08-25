@@ -264,12 +264,12 @@ function eventText(e) {
       </div>
     </header>
 
-    <div v-if="inbox.viewers.length" class="collision" style="margin:10px 16px 0">
-      👀 {{ inbox.viewers.map((v) => v.name).join(', ') }} {{ t.viewing }}
-    </div>
-
-    <div class="pane-body" ref="transcriptEl">
-      <div class="transcript">
+    <div class="pane-body">
+      <div class="transcript-col" ref="transcriptEl">
+        <div class="transcript">
+          <div v-if="inbox.viewers.length" class="collision" style="margin-bottom:12px">
+            👀 {{ inbox.viewers.map((v) => v.name).join(', ') }} {{ t.viewing }}
+          </div>
         <template v-for="item in timeline" :key="item._type + item.id">
           <div v-if="item._type === 'event'" class="event-line">{{ eventText(item) }} · {{ shortTime(item.created_at) }}</div>
           <article v-else class="msg" :class="item.kind">
@@ -299,7 +299,8 @@ function eventText(e) {
           </article>
         </template>
 
-        <Composer :conversation="conv" :forward-seed="forwardSeed" @sent="onSent" />
+          <Composer :conversation="conv" :forward-seed="forwardSeed" @sent="onSent" />
+        </div>
       </div>
 
       <aside class="side-panel">

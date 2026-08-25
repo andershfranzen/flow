@@ -36,10 +36,12 @@ jobs:
       - name: Build frontend
         run: cd frontend && npm ci && npm run build
       - name: Run tests
-        env:
-          DATABASE_URL: ${{ matrix.db == 'postgres' && 'postgres://postgres:ci@localhost:5432/flow_test' || '' }}
-          PARALLEL_WORKERS: ${{ matrix.db == 'postgres' && '1' || '' }}
         run: |
+          if [ "${{ matrix.db }}" = "postgres" ]; then
+            # An empty-but-set DATABASE_URL breaks Rails, so export only here.
+            export DATABASE_URL='postgres://postgres:ci@localhost:5432/flow_test'
+            export PARALLEL_WORKERS=1
+          fi
           bin/rails db:test:prepare
           bin/rails test
 

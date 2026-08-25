@@ -151,8 +151,9 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 .pane-head .star-btn.starred { color: var(--warn); }
 .pane-head .head-controls { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .pane-head select { border-radius: 999px; font-weight: 700; background: var(--panel); font-size: 13.5px; padding: 5px 10px; }
-.pane-body { flex: 1; overflow-y: auto; padding: 16px 20px 20px; display: flex; gap: 16px; }
-.transcript { flex: 1; min-width: 0; max-width: 860px; }
+.pane-body { flex: 1; display: flex; min-height: 0; }
+.transcript-col { flex: 1; min-width: 0; overflow-y: auto; padding: 16px 24px 24px; }
+.transcript { max-width: 860px; margin: 0 auto; }
 
 .msg { background: var(--panel); border-radius: var(--radius); margin-bottom: 14px; box-shadow: var(--shadow); border: 2px solid var(--border); }
 .msg-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
@@ -170,7 +171,10 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 
 .event-line { text-align: center; font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 12px 0; }
 
-.side-panel { width: 270px; flex: none; position: sticky; top: 0; align-self: flex-start; }
+.side-panel {
+  width: 320px; flex: none; overflow-y: auto; padding: 16px 16px 24px;
+  border-left: 2px solid var(--border); background: var(--panel);
+}
 .card { background: var(--panel); border: 2px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
 .card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 
