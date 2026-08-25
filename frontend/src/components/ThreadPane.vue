@@ -20,6 +20,12 @@ const forwardSeed = ref(null)
 const customerDetail = ref(null)
 const editingCustomer = ref(false)
 const customerForm = ref({})
+// Insights sidebar visibility persists across threads and reloads.
+const showInsights = ref(localStorage.getItem('flow:insights') !== 'off')
+function toggleInsights() {
+  showInsights.value = !showInsights.value
+  localStorage.setItem('flow:insights', showInsights.value ? 'on' : 'off')
+}
 const transcriptEl = ref(null)
 let heartbeatTimer = null
 
@@ -222,6 +228,9 @@ function eventText(e) {
                 :data-tip="conv.starred ? 'Unstar' : 'Star'">
           {{ conv.starred ? '★' : '☆' }}
         </button>
+        <button class="ghost insights-toggle" @click="toggleInsights"
+                :data-tip="showInsights ? `Hide ${t.insights.toLowerCase()}` : `Show ${t.insights.toLowerCase()}`"
+                :aria-expanded="showInsights">◨</button>
       </div>
       <div class="head-controls">
         <button type="button" class="pill follow-pill" :class="{ on: conv.followed }" @click="toggleFollow">
@@ -299,7 +308,13 @@ function eventText(e) {
         </div>
       </div>
 
-      <aside class="side-panel">
+      <aside class="side-panel" :class="{ collapsed: !showInsights }" :aria-label="t.insights">
+        <div class="insights-inner">
+        <div class="insights-head">
+          <span>{{ t.insights }}</span>
+          <button class="ghost" style="padding:2px 8px" :data-tip="`Hide ${t.insights.toLowerCase()}`"
+                  @click="toggleInsights">»</button>
+        </div>
         <div class="card">
           <h3 style="display:flex; justify-content:space-between; align-items:center">
             {{ t.customer }}
@@ -350,6 +365,7 @@ function eventText(e) {
             <span class="avatar small" :style="{ background: avatarColor(p.email) }">{{ initials(p.name || p.email) }}</span>
             <span style="min-width:0; font-size:13px; overflow-wrap:anywhere">{{ p.name || p.email }}</span>
           </div>
+        </div>
         </div>
       </aside>
     </div>

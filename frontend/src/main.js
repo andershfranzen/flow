@@ -8,6 +8,7 @@ import Settings from './pages/Settings.vue'
 import { useSession } from './stores/session'
 import { setLocale } from './strings'
 import './style.css'
+import { installTooltips } from './tooltip'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -37,4 +38,5 @@ window.addEventListener('api:unauthorized', () => {
   router.push('/login')
 })
 
+installTooltips()
 app.mount('#app')
