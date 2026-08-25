@@ -235,7 +235,7 @@ function eventText(e) {
         </select>
         <details class="tag-menu">
           <summary class="pill" style="cursor:pointer">{{ t.tags }}</summary>
-          <div class="card" style="position:absolute; z-index:5; margin-top:4px">
+          <div class="card menu-card">
             <label v-for="tag in tags" :key="tag.id" class="choice" style="display:flex; margin-right:0">
               <input type="checkbox" :checked="conv.tags.some((x) => x.id === tag.id)" @change="toggleTag(tag)" />
               <span class="tag-pill" :style="{ background: tag.color }">{{ tag.name }}</span>
@@ -245,7 +245,7 @@ function eventText(e) {
         </details>
         <details class="tag-menu">
           <summary class="pill" style="cursor:pointer">⋯</summary>
-          <div class="card" style="position:absolute; right:16px; z-index:5; margin-top:4px; display:flex; flex-direction:column; gap:6px; min-width:180px">
+          <div class="card menu-card" style="display:flex; flex-direction:column; gap:6px; min-width:190px">
             <button type="button" class="ghost" style="text-align:left" @click="startForward">Forward…</button>
             <button type="button" class="ghost" style="text-align:left" @click="mergeInto">Merge into #…</button>
             <select @change="snoozeUntil" aria-label="Snooze">
