@@ -14,9 +14,16 @@ async function request(method, path, body, opts = {}) {
     payload = JSON.stringify(body)
   }
   const res = await fetch(path, { method, headers, body: payload, credentials: 'same-origin' })
-  if (res.status === 401 && !opts.allowUnauthorized) {
-    window.dispatchEvent(new CustomEvent('api:unauthorized'))
-    throw new ApiError(401, 'unauthorized')
+  if (res.status === 401) {
+    let details = null
+    try { details = await res.json() } catch {}
+    if (details?.error === 'otp_required') {
+      const err = new ApiError(401, 'otp_required')
+      err.otpRequired = true
+      throw err
+    }
+    if (!opts.allowUnauthorized) window.dispatchEvent(new CustomEvent('api:unauthorized'))
+    throw new ApiError(401, details?.error || 'unauthorized')
   }
   if (!res.ok) {
     let details = null

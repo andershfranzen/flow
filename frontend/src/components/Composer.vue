@@ -46,8 +46,8 @@ watch(() => props.forwardSeed, (seed) => {
   if (!seed || !editorEl.value) return
   mode.value = 'reply'
   subject.value = seed.subject
-  to.value = ''
-  editorEl.value.innerHTML = escapeHtml(seed.body).replace(/\n/g, '<br>')
+  if (!seed.keepTo) to.value = ''
+  editorEl.value.innerHTML = seed.html ?? escapeHtml(seed.body).replace(/\n/g, '<br>')
   editorEl.value.focus()
 })
 

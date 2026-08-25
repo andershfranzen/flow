@@ -5,6 +5,7 @@ import { useSession } from '../stores/session'
 import { api } from '../api'
 import { t, setLocale } from '../strings'
 import WorkflowBuilder from '../components/WorkflowBuilder.vue'
+import ReportsPanel from '../components/ReportsPanel.vue'
 
 const props = defineProps({ tab: String })
 const router = useRouter()
@@ -12,7 +13,7 @@ const session = useSession()
 
 const TABS = computed(() => {
   const base = [['profile', 'My profile'], ['saved_replies', 'Saved replies'], ['tags', 'Tags'], ['tokens', 'API tokens']]
-  const admin = [['org', 'Organisation'], ['agents', 'Agents'], ['teams', 'Teams'], ['mailboxes', 'Mailboxes'], ['workflows', 'Workflows'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']]
+  const admin = [['org', 'Organisation'], ['agents', 'Agents'], ['teams', 'Teams'], ['mailboxes', 'Mailboxes'], ['workflows', 'Workflows'], ['reports', 'Reports'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']]
   return session.isAdmin ? [...admin, ...base] : base
 })
 const tab = computed(() => props.tab || (session.isAdmin ? 'org' : 'profile'))
@@ -36,6 +37,7 @@ const restartHint = ref('')
 const installUrl = ref('')
 const openSettingsFor = ref(null)
 const pluginBusy = ref(false)
+const otp = ref({ setup: null, code: '', enabled: false })
 
 async function load() {
   flash.value = ''
@@ -64,6 +66,7 @@ async function load() {
   if (tab.value === 'tokens') tokens.value = await api.get('/api/api_tokens')
   if (tab.value === 'profile') {
     const me = await api.get('/api/me')
+    otp.value = { setup: null, code: '', enabled: !!me.otp_required }
     mailboxes.value = await api.get('/api/mailboxes')
     profile.value = { name: me.name, password: '', locale: me.locale, timezone: me.timezone,
                       signature: me.signature || '',
@@ -83,6 +86,24 @@ async function saveProfile() {
   setLocale(profile.value.locale)
   if (session.agent) session.agent.locale = profile.value.locale
   ok()
+}
+
+async function otpSetup() { otp.value.setup = await api.post('/api/me/2fa/setup') }
+async function otpEnable() {
+  try {
+    await api.post('/api/me/2fa/enable', { code: otp.value.code })
+    otp.value = { setup: null, code: '', enabled: true }
+    ok('Two-factor enabled')
+  } catch { flash.value = 'Wrong code — try again' }
+}
+async function otpDisable() {
+  const code = window.prompt('Enter a current code from your authenticator to disable 2FA:')
+  if (!code) return
+  try {
+    await api.post('/api/me/2fa/disable', { code })
+    otp.value = { setup: null, code: '', enabled: false }
+    ok('Two-factor disabled')
+  } catch { flash.value = 'Wrong code' }
 }
 
 async function saveTeam() {
@@ -397,6 +418,9 @@ const NOTIFY_LABELS = {
     <!-- Workflows -->
     <WorkflowBuilder v-if="tab === 'workflows'" />
 
+    <!-- Reports -->
+    <ReportsPanel v-if="tab === 'reports'" />
+
     <!-- Plugins -->
     <div v-if="tab === 'plugins'">
       <form class="card" @submit.prevent="installPlugin" style="display:flex; gap:8px; align-items:end">
@@ -451,6 +475,26 @@ const NOTIFY_LABELS = {
         <textarea v-model="profile.signature" rows="3" style="width:100%"
                   placeholder="Best regards,&#10;Ada — Support"></textarea>
       </div>
+      <h3 style="margin-top:14px">Two-factor authentication</h3>
+      <template v-if="otp.enabled">
+        <p class="ok-text" style="margin:0 0 8px">Enabled — codes are required at login.</p>
+        <button type="button" @click="otpDisable">Disable 2FA</button>
+      </template>
+      <template v-else-if="otp.setup">
+        <div style="display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap">
+          <div v-html="otp.setup.qr_svg" style="width:150px"></div>
+          <div style="flex:1; min-width:220px">
+            <p class="hint-text">Scan with your authenticator app, or add the secret manually:</p>
+            <code style="font-size:12px; word-break:break-all">{{ otp.setup.secret }}</code>
+            <div style="display:flex; gap:8px; margin-top:10px">
+              <input v-model="otp.code" placeholder="6-digit code" inputmode="numeric" style="width:130px" />
+              <button type="button" class="primary" @click="otpEnable">Verify & enable</button>
+            </div>
+          </div>
+        </div>
+      </template>
+      <button v-else type="button" @click="otpSetup">Enable two-factor…</button>
+
       <h3 style="margin-top:14px">Email notifications</h3>
       <label v-for="(label, key) in NOTIFY_LABELS" :key="key" class="choice" style="display:flex">
         <input type="checkbox" v-model="profile.notify_prefs[key]" /> {{ label }}

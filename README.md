@@ -61,8 +61,11 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
   woken early by customer replies), **bulk actions** (close / assign / tag
   many at once), oldest-first queue mode, and assignee/tag filters
 - **Workflows** — a visual, drag-and-drop automation builder (trigger →
-  conditions → actions): auto-tag, auto-assign, auto-reply, forward, move,
-  close, prioritised rules per mailbox or global
+  conditions → actions): auto-tag, auto-assign (incl. team round-robin),
+  auto-reply, forward, move, close, prioritised rules per mailbox or global
+- **Undo send** (15-second window, body restored to your draft), **reports**
+  (per-day chart, per-agent and per-mailbox tables, avg first-reply time),
+  and **TOTP two-factor auth** with QR setup
 
 **The pipeline**
 - IMAP polling plus optional IMAP IDLE for instant fetch

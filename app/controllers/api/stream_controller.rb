@@ -9,7 +9,11 @@ class Api::StreamController < Api::BaseController
   include ActionController::Live
 
   TICK_SECONDS = 3
-  TICKS = 30 # ~90s per connection; the client reconnects
+  # Development keeps streams one tick long (the client reconnects every ~3s,
+  # so it degrades to polling): long-lived Live streams deadlock the dev code
+  # reloader when a dead socket blocks mid-write. Production has no reloader
+  # and keeps real ~90s streams.
+  TICKS = Rails.env.development? ? 1 : 30
 
   @generation = Hash.new(0)
   @mutex = Mutex.new

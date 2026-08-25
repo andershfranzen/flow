@@ -14,8 +14,8 @@ export const useSession = defineStore('session', {
       this.agent = data.agent
       this.loaded = true
     },
-    async login(email, password) {
-      const data = await api.post('/api/session', { email, password })
+    async login(email, password, otpCode) {
+      const data = await api.post('/api/session', { email, password, otp_code: otpCode })
       setCsrf(data.csrf_token)
       this.agent = data.agent
       if (data.agent?.locale) setLocale(data.agent.locale)

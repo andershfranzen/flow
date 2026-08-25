@@ -53,7 +53,7 @@ class Api::AgentsController < Api::BaseController
   end
 
   def agent_json(agent)
-    agent.as_json(only: [ :id, :email, :name, :role, :locale, :timezone, :signature, :last_seen_at ])
+    agent.as_json(only: [ :id, :email, :name, :role, :locale, :timezone, :signature, :otp_required, :last_seen_at ])
          .merge(notify_prefs: agent.notify_prefs, mailbox_ids: agent.mailbox_ids,
                 muted_mailbox_ids: agent.muted_mailbox_ids)
   end

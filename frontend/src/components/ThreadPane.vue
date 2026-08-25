@@ -149,6 +149,12 @@ function startForward() {
   }
 }
 
+async function undoSend(message) {
+  const data = await api.delete(`/api/conversations/${conv.value.id}/messages/${message.id}`)
+  forwardSeed.value = { subject: null, body: '', html: data.body, keepTo: true }
+  await inbox.open(conv.value.id)
+}
+
 async function onSent() {
   await inbox.open(conv.value.id)
   await inbox.loadConversations()
@@ -276,6 +282,8 @@ function eventText(e) {
               <span class="when-line">
                 <span v-if="item.bounce" class="pill bounce">{{ t.bounced }}</span>
                 <span v-if="item.status === 'queued'" class="pill">{{ t.queued }}</span>
+                <button v-if="item.status === 'queued' && item.kind === 'outbound'" type="button"
+                        class="ghost" style="padding:0 8px; font-size:12px" @click="undoSend(item)">Undo</button>
                 <span v-if="item.status === 'failed'" class="pill bounce">{{ t.failed }}</span>
                 <time :title="fullTime(item.created_at)">{{ shortTime(item.created_at) }}</time>
               </span>
