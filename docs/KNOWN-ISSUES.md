@@ -28,6 +28,11 @@ Listed per the plan's definition of done: known bugs are documented, not silent.
 - The OAuth flows are tested against stubbed token endpoints; report issues
   with real tenants (first-party testing needs a real M365/Google account).
 
+## Attachments
+- Attachment serving has no HTTP Range support yet: video previews play but
+  seeking long videos is limited. Office formats (docx/xlsx) have no in-app
+  preview — they download.
+
 ## Operational
 - Presence/collision state is in-memory in the web process: correct for the
   single-web-container Compose setup, resets on deploy.

@@ -11,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/andershfranzen/flow/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/andershfranzen/flow/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-5522fa"></a>
   <img alt="Rails 8" src="https://img.shields.io/badge/Rails-8-cc0000">
   <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3-42b883">
@@ -18,6 +19,10 @@
 </p>
 
 ---
+
+<p align="center">
+  <img src="docs/assets/screenshot.png" alt="Flow: conversation view with attachment cards, recipient chips, signature preview and the customer sidebar" width="820">
+</p>
 
 Your team shares `support@example.com`. Flow turns that mailbox into
 conversations you can assign, tag, note, search, and reply to together —
@@ -52,20 +57,25 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
   signatures, editable customer profiles with merge and history
 - Internal notes with `@name` mentions, visually distinct from mail
 - Collision detection ("Ada is viewing") and live list updates over SSE
-- Rich-text replies with inline image paste, attachments, drafts that
-  autosave, saved replies with `{{customer.name}}`-style variables
+- Rich-text replies with inline image paste, drafts that autosave, saved
+  replies with `{{customer.name}}`-style variables, mail-client **recipient
+  chips** (Backspace turns a badge back into editable text), a live
+  signature preview with per-mail toggle, and **undo send** (15s window)
+- **Attachment cards with in-app preview** — images, PDF, audio, video and
+  text render in an overlay; everything else downloads safely
 - Reply-all defaults from the whole thread; a participants panel shows
   everyone on it; quoted history and signatures collapse behind `•••`
 - Full-text search (SQLite FTS5), keyboard shortcuts (`j`/`k`/`e`/`r`)
 - **Per-agent unread state** (bold rows), **snooze** ("until Monday 09:00",
   woken early by customer replies), **bulk actions** (close / assign / tag
   many at once), oldest-first queue mode, and assignee/tag filters
+- Animated throughout — subtle, fast, and **disableable per agent**, with
+  the OS reduced-motion preference respected automatically
 - **Workflows** — a visual, drag-and-drop automation builder (trigger →
   conditions → actions): auto-tag, auto-assign (incl. team round-robin),
   auto-reply, forward, move, close, prioritised rules per mailbox or global
-- **Undo send** (15-second window, body restored to your draft), **reports**
-  (per-day chart, per-agent and per-mailbox tables, avg first-reply time),
-  and **TOTP two-factor auth** with QR setup
+- **Reports** (per-day chart, per-agent and per-mailbox tables, avg
+  first-reply time) and **TOTP two-factor auth** with QR setup
 
 **The pipeline**
 - IMAP polling plus optional IMAP IDLE for instant fetch
@@ -175,11 +185,14 @@ For in-process plugins and a hello-world bot that needs no PR to core, read
 ```sh
 bundle install
 bin/rails db:prepare
-(cd frontend && npm install && npm run dev) &   # Vite on 5173, proxies /api
-bin/rails server                                 # API on 3000
-bin/jobs                                         # Solid Queue worker
-bin/rails test                                   # 57 tests
-bin/e2e-greenmail                                # live IMAP/SMTP round trip (needs Docker)
+bin/rails server -p 3111    # API (the Vite proxy expects 3111)
+bin/jobs                    # Solid Queue worker (fetch/send)
+cd frontend && npm install && npm run dev   # HMR dev server on 5173 — work here
+```
+
+```sh
+bin/rails test        # the whole backend suite; CI runs it on SQLite and PostgreSQL
+bin/e2e-greenmail     # live IMAP/SMTP round trip (needs Docker)
 ```
 
 The stack is deliberately frozen: Rails 8 API + Active Record + SQLite +
