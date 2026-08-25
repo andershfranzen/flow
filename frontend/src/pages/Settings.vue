@@ -5,6 +5,7 @@ import { useSession } from '../stores/session'
 import { api } from '../api'
 import { t, setLocale } from '../strings'
 import WorkflowBuilder from '../components/WorkflowBuilder.vue'
+import RichEditor from '../components/RichEditor.vue'
 import ReportsPanel from '../components/ReportsPanel.vue'
 
 const props = defineProps({ tab: String })
@@ -403,8 +404,8 @@ const NOTIFY_LABELS = {
         <label class="choice"><input type="checkbox" v-model="editing.auto_reply_enabled" /> Send "we got your mail" once per new conversation</label>
         <textarea v-if="editing.auto_reply_enabled" v-model="editing.auto_reply_body" rows="3" style="width:100%"
                   placeholder="Thanks — we received your message and will reply soon."></textarea>
-        <div style="margin-top:10px"><label>Signature (appended to replies)</label>
-          <textarea v-model="editing.signature" rows="3" style="width:100%"></textarea></div>
+        <div style="margin-top:10px"><label>Signature (appended to replies — formatting and logos supported)</label>
+          <div class="modal-editor"><RichEditor v-model="editing.signature" placeholder="Best regards…" /></div></div>
         <div class="form-actions">
           <button class="primary">{{ t.save }}</button>
           <button type="button" @click="testMailbox">Test connection</button>
@@ -474,8 +475,7 @@ const NOTIFY_LABELS = {
       </div>
       <div style="margin-top:12px">
         <label>My signature (used instead of the mailbox signature)</label>
-        <textarea v-model="profile.signature" rows="3" style="width:100%"
-                  placeholder="Best regards,&#10;Ada — Support"></textarea>
+        <div class="modal-editor"><RichEditor v-model="profile.signature" placeholder="Best regards, Ada — Support" /></div>
       </div>
       <h3 style="margin-top:14px">Interface</h3>
       <label class="choice">

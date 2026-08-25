@@ -8,6 +8,7 @@ const props = defineProps({ attachments: { type: Array, required: true } })
 
 const visible = computed(() => props.attachments.filter((a) => !a.content_id))
 const preview = ref(null)
+const broken = ref({})
 const TEXT_LIMIT = 2 * 1048576
 
 function kind(a) {
@@ -57,8 +58,8 @@ async function open(a) {
   <div v-if="visible.length" class="attachments">
     <button v-for="a in visible" :key="a.id" type="button" class="attachment-card"
             :data-tip="`${a.filename} — ${formatBytes(a.byte_size)}`" @click="open(a)">
-      <span v-if="kind(a) === 'image'" class="att-thumb">
-        <img :src="a.url" :alt="a.filename" loading="lazy" />
+      <span v-if="kind(a) === 'image' && !broken[a.id]" class="att-thumb">
+        <img :src="a.url" :alt="''" loading="lazy" @error="broken[a.id] = true" />
       </span>
       <span v-else class="att-icon">{{ icon(a) }}</span>
       <span class="att-meta">

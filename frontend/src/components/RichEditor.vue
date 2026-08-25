@@ -2,18 +2,36 @@
 // Shared rich-text editor: toolbar, contenteditable, inline image paste (A20).
 // Parents read content via the exposed methods; pasted images upload as CID
 // inline attachments named by their local placeholder.
-import { ref } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 
-defineProps({ placeholder: { type: String, default: '' } })
-const emit = defineEmits(['input'])
+const props = defineProps({
+  placeholder: { type: String, default: '' },
+  modelValue: { type: String, default: null }, // optional two-way html binding
+})
+const emit = defineEmits(['input', 'update:modelValue'])
 
 const editorEl = ref(null)
 const inlineImages = ref([]) // { cid, file }
 
+onMounted(() => {
+  if (props.modelValue != null && editorEl.value) editorEl.value.innerHTML = props.modelValue
+})
+watch(() => props.modelValue, (v) => {
+  if (v == null || !editorEl.value) return
+  if (document.activeElement !== editorEl.value && editorEl.value.innerHTML !== v) {
+    editorEl.value.innerHTML = v
+  }
+})
+
+function onNativeInput() {
+  emit('input')
+  if (props.modelValue != null) emit('update:modelValue', editorEl.value.innerHTML)
+}
+
 function exec(command, arg = null) {
   editorEl.value?.focus()
   document.execCommand(command, false, arg)
-  emit('input')
+  onNativeInput()
 }
 
 function addLink() {
@@ -82,6 +100,6 @@ defineExpose({
       <button type="button" class="ghost fmt" data-tip="Link" @mousedown.prevent="addLink">🔗</button>
     </div>
     <div ref="editorEl" class="editor" contenteditable="true" role="textbox" aria-multiline="true"
-         :data-placeholder="placeholder" @input="emit('input')" @paste="onPaste"></div>
+         :data-placeholder="placeholder" @input="onNativeInput" @paste="onPaste"></div>
   </div>
 </template>

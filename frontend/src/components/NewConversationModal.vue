@@ -16,6 +16,7 @@ const emit = defineEmits(['close', 'created'])
 const session = useSession()
 const editor = ref(null)
 const agents = ref([])
+const includeSignature = ref(true)
 const files = ref([])
 const busy = ref(false)
 const error = ref('')
@@ -32,6 +33,10 @@ onMounted(async () => {
 
 function pickFiles(e) { files.value = [...files.value, ...e.target.files] }
 
+const effectiveSignature = () =>
+  session.agent?.signature?.trim() ||
+  props.mailboxes.find((m) => m.id === form.value.mailbox_id)?.signature || ''
+
 async function submit() {
   if (!form.value.to.length) { error.value = 'Add at least one recipient'; return }
   if (!editor.value?.hasContent()) { error.value = 'Write a message first'; return }
@@ -47,6 +52,7 @@ async function submit() {
     form.value.cc.forEach((x) => fd.append('cc[]', x))
     fd.set('body_text', editor.value.getText())
     fd.set('body_html', editor.value.getOutgoingHtml())
+    if (!includeSignature.value) fd.set('skip_signature', '1')
     files.value.forEach((f) => fd.append('files[]', f))
     editor.value.getInlineImages().forEach((f) => fd.append('inline_images[]', f))
     const conv = await api.post('/api/conversations', fd)
@@ -105,6 +111,13 @@ async function submit() {
           <RichEditor ref="editor" placeholder="Write your message — paste screenshots directly…" />
         </div>
         <PendingFiles :files="files" @remove="(i) => files.splice(i, 1)" />
+        <div v-if="effectiveSignature() && includeSignature" class="sig-preview">
+          <span class="sig-label">signature</span>
+          <div v-html="effectiveSignature()"></div>
+        </div>
+        <label v-if="effectiveSignature()" class="choice" style="margin:0">
+          <input type="checkbox" v-model="includeSignature" /> Append signature
+        </label>
       </div>
       <p v-if="error" class="error-text" style="margin:8px 0 0">{{ error }}</p>
       <div style="display:flex; gap:8px; align-items:center; margin-top:14px">

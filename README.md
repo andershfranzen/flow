@@ -75,7 +75,9 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
   bounce detection, loop and flood guards, auto-submitted mail filtering
 - Hostile-HTML sanitizer, plain-text extraction, charset normalization
 - Queued SMTP sending with retries — never on the HTTP request
-- Optional loop-safe auto-reply, per-mailbox signatures
+- Optional loop-safe auto-reply; signatures per mailbox and per agent
+  (rich HTML with logos, live preview in the composer, one-click skip) —
+  or managed entirely by your provider (see below)
 
 **For builders**
 - **If the UI can do it, the API can do it** — REST with token auth and
@@ -125,6 +127,25 @@ container, included in the Compose file).
 
 **TLS** is assumed at your reverse proxy (Caddy, nginx, Traefik); Flow sets
 secure cookies and expects `X-Forwarded-Proto`.
+
+## Signatures
+
+Three models, pick per company:
+
+1. **Per mailbox** (Settings → Mailbox): the shared signature, rich HTML with
+   logos supported. Appended server-side on every send.
+2. **Per agent** (My profile): overrides the mailbox signature for that
+   agent's replies. The composer shows a live preview of what will be
+   appended, with a one-click toggle to skip it on a given mail.
+3. **Provider-managed**: if your organisation stamps signatures centrally —
+   Microsoft 365 transport rules, Exclaimer, CodeTwo, and the like — those
+   apply at the mail server *after* Flow submits over SMTP, so they work
+   with Flow automatically. Just leave Flow's signature fields empty to
+   avoid doubled signatures.
+
+What no overlay tool can do is *read* an agent's personal Outlook signature —
+that lives in the Outlook client and is only reachable via the Graph API, and
+models 1–3 cover the company need without it.
 
 ## CLI
 

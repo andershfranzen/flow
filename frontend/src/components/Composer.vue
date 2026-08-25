@@ -2,6 +2,8 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { api } from '../api'
 import { t } from '../strings'
+import { useSession } from '../stores/session'
+import { useInbox } from '../stores/inbox'
 import RichEditor from './RichEditor.vue'
 import RecipientsInput from './RecipientsInput.vue'
 import PendingFiles from './PendingFiles.vue'
@@ -11,6 +13,8 @@ const props = defineProps({
   forwardSeed: { type: Object, default: null },
 })
 const emit = defineEmits(['sent'])
+const session = useSession()
+const inbox = useInbox()
 
 const mode = ref('reply') // reply | note
 const editor = ref(null)
@@ -25,6 +29,13 @@ let draftTimer = null
 let savedDraftBody = ''
 
 const isNote = computed(() => mode.value === 'note')
+
+// What will actually be appended on send (A19): agent's own, else mailbox.
+const effectiveSignature = computed(() =>
+  session.agent?.signature?.trim() ||
+  inbox.mailboxes.find((m) => m.id === props.conversation.mailbox_id)?.signature || ''
+)
+const includeSignature = ref(true)
 
 // Reply-all prefill (B7): everyone from the last inbound, never our mailbox.
 watch(() => props.conversation.reply_all, (ra) => {
@@ -97,6 +108,7 @@ async function submit(close = false) {
       to.value.forEach((x) => form.append('to[]', x))
       cc.value.forEach((x) => form.append('cc[]', x))
       if (subject.value) form.set('subject', subject.value)
+      if (!includeSignature.value) form.set('skip_signature', '1')
       if (close) form.set('close', 'true')
       files.value.forEach((f) => form.append('files[]', f))
       editor.value.getInlineImages().forEach((f) => form.append('inline_images[]', f))
@@ -151,6 +163,11 @@ async function insertSavedReply(e) {
     <RichEditor ref="editor" :placeholder="isNote ? `${t.internalNote} — @name notifies` : `${t.reply}…`"
                 @input="onInput" />
     <PendingFiles :files="files" @remove="(i) => files.splice(i, 1)" />
+    <div v-if="!isNote && effectiveSignature && includeSignature" class="sig-preview"
+         data-tip="Appended when the mail is sent — toggle below">
+      <span class="sig-label">signature</span>
+      <div v-html="effectiveSignature"></div>
+    </div>
     <div class="actions">
       <template v-if="isNote">
         <button type="button" class="primary" :disabled="busy" @click="submit(false)">{{ t.saveNote }}</button>
@@ -165,6 +182,10 @@ async function insertSavedReply(e) {
         <label style="margin:0">
           <input type="file" multiple style="display:none" @change="pickFiles" />
           <span class="pill" style="cursor:pointer" data-tip="Attach files">📎 {{ files.length || '' }}</span>
+        </label>
+        <label v-if="effectiveSignature" class="choice" style="margin:0; font-size:12.5px"
+               data-tip="Append your signature to this reply">
+          <input type="checkbox" v-model="includeSignature" /> Signature
         </label>
       </template>
       <span class="spacer"></span>
