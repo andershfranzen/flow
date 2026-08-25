@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { api, setCsrf } from '../api'
 import { setLocale } from '../strings'
+import { applyTheme } from '../theme'
 
 export const useSession = defineStore('session', {
   state: () => ({ agent: null, org: null, sso: null, loaded: false }),
@@ -14,6 +15,7 @@ export const useSession = defineStore('session', {
       this.agent = data.agent
       this.org = data.org || null
       this.sso = data.sso || null
+      applyTheme(this.org?.theme)
       this.loaded = true
     },
     async login(email, password, otpCode) {
@@ -21,6 +23,7 @@ export const useSession = defineStore('session', {
       setCsrf(data.csrf_token)
       this.agent = data.agent
       this.org = data.org || null
+      applyTheme(this.org?.theme)
       if (data.agent?.locale) setLocale(data.agent.locale)
     },
     async logout() {

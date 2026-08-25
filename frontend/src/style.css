@@ -104,7 +104,7 @@ button {
 }
 button:hover { background: #e9e9ef; }
 button.primary { background: var(--accent); color: var(--accent-ink); }
-button.primary:hover { background: #4315e0; }
+button.primary:hover { background: var(--accent-hover, #4315e0); }
 button.ghost { background: transparent; color: var(--muted); font-weight: 600; }
 button.ghost:hover { color: var(--text); background: var(--panel-deep); }
 button:disabled { opacity: .45; cursor: default; }
@@ -563,6 +563,49 @@ details.quoted { color: var(--muted); }
   to { transform: translateX(12%) scaleY(1.18); }
 }
 
+/* Appearance: brand color rows */
+.theme-rows { display: flex; flex-direction: column; margin: 14px 0 18px; }
+.theme-row { display: flex; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.theme-row:last-child { border-bottom: 0; }
+.swatch {
+  width: 38px; height: 38px; border-radius: 12px; flex: none; cursor: pointer; margin: 0;
+  border: 2px solid var(--border); overflow: hidden; position: relative;
+}
+.swatch input[type="color"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.theme-meta { flex: 1; min-width: 0; }
+.theme-label { font-weight: 700; }
+.theme-hint { font-size: 12.5px; color: var(--muted); }
+.hex-input { width: 110px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; }
+.theme-actions { display: flex; gap: 10px; }
+.swatch-wrap { position: relative; flex: none; display: inline-flex; }
+.color-pop {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 60; width: 216px;
+  background: var(--panel); border: 2px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 10px 34px rgba(20, 20, 40, .18); padding: 10px;
+  display: flex; flex-direction: column; gap: 10px;
+  animation: flow-pop .14s var(--ease) both; transform-origin: top left;
+}
+.cp-square { position: relative; height: 140px; border-radius: var(--radius-sm); cursor: crosshair; touch-action: none; }
+.cp-hue {
+  position: relative; height: 14px; border-radius: 999px; cursor: pointer; touch-action: none;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.cp-knob {
+  position: absolute; width: 16px; height: 16px; border-radius: 50%;
+  border: 2.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25), 0 1px 4px rgba(0,0,0,.3);
+  transform: translate(-50%, -50%); pointer-events: none;
+}
+.cp-preview { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.cp-chip { width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--border); }
+
+.save-button { min-width: 96px; }
+.save-button.is-saved { background: var(--ok); pointer-events: none; }
+.save-button.is-saved:hover { background: var(--ok); }
+.save-face { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.save-swap-enter-active, .save-swap-leave-active { transition: opacity .13s var(--ease), transform .13s var(--ease); }
+.save-swap-enter-from { opacity: 0; transform: translateY(5px); }
+.save-swap-leave-to { opacity: 0; transform: translateY(-5px); }
+
 .password-field { position: relative; }
 .password-field input { width: 100%; padding-right: 42px; }
 .password-field .reveal {
@@ -571,7 +614,8 @@ details.quoted { color: var(--muted); }
 .password-field .reveal:active { transform: translateY(-50%) scale(.96); }
 
 .open-source {
-  position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; z-index: 1;
+  position: absolute; bottom: 22px; left: 0; right: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
   font-family: var(--font-round); font-weight: 700; font-size: 13.5px; color: rgba(48, 28, 116, .6);
 }
 .open-source:hover { color: var(--accent); }

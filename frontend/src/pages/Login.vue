@@ -3,7 +3,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSession } from '../stores/session'
 import { t } from '../strings'
-import { Eye, EyeOff } from 'lucide-vue-next'
+import { Eye, EyeOff, Github } from 'lucide-vue-next'
 
 const showPassword = ref(false)
 
@@ -99,7 +99,7 @@ async function submit() {
       </template>
     </form>
     <a class="open-source" href="https://github.com/andershfranzen/flow" target="_blank" rel="noopener">
-      Open-source, always.
+      <Github :size="15" /> Open-source, always.
     </a>
   </main>
 </template>

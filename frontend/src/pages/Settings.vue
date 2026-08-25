@@ -8,6 +8,9 @@ import WorkflowBuilder from '../components/WorkflowBuilder.vue'
 import RichEditor from '../components/RichEditor.vue'
 import ReportsPanel from '../components/ReportsPanel.vue'
 import { ArrowLeft, ExternalLink } from 'lucide-vue-next'
+import { THEME_TOKENS, applyTheme } from '../theme'
+import ColorPicker from '../components/ColorPicker.vue'
+import SaveButton from '../components/SaveButton.vue'
 
 const props = defineProps({ tab: String })
 const router = useRouter()
@@ -20,7 +23,7 @@ const GROUPS = computed(() => {
   }
   const admin = {
     label: 'Administration',
-    tabs: [['org', 'Organisation'], ['agents', 'Agents'], ['teams', 'Teams'], ['mailboxes', 'Mailboxes'],
+    tabs: [['org', 'Organisation'], ['appearance', 'Appearance'], ['agents', 'Agents'], ['teams', 'Teams'], ['mailboxes', 'Mailboxes'],
            ['workflows', 'Workflows'], ['reports', 'Reports'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']],
   }
   return session.isAdmin ? [personal, admin] : [personal]
@@ -52,6 +55,12 @@ async function load() {
   flash.value = ''
   editing.value = null
   if (tab.value === 'org' && session.isAdmin) org.value = await api.get('/api/org_settings')
+  if (tab.value === 'appearance' && session.isAdmin) {
+    org.value = await api.get('/api/org_settings')
+    theme.value = Object.fromEntries(THEME_TOKENS.map((tk) => [tk.key, (org.value.theme || {})[tk.key] || tk.default]))
+  } else if (session.org) {
+    applyTheme(session.org.theme) // drop any unsaved preview when leaving Appearance
+  }
   if (tab.value === 'agents' && session.isAdmin) {
     agents.value = await api.get('/api/agents')
     mailboxes.value = await api.get('/api/mailboxes')
@@ -86,7 +95,35 @@ async function load() {
 onMounted(load)
 watch(tab, load)
 
-function ok(msg = 'Saved') { flash.value = msg; setTimeout(() => (flash.value = ''), 2500) }
+const justSaved = ref(false)
+function ok(msg = 'Saved') {
+  if (msg === 'Saved') {
+    justSaved.value = true
+    setTimeout(() => (justSaved.value = false), 1600)
+    return
+  }
+  flash.value = msg
+  setTimeout(() => (flash.value = ''), 2500)
+}
+
+// Appearance: live-preview while picking, persist on save (H-theme)
+const theme = ref({})
+const openPicker = ref(null)
+function setToken(tk, raw, el) {
+  let v = raw.trim().toLowerCase()
+  if (/^[0-9a-f]{6}$/.test(v)) v = '#' + v
+  if (!/^#[0-9a-f]{6}$/.test(v)) { if (el) el.value = theme.value[tk.key]; return }
+  theme.value[tk.key] = v
+  applyTheme(theme.value)
+}
+function resetToken(tk) { theme.value[tk.key] = tk.default; applyTheme(theme.value) }
+function resetAllTheme() { THEME_TOKENS.forEach((tk) => (theme.value[tk.key] = tk.default)); applyTheme(theme.value) }
+async function saveTheme() {
+  org.value = await api.patch('/api/org_settings', { theme: theme.value })
+  if (session.org) session.org.theme = org.value.theme
+  applyTheme(org.value.theme)
+  ok()
+}
 
 async function saveOrg() { org.value = await api.patch('/api/org_settings', org.value); ok() }
 const logoError = ref('')
@@ -277,6 +314,36 @@ const NOTIFY_LABELS = {
     </nav>
     <p v-if="flash" class="ok-text">{{ flash }}</p>
 
+    <!-- Appearance -->
+    <div v-if="tab === 'appearance'" class="card">
+      <h3>Brand colors</h3>
+      <p class="hint-text">These tokens color the whole app for everyone. Click a swatch to pick from the
+        gradient, or type a hex code. Changes preview live on this screen and apply org-wide once saved.</p>
+      <div class="theme-rows">
+        <div v-for="tk in THEME_TOKENS" :key="tk.key" class="theme-row">
+          <span class="swatch-wrap">
+            <button type="button" class="swatch" :style="{ background: theme[tk.key] }"
+                    :aria-label="'Pick ' + tk.label.toLowerCase()" :aria-expanded="openPicker === tk.key"
+                    @click="openPicker = openPicker === tk.key ? null : tk.key" />
+            <ColorPicker v-if="openPicker === tk.key" :model-value="theme[tk.key]"
+                         @update:model-value="(v) => setToken(tk, v)" @close="openPicker = null" />
+          </span>
+          <div class="theme-meta">
+            <div class="theme-label">{{ tk.label }}</div>
+            <div class="theme-hint">{{ tk.hint }}</div>
+          </div>
+          <input class="hex-input" :value="theme[tk.key]" spellcheck="false" aria-label="Hex code"
+                 @change="setToken(tk, $event.target.value, $event.target)" />
+          <button type="button" class="ghost" :style="{ visibility: theme[tk.key] !== tk.default ? 'visible' : 'hidden' }"
+                  @click="resetToken(tk)">Reset</button>
+        </div>
+      </div>
+      <div class="theme-actions">
+        <SaveButton type="button" :saved="justSaved" @click="saveTheme" />
+        <button type="button" class="ghost" @click="resetAllTheme">Reset all to Flow defaults</button>
+      </div>
+    </div>
+
     <!-- Org -->
     <form v-if="tab === 'org'" class="card" @submit.prevent="saveOrg">
       <div class="form-grid">
@@ -331,7 +398,7 @@ const NOTIFY_LABELS = {
         <div><label>Client secret {{ org.google_client_secret_set ? '(set — blank keeps it)' : '' }}</label>
           <input v-model="org.google_client_secret" type="password" style="width:100%" /></div>
       </div>
-      <div class="form-actions"><button class="primary">{{ t.save }}</button></div>
+      <div class="form-actions"><SaveButton :saved="justSaved" :label="t.save" /></div>
     </form>
 
     <!-- Agents -->
@@ -578,7 +645,7 @@ const NOTIFY_LABELS = {
       <label v-for="m in mailboxes" :key="m.id" class="choice">
         <input type="checkbox" :value="m.id" v-model="profile.muted_mailbox_ids" /> {{ m.name }}
       </label>
-      <div class="form-actions"><button class="primary">{{ t.save }}</button></div>
+      <div class="form-actions"><SaveButton :saved="justSaved" :label="t.save" /></div>
     </form>
 
     <!-- Saved replies -->

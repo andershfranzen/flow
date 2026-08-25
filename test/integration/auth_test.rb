@@ -66,6 +66,18 @@ class AuthTest < ActionDispatch::IntegrationTest
     assert_nil response.parsed_body["logo_url"]
   end
 
+  test "admin sets a brand theme; junk keys and values are filtered" do
+    login("admin@example.com")
+    patch "/api/org_settings", params: { theme: { accent: "#1e3a8a", bogus_key: "#111111",
+                                                  danger: "red; background:url(x)", warn: "#12345" } },
+                               as: :json
+    assert_response :success
+    assert_equal({ "accent" => "#1e3a8a" }, response.parsed_body["theme"])
+
+    get "/api/session"
+    assert_equal "#1e3a8a", response.parsed_body.dig("org", "theme", "accent")
+  end
+
   test "api token authenticates and respects scope" do
     _, raw = ApiToken.issue(agent: @admin, name: "ci", scope: "read")
     get "/api/agents", headers: { "Authorization" => "Bearer #{raw}" }
