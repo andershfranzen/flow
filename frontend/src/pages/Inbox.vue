@@ -22,7 +22,11 @@ const searchInput = ref('')
 const selected = ref(new Set())
 const dragging = ref(null) // conversation id mid-drag
 const dragOverFolder = ref(null)
-const DROP_FOLDERS = ['mine', 'spam', 'trash']
+// Drop targets: triage folders minus the one you're already in — dragging
+// from Mine offers Unassigned (to unassign), and vice versa.
+const DROP_FOLDERS = computed(() =>
+  ['unassigned', 'mine', 'spam', 'trash'].filter((f) => f !== inbox.folder)
+)
 const agents = ref([])
 const tags = ref([])
 const showNew = ref(false)
@@ -77,10 +81,12 @@ function onDragEnd() {
 }
 
 async function onDropFolder(folder) {
-  if (!dragging.value || !DROP_FOLDERS.includes(folder)) return
+  if (!dragging.value || !DROP_FOLDERS.value.includes(folder)) return
   const ids = selected.value.has(dragging.value) && selected.value.size > 1
     ? [...selected.value] : [dragging.value]
-  const attrs = folder === 'mine' ? { assignee_id: session.agent.id } : { status: folder }
+  const attrs = folder === 'mine' ? { assignee_id: session.agent.id }
+    : folder === 'unassigned' ? { assignee_id: '' }
+    : { status: folder }
   await api.patch('/api/conversations/bulk', { ids, ...attrs })
   onDragEnd()
   selected.value = new Set()
