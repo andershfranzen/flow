@@ -18,7 +18,7 @@ services:
     ports:
       - "8080:80"
     environment:
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?run: echo "SECRET_KEY_BASE=$(openssl rand -hex 64)" > .env}
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE:?missing - generate with openssl rand -hex 64 into .env}"
       # Uncomment for PostgreSQL instead of the bundled SQLite:
       # DATABASE_URL: postgres://flow:flow@db/flow
       # Optional error tracking:
