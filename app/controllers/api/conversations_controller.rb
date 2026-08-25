@@ -224,7 +224,8 @@ class Api::ConversationsController < Api::BaseController
   end
 
   def append_signature(html, mailbox)
-    signature = current_agent.signature.presence || mailbox.signature
+    signature = current_agent.signature.presence || mailbox.signature.presence ||
+                OrgSetting.current.default_signature
     return html if signature.blank? || params[:skip_signature].present?
     "#{html}<br><br>--<br>#{signature}"
   end

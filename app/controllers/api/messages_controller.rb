@@ -61,7 +61,8 @@ class Api::MessagesController < Api::BaseController
 
 
   def append_signature(html, mailbox)
-    signature = current_agent.signature.presence || mailbox.signature
+    signature = current_agent.signature.presence || mailbox.signature.presence ||
+                OrgSetting.current.default_signature
     return html if signature.blank? || params[:skip_signature]
     "#{html}<br><br>--<br>#{signature}"
   end

@@ -30,10 +30,11 @@ let savedDraftBody = ''
 
 const isNote = computed(() => mode.value === 'note')
 
-// What will actually be appended on send (A19): agent's own, else mailbox.
+// What will actually be appended on send (A19): agent > mailbox > org default.
 const effectiveSignature = computed(() =>
   session.agent?.signature?.trim() ||
-  inbox.mailboxes.find((m) => m.id === props.conversation.mailbox_id)?.signature || ''
+  inbox.mailboxes.find((m) => m.id === props.conversation.mailbox_id)?.signature ||
+  session.org?.default_signature || ''
 )
 const includeSignature = ref(true)
 
@@ -163,10 +164,15 @@ async function insertSavedReply(e) {
     <RichEditor ref="editor" :placeholder="isNote ? `${t.internalNote} — @name notifies` : `${t.reply}…`"
                 @input="onInput" />
     <PendingFiles :files="files" @remove="(i) => files.splice(i, 1)" />
-    <div v-if="!isNote && effectiveSignature && includeSignature" class="sig-preview"
-         data-tip="Appended when the mail is sent — toggle below">
+    <div v-if="!isNote && effectiveSignature && includeSignature" class="sig-preview">
       <span class="sig-label">signature</span>
+      <button type="button" class="sig-skip" data-tip="Don't append the signature to this mail"
+              @click="includeSignature = false">Skip</button>
       <div v-html="effectiveSignature"></div>
+    </div>
+    <div v-else-if="!isNote && effectiveSignature" class="sig-skipped">
+      Signature won't be added —
+      <button type="button" class="ghost" style="padding:0 6px" @click="includeSignature = true">undo</button>
     </div>
     <div class="actions">
       <template v-if="isNote">
@@ -182,10 +188,6 @@ async function insertSavedReply(e) {
         <label style="margin:0">
           <input type="file" multiple style="display:none" @change="pickFiles" />
           <span class="pill" style="cursor:pointer" data-tip="Attach files">📎 {{ files.length || '' }}</span>
-        </label>
-        <label v-if="effectiveSignature" class="choice" style="margin:0; font-size:12.5px"
-               data-tip="Append your signature to this reply">
-          <input type="checkbox" v-model="includeSignature" /> Signature
         </label>
       </template>
       <span class="spacer"></span>

@@ -35,7 +35,8 @@ function pickFiles(e) { files.value = [...files.value, ...e.target.files] }
 
 const effectiveSignature = () =>
   session.agent?.signature?.trim() ||
-  props.mailboxes.find((m) => m.id === form.value.mailbox_id)?.signature || ''
+  props.mailboxes.find((m) => m.id === form.value.mailbox_id)?.signature ||
+  session.org?.default_signature || ''
 
 async function submit() {
   if (!form.value.to.length) { error.value = 'Add at least one recipient'; return }
@@ -113,11 +114,14 @@ async function submit() {
         <PendingFiles :files="files" @remove="(i) => files.splice(i, 1)" />
         <div v-if="effectiveSignature() && includeSignature" class="sig-preview">
           <span class="sig-label">signature</span>
+          <button type="button" class="sig-skip" data-tip="Don't append the signature"
+                  @click="includeSignature = false">Skip</button>
           <div v-html="effectiveSignature()"></div>
         </div>
-        <label v-if="effectiveSignature()" class="choice" style="margin:0">
-          <input type="checkbox" v-model="includeSignature" /> Append signature
-        </label>
+        <div v-else-if="effectiveSignature()" class="sig-skipped">
+          Signature won't be added —
+          <button type="button" class="ghost" style="padding:0 6px" @click="includeSignature = true">undo</button>
+        </div>
       </div>
       <p v-if="error" class="error-text" style="margin:8px 0 0">{{ error }}</p>
       <div style="display:flex; gap:8px; align-items:center; margin-top:14px">

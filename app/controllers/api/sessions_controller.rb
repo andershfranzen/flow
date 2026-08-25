@@ -41,6 +41,7 @@ class Api::SessionsController < Api::BaseController
 
   def agent_json(agent)
     { agent: agent.as_json(only: [ :id, :email, :name, :role, :locale, :timezone ])
-                  .merge(notify_prefs: agent.notify_prefs, ui_prefs: agent.ui_prefs || {}) }
+                  .merge(notify_prefs: agent.notify_prefs, ui_prefs: agent.ui_prefs || {}),
+      org: { default_signature: OrgSetting.current.default_signature } }
   end
 end

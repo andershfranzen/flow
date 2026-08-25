@@ -248,6 +248,12 @@ const NOTIFY_LABELS = {
         <div><label>Base URL</label><input v-model="org.base_url" placeholder="https://inbox.example.com" style="width:100%" /></div>
         <div><label>Notify from (email)</label><input v-model="org.notify_from" style="width:100%" /></div>
       </div>
+      <h3 style="margin-top:16px">Company signature (all mailboxes)</h3>
+      <p class="hint-text">Used when neither the agent nor the mailbox has its own signature.
+        Leave every signature field empty if signatures are stamped centrally by your provider
+        (Microsoft 365 transport rules, Exclaimer, CodeTwo …).</p>
+      <div class="modal-editor"><RichEditor v-model="org.default_signature" placeholder="Best regards, the Support team" /></div>
+
       <h3 style="margin-top:16px">Microsoft 365 OAuth app</h3>
       <p class="hint-text">Register an app in Entra ID with delegated IMAP.AccessAsUser.All + SMTP.Send permissions and redirect URI <code>{{ org.base_url || '&lt;base url&gt;' }}/oauth/callback</code>.</p>
       <div class="form-grid">
@@ -404,7 +410,7 @@ const NOTIFY_LABELS = {
         <label class="choice"><input type="checkbox" v-model="editing.auto_reply_enabled" /> Send "we got your mail" once per new conversation</label>
         <textarea v-if="editing.auto_reply_enabled" v-model="editing.auto_reply_body" rows="3" style="width:100%"
                   placeholder="Thanks — we received your message and will reply soon."></textarea>
-        <div style="margin-top:10px"><label>Signature (appended to replies — formatting and logos supported)</label>
+        <div style="margin-top:10px"><label>Signature (appended to replies — formatting and logos supported; leave empty if your provider stamps signatures)</label>
           <div class="modal-editor"><RichEditor v-model="editing.signature" placeholder="Best regards…" /></div></div>
         <div class="form-actions">
           <button class="primary">{{ t.save }}</button>
