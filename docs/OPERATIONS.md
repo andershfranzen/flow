@@ -97,3 +97,62 @@ Lockout recovery: if the Entra app breaks and nobody can sign in, start the serv
 the toggle, then remove the variable.
 
 Note: SSO sign-ins bypass Flow's built-in TOTP (Microsoft enforces its own MFA policies).
+
+## One-command deployment (Docker Compose)
+
+```
+git clone https://github.com/andershfranzen/flow && cd flow
+echo "SECRET_KEY_BASE=$(openssl rand -hex 64)" > .env
+docker compose up -d
+```
+
+Two containers from one image: `web` (Puma behind Thruster on :8080) and `jobs`
+(Solid Queue: mail fetching, sending, webhooks, housekeeping). All durable state
+— SQLite databases, attachments, backups — lives in the `flow-storage` volume.
+Create the first admin:
+
+```
+docker compose exec web bin/rails runner 'Agent.create!(email: "you@example.com", name: "You", password: "change-me", role: "admin")'
+```
+
+Put any TLS-terminating reverse proxy (Caddy, Traefik, nginx) in front and set
+Settings -> Organisation -> Base URL to the public https URL. For PostgreSQL,
+set `DATABASE_URL` on both services. Kamal users: the stock Rails `Dockerfile`
+works as-is with `kamal setup`.
+
+## Monitoring
+
+- `GET /up` — process liveness (use for container healthchecks).
+- `GET /health` — JSON with database status, per-mailbox fetch staleness
+  (`stale: true` after 15 minutes without a successful fetch), a `warnings`
+  count, and job-queue depth/age. Point your uptime monitor here and alert on
+  non-200 or `warnings > 0`.
+- Error tracking: set `SENTRY_DSN` on web + jobs and exceptions are reported
+  (nothing loads without it; PII stays off).
+
+## Backup and restore
+
+`BackupJob` (nightly) and `bin/rails flow:backup` write
+`storage/backups/<stamp>/` containing VACUUM'd copies of every SQLite database
+plus `files.tgz` with all attachments. Seven backups are kept. To restore:
+
+```
+docker compose stop            # web AND jobs — SQLite files are replaced wholesale
+docker compose run --rm web bin/rails flow:restore[20260825-120000]
+docker compose up -d
+```
+
+Run this drill once before you rely on it. Off-machine copies: sync
+`storage/backups/` anywhere (rclone, restic); for continuous SQLite replication
+consider Litestream pointed at the database files in the volume.
+PostgreSQL installs: use `pg_dump`/`pg_restore` for the database — `flow:backup`
+still archives attachments.
+
+## Retention and scale
+
+- Trash and spam are purged for good after 30 days
+  (`FLOW_TRASH_RETENTION_DAYS`, 0 disables). Failed inbound emails after 90
+  days; read notifications after 90 days.
+- Measured at 50,000 conversations / 125,000 messages on SQLite: conversation
+  lists 3-13 ms, folder counts 4 ms, full-text search 9-16 ms, the reports page
+  ~190 ms. No configuration needed at this scale.

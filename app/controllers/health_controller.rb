@@ -3,9 +3,12 @@ class HealthController < ActionController::Base
   def show
     db_ok = ActiveRecord::Base.connection.select_value("SELECT 1") == 1
     mailboxes = Mailbox.all.map do |m|
-      { address: m.address, last_fetched_at: m.last_fetched_at, fetch_error: m.fetch_error }
+      stale = m.imap_configured? &&
+              (m.fetch_error.present? || m.last_fetched_at.nil? || m.last_fetched_at < 15.minutes.ago)
+      { address: m.address, last_fetched_at: m.last_fetched_at, fetch_error: m.fetch_error, stale: stale }
     end
-    render json: { ok: db_ok, mailboxes: mailboxes, queue: queue_stats },
+    render json: { ok: db_ok, warnings: mailboxes.count { |m| m[:stale] },
+                   mailboxes: mailboxes, queue: queue_stats },
            status: db_ok ? :ok : :service_unavailable
   rescue StandardError => e
     render json: { ok: false, error: e.class.name }, status: :service_unavailable

@@ -54,5 +54,9 @@ group :postgres, optional: true do
 end
 gem "rqrcode"
 
+# Optional error tracking — active only when SENTRY_DSN is set (docs/OPERATIONS.md)
+gem "sentry-ruby"
+gem "sentry-rails"
+
 # Microsoft SSO id_token verification (JWKS / RS256)
 gem "jwt"

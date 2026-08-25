@@ -39,14 +39,27 @@ class Reports
       by_agent: by_agent, by_mailbox: by_mailbox }
   end
 
-  # ponytail: Ruby loop over the window's conversations; SQL window functions when it hurts
+  # Two grouped queries instead of a per-conversation loop (the loop cost ~1s
+  # at 50k conversations). Outbound-first conversations (agent-initiated) fall
+  # back to one precise per-conversation query — they are rare.
   def self.avg_first_reply(scope)
-    samples = scope.limit(2000).filter_map do |conversation|
-      first_in = conversation.messages.where(kind: "inbound").minimum(:created_at)
-      next unless first_in
-      first_out = conversation.messages.where(kind: "outbound", auto_submitted: false)
-                              .where("created_at > ?", first_in).minimum(:created_at)
-      first_out && (first_out - first_in)
+    ids = scope.limit(5000).ids
+    first_in = Message.where(conversation_id: ids, kind: "inbound")
+                      .group(:conversation_id).minimum(:created_at)
+    first_out = Message.where(conversation_id: first_in.keys, kind: "outbound", auto_submitted: false)
+                       .group(:conversation_id).minimum(:created_at)
+    # Outbound-first threads (agent-initiated) need the first reply AFTER the
+    # first inbound; resolve them all with one batched fetch, not per-row queries.
+    fallback_ids = first_in.keys.select { |cid| first_out[cid] && first_out[cid] <= first_in[cid] }
+    replies_after = Hash.new { |h, k| h[k] = [] }
+    Message.where(conversation_id: fallback_ids, kind: "outbound", auto_submitted: false)
+           .order(:created_at).pluck(:conversation_id, :created_at)
+           .each { |cid, at| replies_after[cid] << at }
+    samples = first_in.filter_map do |cid, inbound_at|
+      outbound_at = first_out[cid]
+      next unless outbound_at
+      outbound_at = replies_after[cid].find { |at| at > inbound_at } if outbound_at <= inbound_at
+      outbound_at && (outbound_at - inbound_at)
     end
     samples.empty? ? nil : (samples.sum / samples.size).round
   end

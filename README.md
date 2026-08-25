@@ -8,6 +8,8 @@
 <p align="center">
   A small, self-hosted, <strong>email-first shared inbox</strong> for teams.<br>
   IMAP in, SMTP out, a fast web UI, an HTTP API, webhooks, MCP, and plugins — all in core, all MIT.
+
+  **Deploy in one command:** `docker compose up -d` — see [docs/OPERATIONS.md](docs/OPERATIONS.md).
 </p>
 
 <p align="center">
