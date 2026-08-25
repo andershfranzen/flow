@@ -4,6 +4,9 @@ require "net/imap"
 # Dedup (A9) happens here so refetches and UIDVALIDITY resets never duplicate.
 class ImapFetcher
   BATCH = 50
+  MAX_PER_RUN = 500          # a huge backlog drains over several polls, not one
+  MAX_MESSAGE_BYTES = 30.megabytes
+  OPEN_TIMEOUT = 15
 
   def self.call(mailbox) = new(mailbox).call
 
@@ -12,7 +15,8 @@ class ImapFetcher
   end
 
   def call
-    imap = Net::IMAP.new(@mailbox.imap_host, port: @mailbox.imap_port, ssl: @mailbox.imap_ssl)
+    imap = Net::IMAP.new(@mailbox.imap_host, port: @mailbox.imap_port, ssl: @mailbox.imap_ssl,
+                         open_timeout: OPEN_TIMEOUT)
     if @mailbox.oauth?
       imap.authenticate("XOAUTH2", @mailbox.imap_user, MailOauth.access_token!(@mailbox))
     else
@@ -31,10 +35,17 @@ class ImapFetcher
     end
 
     uids = imap.uid_search([ "UID", "#{@mailbox.last_uid + 1}:*" ]).select { |u| u > @mailbox.last_uid }
+    uids = uids.first(MAX_PER_RUN)
     uids.each_slice(BATCH) do |batch|
-      imap.uid_fetch(batch, "BODY.PEEK[]").each do |data|
-        uid = data.attr["UID"]
-        ingest(data.attr["BODY[]"])
+      # Two-phase: check sizes first so one giant message can't eat memory.
+      sizes = imap.uid_fetch(batch, "RFC822.SIZE").to_h { |d| [ d.attr["UID"], d.attr["RFC822.SIZE"].to_i ] }
+      batch.each do |uid|
+        if sizes.fetch(uid, 0) > MAX_MESSAGE_BYTES
+          Rails.logger.warn("fetch: skipping oversized message uid=#{uid} (#{sizes[uid]} bytes) in #{@mailbox.address}")
+        else
+          data = imap.uid_fetch([ uid ], "BODY.PEEK[]")&.first
+          ingest(data.attr["BODY[]"]) if data
+        end
         @mailbox.update_column(:last_uid, uid) if uid > @mailbox.last_uid
       end
     end

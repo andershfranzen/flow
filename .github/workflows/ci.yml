@@ -1,0 +1,74 @@
+name: CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [ sqlite, postgres ]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: flow_test
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+    env:
+      BUNDLE_WITH: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build frontend
+        run: cd frontend && npm ci && npm run build
+      - name: Run tests
+        env:
+          DATABASE_URL: ${{ matrix.db == 'postgres' && 'postgres://postgres:ci@localhost:5432/flow_test' || '' }}
+          PARALLEL_WORKERS: ${{ matrix.db == 'postgres' && '1' || '' }}
+        run: |
+          bin/rails db:test:prepare
+          bin/rails test
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - name: Dependency CVE audit
+        run: |
+          gem install bundler-audit
+          bundle-audit check --update
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      greenmail:
+        image: greenmail/standalone:2.1.8
+        env:
+          GREENMAIL_OPTS: "-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled"
+        ports: [ "3143:3143", "3025:3025" ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - name: Live IMAP/SMTP round trip
+        run: |
+          bin/rails db:prepare
+          bin/e2e-greenmail

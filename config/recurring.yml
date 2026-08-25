@@ -2,5 +2,11 @@ production: &default
   fetch_mailboxes:
     class: FetchAllMailboxesJob
     schedule: every 30 seconds
+  nightly_backup:
+    class: BackupJob
+    schedule: every day at 3am
+  housekeeping:
+    class: HousekeepingJob
+    schedule: every day at 4am
 
 development: *default

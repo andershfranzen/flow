@@ -5,7 +5,7 @@ class FetchMailboxJob < ApplicationJob
 
   def perform(mailbox)
     return unless mailbox.imap_configured?
-    ImapFetcher.call(mailbox)
+    Timeout.timeout(300) { ImapFetcher.call(mailbox) }
   rescue StandardError => e
     # Surface on the mailbox, next poll retries (backoff = poll interval).
     mailbox.update_columns(fetch_error: "#{e.class}: #{e.message}".truncate(255))

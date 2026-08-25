@@ -89,8 +89,12 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
   pages. See [docs/EXTENDING.md](docs/EXTENDING.md)
 
 **Boring on purpose**
-- Rails 8 + SQLite + Solid Queue. One volume to back up. No Redis, no
-  Postgres, no microservices. Runs on a $5 VPS.
+- Rails 8 + SQLite + Solid Queue by default — one volume, nightly consistent
+  backups built in, runs on a $5 VPS. **PostgreSQL supported** via a single
+  `DATABASE_URL` when you want it; the test suite runs against both in CI.
+- Hardened: strict CSP, rolling session expiry, rate limits, SSRF-guarded
+  webhooks, size caps, timeouts on every mail connection.
+  See [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Install
 
@@ -160,6 +164,11 @@ bin/e2e-greenmail                                # live IMAP/SMTP round trip (ne
 The stack is deliberately frozen: Rails 8 API + Active Record + SQLite +
 Solid Queue, Vue 3 + Vite + Pinia SPA served by Rails in production.
 Read [PLAN.md](PLAN.md) for every decision and why.
+
+## Operations
+
+Backups, monitoring/alerting, PostgreSQL, upgrades, retention, and the
+security posture are documented in [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Honesty section
 

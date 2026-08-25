@@ -1,5 +1,10 @@
 # Flow: web (Puma) + jobs (Solid Queue) + one volume (J1).
 # Required env (J2): SECRET_KEY_BASE (generate: openssl rand -hex 64), APP_URL.
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
 services:
   web:
     build: .
@@ -9,9 +14,12 @@ services:
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:?set SECRET_KEY_BASE}
       APP_URL: ${APP_URL:-http://localhost:3000}
       RAILS_MAX_THREADS: "16"
+      # DATABASE_URL: postgres://flow:secret@db/flow   # uncomment for PostgreSQL
     volumes:
       - flow_storage:/rails/storage
     restart: unless-stopped
+    mem_limit: 768m
+    <<: *logging
 
   jobs:
     build: .
@@ -22,6 +30,8 @@ services:
     volumes:
       - flow_storage:/rails/storage
     restart: unless-stopped
+    mem_limit: 512m
+    <<: *logging
     depends_on:
       - web
 
@@ -35,8 +45,22 @@ services:
     volumes:
       - flow_storage:/rails/storage
     restart: unless-stopped
+    mem_limit: 256m
+    <<: *logging
     depends_on:
       - jobs
 
+  # PostgreSQL instead of SQLite: uncomment this and DATABASE_URL above.
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: flow
+  #     POSTGRES_PASSWORD: secret
+  #     POSTGRES_DB: flow
+  #   volumes:
+  #     - flow_pg:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
 volumes:
   flow_storage:
+  # flow_pg:

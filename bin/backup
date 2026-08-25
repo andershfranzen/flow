@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+# Consistent online backup of the SQLite databases. Usage: bin/backup [DIR]
+require_relative "../config/environment"
+puts Backup.run(*ARGV.first)

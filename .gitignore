@@ -40,3 +40,4 @@
 
 /plugins/*
 !/plugins/README.md
+/storage/backups

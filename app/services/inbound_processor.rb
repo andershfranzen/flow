@@ -184,8 +184,14 @@ class InboundProcessor
     Nokogiri::HTML5.fragment(html).text.gsub(/[ \t]+/, " ").strip
   end
 
+  MAX_INBOUND_ATTACHMENT = 30.megabytes
+
   def attach_files(message)
     @mail.attachments.each do |att|
+      if att.body.raw_source.bytesize > MAX_INBOUND_ATTACHMENT
+        Rails.logger.warn("inbound: skipping oversized attachment #{att.filename} on message #{message.id}")
+        next
+      end
       blob = ActiveStorage::Blob.create_and_upload!(
         io: StringIO.new(att.decoded),
         filename: att.filename.presence || "attachment",

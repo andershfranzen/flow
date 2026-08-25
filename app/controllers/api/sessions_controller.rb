@@ -24,6 +24,7 @@ class Api::SessionsController < Api::BaseController
       reset_session
       session[:agent_id] = agent.id
       session[:session_token] = agent.session_token
+      session[:seen_at] = Time.current.to_i
       agent.update_column(:last_seen_at, Time.current)
       render json: agent_json(agent).merge(csrf_token: form_authenticity_token)
     else

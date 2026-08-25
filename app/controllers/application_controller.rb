@@ -12,8 +12,14 @@ class ApplicationController < ActionController::Base
         @current_api_token = ApiToken.authenticate(token)
         @current_api_token&.agent
       elsif session[:agent_id]
-        agent = Agent.find_by(id: session[:agent_id])
-        agent if agent && ActiveSupport::SecurityUtils.secure_compare(agent.session_token, session[:session_token].to_s)
+        if session[:seen_at].to_i < 14.days.ago.to_i
+          reset_session
+          nil
+        else
+          session[:seen_at] = Time.current.to_i # rolling 14-day expiry (C5)
+          agent = Agent.find_by(id: session[:agent_id])
+          agent if agent && ActiveSupport::SecurityUtils.secure_compare(agent.session_token, session[:session_token].to_s)
+        end
       end
   end
 

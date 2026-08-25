@@ -1,0 +1,6 @@
+{
+  "name": "error_notifier",
+  "version": "1.0.0",
+  "description": "POSTs unhandled application errors as JSON to a webhook URL (set ERROR_WEBHOOK_URL). No gems needed.",
+  "author": "Flow examples"
+}

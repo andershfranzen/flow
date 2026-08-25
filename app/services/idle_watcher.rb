@@ -19,7 +19,7 @@ class IdleWatcher
   end
 
   def self.watch(mailbox)
-    imap = Net::IMAP.new(mailbox.imap_host, port: mailbox.imap_port, ssl: mailbox.imap_ssl)
+    imap = Net::IMAP.new(mailbox.imap_host, port: mailbox.imap_port, ssl: mailbox.imap_ssl, open_timeout: 15)
     if mailbox.oauth?
       imap.authenticate("XOAUTH2", mailbox.imap_user, MailOauth.access_token!(mailbox))
     else
