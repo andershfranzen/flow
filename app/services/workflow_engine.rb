@@ -46,6 +46,13 @@ class WorkflowEngine
       return unless agent&.can_access?(conversation.mailbox)
       conversation.assign!(agent)
       Notifier.assigned(conversation, by: nil)
+    when "assign_team"
+      team = Team.find_by(id: action["value"])
+      agent = team&.next_agent(conversation.mailbox)
+      if agent
+        conversation.assign!(agent)
+        Notifier.assigned(conversation, by: nil)
+      end
     when "unassign"
       conversation.assign!(nil)
     when "add_tag"

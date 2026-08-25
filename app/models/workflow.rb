@@ -6,7 +6,7 @@ class Workflow < ApplicationRecord
   CONDITION_FIELDS = %w[subject body from_email from_domain to_cc customer_email
                         status assignee_email has_attachment tag].freeze
   OPERATORS = %w[contains not_contains equals not_equals starts_with ends_with matches_regex].freeze
-  ACTION_TYPES = %w[assign unassign add_tag remove_tag set_status star move_mailbox
+  ACTION_TYPES = %w[assign assign_team unassign add_tag remove_tag set_status star move_mailbox
                     add_note send_reply forward_to].freeze
 
   belongs_to :mailbox, optional: true

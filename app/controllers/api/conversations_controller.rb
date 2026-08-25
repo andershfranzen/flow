@@ -210,8 +210,9 @@ class Api::ConversationsController < Api::BaseController
   end
 
   def append_signature(html, mailbox)
-    return html if mailbox.signature.blank?
-    "#{html}<br><br>--<br>#{mailbox.signature}"
+    signature = current_agent.signature.presence || mailbox.signature
+    return html if signature.blank?
+    "#{html}<br><br>--<br>#{signature}"
   end
 
   def conversation_json(c, full: false)

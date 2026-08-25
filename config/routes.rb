@@ -24,7 +24,10 @@ Rails.application.routes.draw do
     end
     get "stream" => "stream#show"
 
-    resources :customers, only: [ :show, :update ]
+    resources :customers, only: [ :show, :update ] do
+      member { post :merge }
+    end
+    resources :teams, only: [ :index, :create, :update, :destroy ]
     resources :tags, only: [ :index, :create, :update, :destroy ]
     resources :saved_replies, only: [ :index, :create, :update, :destroy ] do
       member { get :render, action: :render_body }

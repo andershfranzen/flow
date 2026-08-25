@@ -7,7 +7,10 @@ class Customer < ApplicationRecord
 
   def self.for_email(email, name: nil)
     email = email.to_s.downcase.strip
-    customer = find_or_create_by!(email: email)
+    # Merged customers keep their old addresses in emails[] — match those too.
+    customer = find_by(email: email) ||
+               where("emails LIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like("\"#{email}\"")}%").first ||
+               create!(email: email)
     customer.update!(name: name) if name.present? && customer.name.blank?
     customer
   end

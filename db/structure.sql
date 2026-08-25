@@ -15,7 +15,7 @@ FOREIGN KEY ("blob_id")
 CREATE UNIQUE INDEX "index_active_storage_variant_records_uniqueness" ON "active_storage_variant_records" ("blob_id", "variation_digest") /*application='SharedInbox'*/;
 CREATE TABLE "action_mailbox_inbound_emails" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "status" integer DEFAULT 0 NOT NULL, "message_id" varchar NOT NULL, "message_checksum" varchar NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
 CREATE UNIQUE INDEX "index_action_mailbox_inbound_emails_uniqueness" ON "action_mailbox_inbound_emails" ("message_id", "message_checksum") /*application='SharedInbox'*/;
-CREATE TABLE "agents" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "email" varchar NOT NULL, "name" varchar NOT NULL, "password_digest" varchar NOT NULL, "role" varchar DEFAULT 'user' NOT NULL, "locale" varchar DEFAULT 'en' NOT NULL, "timezone" varchar DEFAULT 'UTC' NOT NULL, "notify_prefs" json DEFAULT '{}' NOT NULL, "session_token" varchar NOT NULL, "last_seen_at" datetime(6), "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "muted_mailbox_ids" json DEFAULT '[]' NOT NULL /*application='Flow'*/);
+CREATE TABLE "agents" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "email" varchar NOT NULL, "name" varchar NOT NULL, "password_digest" varchar NOT NULL, "role" varchar DEFAULT 'user' NOT NULL, "locale" varchar DEFAULT 'en' NOT NULL, "timezone" varchar DEFAULT 'UTC' NOT NULL, "notify_prefs" json DEFAULT '{}' NOT NULL, "session_token" varchar NOT NULL, "last_seen_at" datetime(6), "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "muted_mailbox_ids" json DEFAULT '[]' NOT NULL /*application='Flow'*/, "signature" text /*application='Flow'*/);
 CREATE UNIQUE INDEX "index_agents_on_email" ON "agents" ("email") /*application='SharedInbox'*/;
 CREATE TABLE "mailboxes" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "address" varchar NOT NULL, "name" varchar NOT NULL, "from_name" varchar, "signature" text, "imap_host" varchar, "imap_port" integer DEFAULT 993, "imap_ssl" boolean DEFAULT TRUE NOT NULL, "imap_user" varchar, "imap_password" varchar, "imap_folder" varchar DEFAULT 'INBOX' NOT NULL, "smtp_host" varchar, "smtp_port" integer DEFAULT 587, "smtp_user" varchar, "smtp_password" varchar, "smtp_security" varchar DEFAULT 'starttls' NOT NULL, "uid_validity" integer, "last_uid" integer DEFAULT 0 NOT NULL, "last_fetched_at" datetime(6), "fetch_error" varchar, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "auth_kind" varchar DEFAULT 'password' NOT NULL /*application='Flow'*/, "oauth_refresh_token" varchar /*application='Flow'*/, "oauth_access_token" varchar /*application='Flow'*/, "oauth_expires_at" datetime(6) /*application='Flow'*/, "auto_reply_enabled" boolean DEFAULT FALSE NOT NULL /*application='Flow'*/, "auto_reply_body" text /*application='Flow'*/);
 CREATE UNIQUE INDEX "index_mailboxes_on_address" ON "mailboxes" ("address") /*application='SharedInbox'*/;
@@ -29,7 +29,7 @@ FOREIGN KEY ("mailbox_id")
 CREATE INDEX "index_mailbox_accesses_on_agent_id" ON "mailbox_accesses" ("agent_id") /*application='SharedInbox'*/;
 CREATE INDEX "index_mailbox_accesses_on_mailbox_id" ON "mailbox_accesses" ("mailbox_id") /*application='SharedInbox'*/;
 CREATE UNIQUE INDEX "index_mailbox_accesses_on_agent_id_and_mailbox_id" ON "mailbox_accesses" ("agent_id", "mailbox_id") /*application='SharedInbox'*/;
-CREATE TABLE "customers" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "email" varchar NOT NULL, "name" varchar, "emails" json DEFAULT '[]' NOT NULL, "phones" json DEFAULT '[]' NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
+CREATE TABLE "customers" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "email" varchar NOT NULL, "name" varchar, "emails" json DEFAULT '[]' NOT NULL, "phones" json DEFAULT '[]' NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "company" varchar /*application='Flow'*/, "notes" text /*application='Flow'*/);
 CREATE UNIQUE INDEX "index_customers_on_email" ON "customers" ("email") /*application='SharedInbox'*/;
 CREATE TABLE "messages" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "conversation_id" integer NOT NULL, "agent_id" integer, "kind" varchar NOT NULL, "message_id_header" varchar, "in_reply_to" varchar, "references_header" text, "from_email" varchar, "from_name" varchar, "to" json DEFAULT '[]' NOT NULL, "cc" json DEFAULT '[]' NOT NULL, "bcc" json DEFAULT '[]' NOT NULL, "body_text" text, "body_html" text, "status" varchar DEFAULT 'received' NOT NULL, "bounce" boolean DEFAULT FALSE NOT NULL, "auto_submitted" boolean DEFAULT FALSE NOT NULL, "sent_at" datetime(6), "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, "subject" varchar /*application='Flow'*/, CONSTRAINT "fk_rails_7f927086d2"
 FOREIGN KEY ("conversation_id")
@@ -164,7 +164,20 @@ FOREIGN KEY ("mailbox_id")
 );
 CREATE INDEX "index_workflows_on_mailbox_id" ON "workflows" ("mailbox_id") /*application='Flow'*/;
 CREATE INDEX "index_workflows_on_enabled_and_trigger_and_position" ON "workflows" ("enabled", "trigger", "position") /*application='Flow'*/;
+CREATE TABLE "teams" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "name" varchar NOT NULL, "rr_index" integer DEFAULT 0 NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
+CREATE UNIQUE INDEX "index_teams_on_name" ON "teams" ("name") /*application='Flow'*/;
+CREATE TABLE "team_members" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "team_id" integer NOT NULL, "agent_id" integer NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL, CONSTRAINT "fk_rails_194b5b076d"
+FOREIGN KEY ("team_id")
+  REFERENCES "teams" ("id")
+, CONSTRAINT "fk_rails_d2731488d6"
+FOREIGN KEY ("agent_id")
+  REFERENCES "agents" ("id")
+);
+CREATE INDEX "index_team_members_on_team_id" ON "team_members" ("team_id") /*application='Flow'*/;
+CREATE INDEX "index_team_members_on_agent_id" ON "team_members" ("agent_id") /*application='Flow'*/;
+CREATE UNIQUE INDEX "index_team_members_on_team_id_and_agent_id" ON "team_members" ("team_id", "agent_id") /*application='Flow'*/;
 INSERT INTO "schema_migrations" (version) VALUES
+('20260825020000'),
 ('20260825010000'),
 ('20260825000000'),
 ('20260824240000'),
