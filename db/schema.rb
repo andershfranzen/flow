@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_040000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_25_050000) do
   create_table "action_mailbox_inbound_emails", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "message_checksum", null: false
@@ -63,6 +63,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_040000) do
     t.string "session_token", null: false
     t.text "signature"
     t.string "timezone", default: "UTC", null: false
+    t.json "ui_prefs", default: {}, null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_agents_on_email", unique: true
   end

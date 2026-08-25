@@ -28,6 +28,7 @@ const session = useSession()
 router.beforeEach(async (to) => {
   if (!session.loaded) { try { await session.load() } catch { session.loaded = true } }
   if (session.agent?.locale) setLocale(session.agent.locale)
+  document.body.classList.toggle('no-motion', session.agent?.ui_prefs?.motion === false)
   if (!session.agent && to.path !== '/login') return '/login'
   if (session.agent && to.path === '/login') return '/inbox'
 })

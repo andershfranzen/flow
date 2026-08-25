@@ -27,8 +27,8 @@ class Api::AgentsController < Api::BaseController
 
   # PATCH /api/me — own profile + notify prefs (H9)
   def update_me
-    permitted = params.permit(:name, :password, :locale, :timezone, :signature, notify_prefs: {}, muted_mailbox_ids: [])
-    permitted.reject! { |k, v| v.blank? && !%w[muted_mailbox_ids signature].include?(k) }
+    permitted = params.permit(:name, :password, :locale, :timezone, :signature, notify_prefs: {}, ui_prefs: {}, muted_mailbox_ids: [])
+    permitted.reject! { |k, v| v.blank? && !%w[muted_mailbox_ids signature ui_prefs].include?(k) }
     current_agent.update!(permitted)
     session[:session_token] = current_agent.session_token # survive own password change
     render json: agent_json(current_agent)
@@ -54,7 +54,7 @@ class Api::AgentsController < Api::BaseController
 
   def agent_json(agent)
     agent.as_json(only: [ :id, :email, :name, :role, :locale, :timezone, :signature, :otp_required, :last_seen_at ])
-         .merge(notify_prefs: agent.notify_prefs, mailbox_ids: agent.mailbox_ids,
-                muted_mailbox_ids: agent.muted_mailbox_ids)
+         .merge(notify_prefs: agent.notify_prefs, ui_prefs: agent.ui_prefs || {},
+                mailbox_ids: agent.mailbox_ids, muted_mailbox_ids: agent.muted_mailbox_ids)
   end
 end

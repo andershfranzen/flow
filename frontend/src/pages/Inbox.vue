@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, TransitionGroup } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '../stores/session'
 import { useInbox } from '../stores/inbox'
@@ -198,7 +198,7 @@ async function logout() {
         </select>
         <button class="ghost" @click="selected = new Set()">✕</button>
       </div>
-      <ul class="conv-list">
+      <TransitionGroup tag="ul" name="list" class="conv-list">
         <li v-for="c in inbox.conversations" :key="c.id">
           <button class="conv-item" :class="{ active: c.id === currentId, unread: c.unread, selecting: selected.size }"
                   @click="router.push(`/conversations/${c.id}`)">
@@ -224,8 +224,8 @@ async function logout() {
             </span>
           </button>
         </li>
-        <li v-if="!inbox.conversations.length && !inbox.loading" class="empty">{{ t.noConversations }}</li>
-      </ul>
+        <li v-if="!inbox.conversations.length && !inbox.loading" key="__empty" class="empty">{{ t.noConversations }}</li>
+      </TransitionGroup>
     </section>
 
     <ThreadPane v-if="currentId" :key="currentId" />
@@ -233,8 +233,10 @@ async function logout() {
       <div class="empty" style="margin-top:20vh">Select a conversation</div>
     </section>
 
-    <NewConversationModal v-if="showNew" :mailboxes="inbox.mailboxes"
-                          :default-mailbox-id="inbox.mailboxId"
-                          @close="showNew = false" @created="onConversationCreated" />
+    <Transition name="fade">
+      <NewConversationModal v-if="showNew" :mailboxes="inbox.mailboxes"
+                            :default-mailbox-id="inbox.mailboxId"
+                            @close="showNew = false" @created="onConversationCreated" />
+    </Transition>
   </div>
 </template>

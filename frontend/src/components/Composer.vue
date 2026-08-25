@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { api } from '../api'
 import { t } from '../strings'
 import RichEditor from './RichEditor.vue'
+import RecipientsInput from './RecipientsInput.vue'
 
 const props = defineProps({
   conversation: { type: Object, required: true },
@@ -12,8 +13,8 @@ const emit = defineEmits(['sent'])
 
 const mode = ref('reply') // reply | note
 const editor = ref(null)
-const to = ref('')
-const cc = ref('')
+const to = ref([])
+const cc = ref([])
 const subject = ref(null) // non-null = forward mode (B16)
 const files = ref([])
 const savedReplies = ref([])
@@ -27,15 +28,15 @@ const isNote = computed(() => mode.value === 'note')
 // Reply-all prefill (B7): everyone from the last inbound, never our mailbox.
 watch(() => props.conversation.reply_all, (ra) => {
   if (!ra) return
-  to.value = ra.to.join(', ')
-  cc.value = ra.cc.join(', ')
+  to.value = [...ra.to]
+  cc.value = [...ra.cc]
 }, { immediate: true })
 
 watch(() => props.forwardSeed, (seed) => {
   if (!seed || !editor.value) return
   mode.value = 'reply'
   subject.value = seed.subject
-  if (!seed.keepTo) to.value = ''
+  if (!seed.keepTo) to.value = []
   if (seed.html != null) editor.value.setHtml(seed.html)
   else editor.value.setText(seed.body || '')
   editor.value.focus()
@@ -44,7 +45,7 @@ watch(() => props.forwardSeed, (seed) => {
 function cancelForward() {
   subject.value = null
   const ra = props.conversation.reply_all
-  to.value = ra ? ra.to.join(', ') : props.conversation.customer.email
+  to.value = ra ? [...ra.to] : [props.conversation.customer.email]
   editor.value.clear()
 }
 
@@ -55,6 +56,8 @@ onMounted(async () => {
   if (draft?.body && editor.value) {
     editor.value.setHtml(draft.body) // agent's own draft html
     savedDraftBody = draft.body
+    if (draft.to?.length) to.value = [...draft.to]
+    if (draft.cc?.length) cc.value = [...draft.cc]
   }
 })
 onUnmounted(() => clearTimeout(draftTimer))
@@ -70,8 +73,8 @@ function onInput() {
       conversation_id: props.conversation.id,
       mailbox_id: props.conversation.mailbox_id,
       body: html,
-      to: to.value.split(/[,;\s]+/).filter(Boolean),
-      cc: cc.value.split(/[,;\s]+/).filter(Boolean),
+      to: to.value,
+      cc: cc.value,
     })
     savedDraftBody = html
     draftState.value = t.draftSaved
@@ -90,8 +93,8 @@ async function submit(close = false) {
     form.set('body_text', editor.value.getText())
     form.set('body_html', editor.value.getOutgoingHtml())
     if (!isNote.value) {
-      to.value.split(/[,;\s]+/).filter(Boolean).forEach((x) => form.append('to[]', x))
-      cc.value.split(/[,;\s]+/).filter(Boolean).forEach((x) => form.append('cc[]', x))
+      to.value.forEach((x) => form.append('to[]', x))
+      cc.value.forEach((x) => form.append('cc[]', x))
       if (subject.value) form.set('subject', subject.value)
       if (close) form.set('close', 'true')
       files.value.forEach((f) => form.append('files[]', f))
@@ -103,8 +106,8 @@ async function submit(close = false) {
     files.value = []
     subject.value = null
     const ra = props.conversation.reply_all
-    to.value = ra ? ra.to.join(', ') : props.conversation.customer.email
-    cc.value = ra ? ra.cc.join(', ') : ''
+    to.value = ra ? [...ra.to] : [props.conversation.customer.email]
+    cc.value = ra ? [...ra.cc] : []
     emit('sent')
   } finally {
     busy.value = false
@@ -136,11 +139,12 @@ async function insertSavedReply(e) {
       </div>
       <div class="field-row">
         <label style="margin:0; width:28px">{{ t.to }}</label>
-        <input v-model="to" aria-label="To" :placeholder="subject !== null ? 'forward to…' : ''" />
+        <RecipientsInput v-model="to" aria-label="To" :placeholder="subject !== null ? 'forward to…' : ''"
+                         @changed="onInput" />
       </div>
       <div class="field-row">
         <label style="margin:0; width:28px">{{ t.cc }}</label>
-        <input v-model="cc" aria-label="Cc" />
+        <RecipientsInput v-model="cc" aria-label="Cc" @changed="onInput" />
       </div>
     </div>
     <RichEditor ref="editor" :placeholder="isNote ? `${t.internalNote} — @name notifies` : `${t.reply}…`"

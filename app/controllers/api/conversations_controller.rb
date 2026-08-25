@@ -116,6 +116,15 @@ class Api::ConversationsController < Api::BaseController
     render json: conversation_json(target.reload, full: true)
   end
 
+  # POST /api/conversations/:id/presence — viewing heartbeat (B12).
+  # Lives here (not the Live streaming controller) so heartbeats never touch
+  # ActionController::Live's thread machinery.
+  def presence
+    conversation = find_accessible_conversation!(params[:id])
+    viewers = Presence.heartbeat(conversation.id, current_agent).reject { |v| v["id"] == current_agent.id }
+    render json: { viewers: viewers }
+  end
+
   # POST/DELETE /api/conversations/:id/follow — notify me even when not assignee (B11)
   def follow
     conversation = find_accessible_conversation!(params[:id])

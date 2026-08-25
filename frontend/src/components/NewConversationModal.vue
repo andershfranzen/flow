@@ -4,6 +4,7 @@ import { api } from '../api'
 import { t } from '../strings'
 import { useSession } from '../stores/session'
 import RichEditor from './RichEditor.vue'
+import RecipientsInput from './RecipientsInput.vue'
 
 const props = defineProps({
   mailboxes: { type: Array, required: true },
@@ -21,7 +22,7 @@ const form = ref({
   mailbox_id: props.defaultMailboxId || props.mailboxes[0]?.id,
   assignee_id: session.agent?.id,
   status: 'active',
-  to: '', cc: '', subject: '',
+  to: [], cc: [], subject: '',
 })
 
 onMounted(async () => {
@@ -31,6 +32,7 @@ onMounted(async () => {
 function pickFiles(e) { files.value = [...files.value, ...e.target.files] }
 
 async function submit() {
+  if (!form.value.to.length) { error.value = 'Add at least one recipient'; return }
   if (!editor.value?.hasContent()) { error.value = 'Write a message first'; return }
   busy.value = true
   error.value = ''
@@ -40,8 +42,8 @@ async function submit() {
     fd.set('assignee_id', form.value.assignee_id || '')
     fd.set('status', form.value.status)
     fd.set('subject', form.value.subject)
-    form.value.to.split(/[,;\s]+/).filter(Boolean).forEach((x) => fd.append('to[]', x))
-    form.value.cc.split(/[,;\s]+/).filter(Boolean).forEach((x) => fd.append('cc[]', x))
+    form.value.to.forEach((x) => fd.append('to[]', x))
+    form.value.cc.forEach((x) => fd.append('cc[]', x))
     fd.set('body_text', editor.value.getText())
     fd.set('body_html', editor.value.getOutgoingHtml())
     files.value.forEach((f) => fd.append('files[]', f))
@@ -88,11 +90,11 @@ async function submit() {
       <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px">
         <div>
           <label>{{ t.to }}</label>
-          <input v-model="form.to" required placeholder="customer@example.com, other@example.com" style="width:100%" />
+          <RecipientsInput v-model="form.to" placeholder="customer@example.com" aria-label="To" />
         </div>
         <div>
           <label>{{ t.cc }}</label>
-          <input v-model="form.cc" style="width:100%" />
+          <RecipientsInput v-model="form.cc" aria-label="Cc" />
         </div>
         <div>
           <label>{{ t.subject }}</label>

@@ -70,7 +70,8 @@ async function load() {
     mailboxes.value = await api.get('/api/mailboxes')
     profile.value = { name: me.name, password: '', locale: me.locale, timezone: me.timezone,
                       signature: me.signature || '',
-                      notify_prefs: me.notify_prefs, muted_mailbox_ids: me.muted_mailbox_ids || [] }
+                      notify_prefs: me.notify_prefs, ui_prefs: { motion: true, ...(me.ui_prefs || {}) },
+                      muted_mailbox_ids: me.muted_mailbox_ids || [] }
   }
 }
 onMounted(load)
@@ -85,6 +86,7 @@ async function saveProfile() {
   profile.value.password = ''
   setLocale(profile.value.locale)
   if (session.agent) session.agent.locale = profile.value.locale
+  document.body.classList.toggle('no-motion', profile.value.ui_prefs.motion === false)
   ok()
 }
 
@@ -475,6 +477,11 @@ const NOTIFY_LABELS = {
         <textarea v-model="profile.signature" rows="3" style="width:100%"
                   placeholder="Best regards,&#10;Ada — Support"></textarea>
       </div>
+      <h3 style="margin-top:14px">Interface</h3>
+      <label class="choice">
+        <input type="checkbox" v-model="profile.ui_prefs.motion" /> Interface animations
+      </label>
+
       <h3 style="margin-top:14px">Two-factor authentication</h3>
       <template v-if="otp.enabled">
         <p class="ok-text" style="margin:0 0 8px">Enabled — codes are required at login.</p>

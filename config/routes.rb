@@ -19,14 +19,14 @@ Rails.application.routes.draw do
     patch "conversations/bulk" => "conversations#bulk"
     resources :conversations, only: [ :index, :show, :create, :update ] do
       resources :messages, only: [ :create, :destroy ]
-      post :presence, to: "stream#presence"
+      member { post :presence }
       member do
         post :merge
         post :follow
         delete :follow, action: :unfollow
       end
     end
-    get "stream" => "stream#show"
+    get "stream" => (Rails.env.development? ? "stream_poll#show" : "stream#show")
 
     resources :customers, only: [ :show, :update ] do
       member { post :merge }

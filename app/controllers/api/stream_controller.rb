@@ -64,13 +64,6 @@ class Api::StreamController < Api::BaseController
     sse&.close
   end
 
-  # POST /api/conversations/:conversation_id/presence — viewing heartbeat
-  def presence
-    conversation = find_accessible_conversation!(params[:conversation_id])
-    viewers = Presence.heartbeat(conversation.id, current_agent).reject { |v| v["id"] == current_agent.id }
-    render json: { viewers: viewers }
-  end
-
   private
 
   def latest_stamp
