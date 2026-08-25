@@ -7,6 +7,7 @@ import { openStream } from '../sse'
 import { api } from '../api'
 import { t } from '../strings'
 import ThreadPane from '../components/ThreadPane.vue'
+import NewConversationModal from '../components/NewConversationModal.vue'
 import { avatarColor, initials } from '../avatar'
 import { shortTime } from '../format'
 
@@ -22,7 +23,6 @@ const selected = ref(new Set())
 const agents = ref([])
 const tags = ref([])
 const showNew = ref(false)
-const newConv = ref({ mailbox_id: null, to: '', subject: '', body_text: '' })
 let stream = null
 
 const currentId = computed(() => (props.id ? Number(props.id) : null))
@@ -117,21 +117,10 @@ function search() {
   inbox.loadConversations()
 }
 
-function openNewConversation() {
-  newConv.value.mailbox_id ||= inbox.mailboxId || inbox.mailboxes[0]?.id
-  showNew.value = true
-}
+function openNewConversation() { showNew.value = true }
 
-async function createConversation() {
-  const payload = {
-    mailbox_id: newConv.value.mailbox_id || inbox.mailboxes[0]?.id,
-    to: newConv.value.to.split(/[,;\s]+/).filter(Boolean),
-    subject: newConv.value.subject,
-    body_text: newConv.value.body_text,
-  }
-  const conv = await api.post('/api/conversations', payload)
+async function onConversationCreated(conv) {
   showNew.value = false
-  newConv.value = { mailbox_id: null, to: '', subject: '', body_text: '' }
   await inbox.loadConversations()
   router.push(`/conversations/${conv.id}`)
 }
@@ -244,34 +233,8 @@ async function logout() {
       <div class="empty" style="margin-top:20vh">Select a conversation</div>
     </section>
 
-    <div v-if="showNew" class="modal-backdrop" @click.self="showNew = false">
-      <form class="modal" @submit.prevent="createConversation">
-        <h2>{{ t.newConversation }}</h2>
-        <div style="display:flex; flex-direction:column; gap:10px">
-          <div>
-            <label>Mailbox</label>
-            <select v-model="newConv.mailbox_id" style="width:100%">
-              <option v-for="m in inbox.mailboxes" :key="m.id" :value="m.id">{{ m.name }} ({{ m.address }})</option>
-            </select>
-          </div>
-          <div>
-            <label>{{ t.to }}</label>
-            <input v-model="newConv.to" required placeholder="customer@example.com" style="width:100%" />
-          </div>
-          <div>
-            <label>{{ t.subject }}</label>
-            <input v-model="newConv.subject" required style="width:100%" />
-          </div>
-          <div>
-            <label>Message</label>
-            <textarea v-model="newConv.body_text" required rows="6" style="width:100%"></textarea>
-          </div>
-          <div style="display:flex; gap:8px; justify-content:flex-end">
-            <button type="button" @click="showNew = false">{{ t.cancel }}</button>
-            <button class="primary">{{ t.send }}</button>
-          </div>
-        </div>
-      </form>
-    </div>
+    <NewConversationModal v-if="showNew" :mailboxes="inbox.mailboxes"
+                          :default-mailbox-id="inbox.mailboxId"
+                          @close="showNew = false" @created="onConversationCreated" />
   </div>
 </template>

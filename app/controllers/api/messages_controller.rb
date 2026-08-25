@@ -1,6 +1,6 @@
 class Api::MessagesController < Api::BaseController
+  include HandlesUploads
   UNDO_SECONDS = 15
-  MAX_ATTACHMENT_BYTES = 25.megabytes
 
   rate_limit to: 60, within: 1.minute, only: :create # I4: sending is rate-limited
 
@@ -59,26 +59,6 @@ class Api::MessagesController < Api::BaseController
 
   private
 
-  # Returns { client_local_cid => generated_content_id } for inline images (A20):
-  # the client names each pasted file by its local cid placeholder.
-  def attach_uploads(message)
-    Array(params[:files]).each do |upload|
-      next unless upload.respond_to?(:original_filename)
-      next if upload.size > MAX_ATTACHMENT_BYTES # E2 size cap
-      message.files.attach(io: upload.to_io, filename: upload.original_filename,
-                           content_type: upload.content_type)
-    end
-    Array(params[:inline_images]).each_with_object({}) do |img, map|
-      next unless img.respond_to?(:original_filename)
-      content_id = "inline-#{SecureRandom.hex(8)}@flow"
-      blob = ActiveStorage::Blob.create_and_upload!(
-        io: img.to_io, filename: img.original_filename, content_type: img.content_type,
-        metadata: { content_id: content_id }
-      )
-      message.files.attach(blob)
-      map[img.original_filename] = content_id
-    end
-  end
 
   def append_signature(html, mailbox)
     signature = current_agent.signature.presence || mailbox.signature

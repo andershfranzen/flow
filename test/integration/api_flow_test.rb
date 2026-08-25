@@ -94,7 +94,7 @@ class ApiFlowTest < ActionDispatch::IntegrationTest
     assert_equal "Hello kunde@example.dk, — Ada", response.parsed_body["body"]
   end
 
-  test "new outbound conversation from an agent" do
+  test "new outbound conversation from an agent defaults assignment to the author" do
     login("b@example.com")
     assert_enqueued_with(job: SendMessageJob) do
       post "/api/conversations", params: { mailbox_id: @mailbox.id, to: [ "new@example.dk" ],
@@ -104,6 +104,25 @@ class ApiFlowTest < ActionDispatch::IntegrationTest
     conv = Conversation.order(:id).last
     assert_equal "Welcome", conv.subject
     assert_equal @bob.id, conv.assignee_id
+    assert_equal "active", conv.status
+  end
+
+  test "new conversation honors assignee, status, cc and inline images" do
+    login("a@example.com")
+    img = Rack::Test::UploadedFile.new(StringIO.new("PNG"), "image/png", original_filename: "local-x1")
+    post "/api/conversations", params: {
+      mailbox_id: @mailbox.id, to: [ "new@example.dk" ], cc: [ "cc@example.dk" ],
+      subject: "Logged call", body_text: "Summary", body_html: '<p>Summary <img src="cid:local-x1"></p>',
+      assignee_id: @bob.id, status: "closed", inline_images: [ img ]
+    }
+    assert_response :created
+    conv = Conversation.order(:id).last
+    assert_equal @bob.id, conv.assignee_id
+    assert_equal "closed", conv.status
+    message = conv.messages.first
+    assert_equal [ "cc@example.dk" ], message.cc
+    content_id = message.files.first.blob.metadata["content_id"]
+    assert_includes message.body_html, "cid:#{content_id}"
   end
 
   test "mailbox settings hide passwords but report presence" do

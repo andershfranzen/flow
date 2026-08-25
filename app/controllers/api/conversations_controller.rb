@@ -1,4 +1,5 @@
 class Api::ConversationsController < Api::BaseController
+  include HandlesUploads
   # GET /api/conversations?mailbox_id=&folder=&tag=&q=&page=
   def index
     if params[:mailbox_id]
@@ -50,25 +51,41 @@ class Api::ConversationsController < Api::BaseController
     render json: conversation_json(conversation, full: true)
   end
 
-  # POST /api/conversations — agent starts a new outbound conversation (B17)
+  # POST /api/conversations — agent starts a new outbound conversation (B17).
+  # Accepts assignee_id (defaults to the author), an initial status, Cc/Bcc,
+  # attachments and inline images — the full composer, not a toy form.
   def create
     mailbox = find_accessible_mailbox!(params.require(:mailbox_id))
-    to = Array(params.require(:to)).map(&:to_s)
+    to = Array(params.require(:to)).map(&:to_s).reject(&:blank?)
+    raise ActionController::ParameterMissing, :to if to.empty?
+    assignee =
+      if params[:assignee_id].present?
+        candidate = Agent.find(params[:assignee_id])
+        candidate.can_access?(mailbox) ? candidate : current_agent
+      else
+        current_agent
+      end
     customer = Customer.for_email(to.first)
     conversation = nil
+    message = nil
     Conversation.transaction do
       conversation = Conversation.create!(
         mailbox: mailbox, customer: customer, subject: params[:subject].to_s,
-        assignee: current_agent, last_message_at: Time.current
+        assignee: assignee, last_message_at: Time.current
       )
       message = conversation.messages.create!(
         kind: "outbound", status: "queued", agent: current_agent,
-        to: to, cc: Array(params[:cc]).map(&:to_s),
+        to: to, cc: Array(params[:cc]).map(&:to_s).reject(&:blank?),
+        bcc: Array(params[:bcc]).map(&:to_s).reject(&:blank?),
         body_text: params[:body_text].to_s,
         body_html: HtmlSanitizer.call(append_signature(params[:body_html].to_s, mailbox))
       )
-      SendMessageJob.set(wait: 15.seconds).perform_later(message)
+      rewrite_inline_cids!(message, attach_uploads(message))
     end
+    if params[:status].present? && Conversation::STATUSES.include?(params[:status]) && params[:status] != "active"
+      conversation.set_status!(params[:status], agent: current_agent)
+    end
+    SendMessageJob.set(wait: 15.seconds).perform_later(message)
     render json: conversation_json(conversation, full: true), status: :created
   end
 

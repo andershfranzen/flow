@@ -63,8 +63,8 @@ class HardeningTest < ActionDispatch::IntegrationTest
   end
 
   test "oversized attachments are skipped" do
-    Api::MessagesController.send(:remove_const, :MAX_ATTACHMENT_BYTES)
-    Api::MessagesController.const_set(:MAX_ATTACHMENT_BYTES, 10)
+    HandlesUploads.send(:remove_const, :MAX_ATTACHMENT_BYTES)
+    HandlesUploads.const_set(:MAX_ATTACHMENT_BYTES, 10)
     big = Rack::Test::UploadedFile.new(StringIO.new("x" * 50), "application/octet-stream",
                                        original_filename: "big.bin")
     post "/api/conversations/#{@conversation.id}/messages",
@@ -72,8 +72,8 @@ class HardeningTest < ActionDispatch::IntegrationTest
     assert_response :created
     assert_equal 0, Message.order(:id).last.files.count
   ensure
-    Api::MessagesController.send(:remove_const, :MAX_ATTACHMENT_BYTES)
-    Api::MessagesController.const_set(:MAX_ATTACHMENT_BYTES, 25.megabytes)
+    HandlesUploads.send(:remove_const, :MAX_ATTACHMENT_BYTES)
+    HandlesUploads.const_set(:MAX_ATTACHMENT_BYTES, 25.megabytes)
   end
 
   test "reports aggregate new, closed, per-agent and first-reply time" do

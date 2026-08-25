@@ -210,15 +210,15 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 .composer .actions .spacer { flex: 1; }
 .composer .hint { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 
-/* Rich text editor */
-.composer .editor {
-  min-height: 130px; padding: 14px; outline: none; overflow-y: auto; max-height: 45vh;
+/* Rich text editor (shared: reply composer + new-conversation modal) */
+.rich-editor .editor {
+  min-height: 130px; padding: 12px 14px; outline: none; overflow-y: auto; max-height: 45vh;
 }
-.composer .editor:empty::before { content: attr(data-placeholder); color: var(--muted); pointer-events: none; }
-.composer .editor img { max-width: 240px; max-height: 180px; border-radius: 8px; display: block; margin: 6px 0; }
-.composer .editor blockquote { border-left: 3px solid var(--border); margin: 6px 0; padding-left: 10px; color: var(--muted); }
-.composer .fmt-bar { display: flex; gap: 2px; align-items: center; padding-right: 6px; }
-.composer .fmt { padding: 3px 9px; font-size: 13px; }
+.rich-editor .editor:empty::before { content: attr(data-placeholder); color: var(--muted); pointer-events: none; }
+.rich-editor .editor img { max-width: 240px; max-height: 180px; border-radius: 8px; display: block; margin: 6px 0; }
+.rich-editor .editor blockquote { border-left: 3px solid var(--border); margin: 6px 0; padding-left: 10px; color: var(--muted); }
+.rich-editor .fmt-bar { display: flex; gap: 2px; align-items: center; padding: 6px 8px 0; }
+.fmt { padding: 3px 9px; font-size: 13px; }
 
 /* Collapsed quoted text / signatures */
 details.quoted { margin-top: 10px; }
@@ -291,8 +291,17 @@ details.quoted { color: var(--muted); }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .form-actions { margin-top: 16px; display: flex; gap: 8px; align-items: center; }
 
-.modal-backdrop { position: fixed; inset: 0; background: rgba(31, 32, 36, .45); display: grid; place-items: center; z-index: 10; }
-.modal { background: var(--panel); border-radius: 20px; padding: 24px; width: min(560px, 92vw); max-height: 90vh; overflow-y: auto; }
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(31, 32, 36, .45); z-index: 10;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.modal { background: var(--panel); border-radius: 20px; padding: 24px; width: min(560px, 92vw); max-height: 90vh; overflow-y: auto; margin: auto; }
+.modal-wide { width: min(760px, 94vw); }
+.modal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.modal-editor { border: 2px solid var(--border); border-radius: var(--radius-sm); }
+.modal-editor:focus-within { border-color: var(--accent); }
+.modal-editor .editor { min-height: 160px; max-height: 38vh; }
+.modal-editor .fmt-bar { border-bottom: 1.5px solid var(--border); padding: 4px 6px; }
 
 input, select { min-width: 0; max-width: 100%; }
 
