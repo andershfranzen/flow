@@ -20,6 +20,9 @@ const inbox = useInbox()
 const FOLDERS = ['unassigned', 'mine', 'assigned', 'starred', 'snoozed', 'closed', 'spam', 'trash']
 const searchInput = ref('')
 const selected = ref(new Set())
+const dragging = ref(null) // conversation id mid-drag
+const dragOverFolder = ref(null)
+const DROP_FOLDERS = ['mine', 'spam', 'trash']
 const agents = ref([])
 const tags = ref([])
 const showNew = ref(false)
@@ -52,6 +55,36 @@ function onKeydown(e) {
     document.querySelector('.composer .editor')?.focus()
     e.preventDefault()
   }
+}
+
+// Allowing a "drop" anywhere suppresses the browser's slow snap-back
+// animation, so dragend (and the fold-out) fires instantly on release.
+function allowDropEverywhere(e) { e.preventDefault() }
+
+function onDragStart(c, e) {
+  dragging.value = c.id
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', String(c.id))
+  document.addEventListener('dragover', allowDropEverywhere)
+  document.addEventListener('drop', allowDropEverywhere)
+}
+
+function onDragEnd() {
+  dragging.value = null
+  dragOverFolder.value = null
+  document.removeEventListener('dragover', allowDropEverywhere)
+  document.removeEventListener('drop', allowDropEverywhere)
+}
+
+async function onDropFolder(folder) {
+  if (!dragging.value || !DROP_FOLDERS.includes(folder)) return
+  const ids = selected.value.has(dragging.value) && selected.value.size > 1
+    ? [...selected.value] : [dragging.value]
+  const attrs = folder === 'mine' ? { assignee_id: session.agent.id } : { status: folder }
+  await api.patch('/api/conversations/bulk', { ids, ...attrs })
+  onDragEnd()
+  selected.value = new Set()
+  await inbox.loadConversations()
 }
 
 function toggleSelect(id, e) {
@@ -134,7 +167,7 @@ async function logout() {
 
 <template>
   <div class="shell" :class="{ 'viewing-conversation': !!currentId }">
-    <aside class="rail">
+    <aside class="rail" :class="{ dragging: !!dragging }">
       <div class="brand">{{ t.appName }}</div>
       <nav aria-label="Mailboxes">
         <div class="section">Mailboxes</div>
@@ -151,7 +184,17 @@ async function logout() {
       <nav aria-label="Folders">
         <div class="section">Folders</div>
         <button v-for="f in FOLDERS" :key="f" class="rail-item"
-                :class="{ active: inbox.folder === f && !inbox.query }" @click="selectFolder(f)">
+                :class="{
+                  active: inbox.folder === f && !inbox.query,
+                  'drop-hidden': dragging && !DROP_FOLDERS.includes(f),
+                  'drop-target': dragging && DROP_FOLDERS.includes(f),
+                  'drag-over': dragOverFolder === f,
+                }"
+                @click="selectFolder(f)"
+                @dragover.prevent
+                @dragenter.prevent="dragging && DROP_FOLDERS.includes(f) && (dragOverFolder = f)"
+                @dragleave="dragOverFolder === f && (dragOverFolder = null)"
+                @drop.prevent="onDropFolder(f)">
           <span class="label-text">{{ t.folders[f] }}</span>
           <span class="count">{{ inbox.folderCounts[f] || '' }}</span>
         </button>
@@ -200,7 +243,8 @@ async function logout() {
       </div>
       <TransitionGroup tag="ul" name="list" class="conv-list">
         <li v-for="c in inbox.conversations" :key="c.id">
-          <button class="conv-item" :class="{ active: c.id === currentId, unread: c.unread, selecting: selected.size }"
+          <button class="conv-item" :class="{ active: c.id === currentId, unread: c.unread, selecting: selected.size, 'being-dragged': dragging === c.id }"
+                  draggable="true" @dragstart="onDragStart(c, $event)" @dragend="onDragEnd"
                   @click="router.push(`/conversations/${c.id}`)">
             <span class="select-box" @click="toggleSelect(c.id, $event)">
               <input type="checkbox" :checked="selected.has(c.id)" tabindex="-1" aria-label="Select conversation" />
