@@ -18,7 +18,7 @@ const en = {
   draftSaved: 'Draft saved', internalNote: 'Internal note — not emailed',
   bounced: 'Bounced', queued: 'Queued', failed: 'Failed to send',
   follow: 'Follow', following: '✓ Following', customer: 'Customer', onThisThread: 'On this thread',
-  insights: 'Insights',
+  insights: 'Insights', myFolders: 'My folders', newFolder: 'New folder',
   previousConversations: 'Previous conversations', mergeCustomer: 'Merge another address…',
   edit: 'Edit', company: 'Company', phone: 'Phone', notes: 'Notes',
 }
@@ -40,7 +40,7 @@ const da = {
   draftSaved: 'Kladde gemt', internalNote: 'Intern note — sendes ikke',
   bounced: 'Afvist', queued: 'I kø', failed: 'Afsendelse fejlede',
   follow: 'Følg', following: '✓ Følger', customer: 'Kunde', onThisThread: 'På denne tråd',
-  insights: 'Indsigt',
+  insights: 'Indsigt', myFolders: 'Mine mapper', newFolder: 'Ny mappe',
   previousConversations: 'Tidligere samtaler', mergeCustomer: 'Flet anden adresse…',
   edit: 'Redigér', company: 'Firma', phone: 'Telefon', notes: 'Noter',
 }

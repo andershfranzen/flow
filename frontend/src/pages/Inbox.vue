@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, TransitionGroup } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, TransitionGroup } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '../stores/session'
 import { useInbox } from '../stores/inbox'
@@ -123,6 +123,7 @@ onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
   api.get('/api/agents').then((a) => (agents.value = a))
   api.get('/api/tags').then((x) => (tags.value = x))
+  inbox.loadPersonalFolders()
   await inbox.loadMailboxes()
   await inbox.loadConversations()
   inbox.refreshUnread()
@@ -139,11 +140,82 @@ watch(currentId, (id) => {
 
 function selectFolder(folder) {
   inbox.folder = folder
+  inbox.personalFolderId = null
   inbox.query = ''
   searchInput.value = ''
   selected.value = new Set()
   inbox.loadConversations()
   router.push('/inbox')
+}
+
+function selectPersonalFolder(id) {
+  inbox.personalFolderId = id
+  inbox.folder = 'all'
+  inbox.query = ''
+  searchInput.value = ''
+  selected.value = new Set()
+  inbox.loadConversations()
+  router.push('/inbox')
+}
+
+const creatingFolder = ref(false)
+const newFolderName = ref('')
+const newFolderInput = ref(null)
+
+function startCreateFolder() {
+  creatingFolder.value = true
+  newFolderName.value = ''
+  nextTick(() => newFolderInput.value?.focus())
+}
+
+async function commitCreateFolder() {
+  const name = newFolderName.value.trim()
+  if (!name) { creatingFolder.value = false; return }
+  try {
+    await api.post('/api/personal_folders', { name })
+    await inbox.loadPersonalFolders()
+  } finally {
+    creatingFolder.value = false
+    newFolderName.value = ''
+  }
+}
+
+function cancelCreateFolder() {
+  creatingFolder.value = false
+  newFolderName.value = ''
+}
+
+async function renamePersonalFolder(pf) {
+  const name = window.prompt('Rename folder:', pf.name)
+  if (!name?.trim() || name.trim() === pf.name) return
+  await api.patch(`/api/personal_folders/${pf.id}`, { name: name.trim() })
+  await inbox.loadPersonalFolders()
+}
+
+async function deletePersonalFolder(pf) {
+  if (!confirm(`Delete folder "${pf.name}"? Conversations stay untouched.`)) return
+  await api.delete(`/api/personal_folders/${pf.id}`)
+  if (inbox.personalFolderId === pf.id) { inbox.personalFolderId = null; inbox.folder = 'unassigned' }
+  await inbox.loadPersonalFolders()
+  await inbox.loadConversations()
+}
+
+async function onDropPersonalFolder(pf) {
+  if (!dragging.value) return
+  const ids = selected.value.has(dragging.value) && selected.value.size > 1
+    ? [...selected.value] : [dragging.value]
+  await api.post(`/api/personal_folders/${pf.id}/items`, { conversation_ids: ids })
+  onDragEnd()
+  selected.value = new Set()
+  await inbox.loadPersonalFolders()
+}
+
+async function bulkRemoveFromFolder() {
+  await api.patch('/api/conversations/bulk', {
+    ids: [...selected.value], remove_from_folder_id: inbox.personalFolderId,
+  })
+  selected.value = new Set()
+  await Promise.all([inbox.loadConversations(), inbox.loadPersonalFolders()])
 }
 
 function selectMailbox(id) {
@@ -197,6 +269,32 @@ async function logout() {
                 :data-tip="m.address">
           <span class="label-text">{{ m.name }}</span>
           <span v-if="m.fetch_error" data-tip="Mail fetch is failing">⚠️</span>
+        </button>
+      </nav>
+      <nav aria-label="My folders" v-if="inbox.personalFolders.length || true">
+        <div class="section">{{ t.myFolders }}</div>
+        <button v-for="pf in inbox.personalFolders" :key="pf.id" class="rail-item pf-item"
+                :class="{ active: inbox.personalFolderId === pf.id,
+                          'drop-target': dragging, 'drag-over': dragOverFolder === `pf${pf.id}` }"
+                @click="selectPersonalFolder(pf.id)"
+                @dragover.prevent
+                @dragenter.prevent="dragging && (dragOverFolder = `pf${pf.id}`)"
+                @dragleave="dragOverFolder === `pf${pf.id}` && (dragOverFolder = null)"
+                @drop.prevent="onDropPersonalFolder(pf)">
+          <span class="label-text"><span class="pf-dot" :style="{ background: pf.color }"></span>{{ pf.name }}</span>
+          <span class="pf-actions">
+            <span class="pf-act" :data-tip="`Rename`" @click.stop="renamePersonalFolder(pf)">✎</span>
+            <span class="pf-act" :data-tip="`Delete folder`" @click.stop="deletePersonalFolder(pf)">✕</span>
+          </span>
+          <span class="count">{{ pf.count || '' }}</span>
+        </button>
+        <div v-if="creatingFolder" class="pf-create">
+          <input ref="newFolderInput" v-model="newFolderName" :placeholder="t.newFolder"
+                 maxlength="40" @keydown.enter.prevent="commitCreateFolder"
+                 @keydown.esc="cancelCreateFolder" @blur="commitCreateFolder" />
+        </div>
+        <button v-else class="rail-item pf-new" :class="{ 'drop-hidden': dragging }" @click="startCreateFolder">
+          <span class="label-text" style="color:var(--muted)">＋ {{ t.newFolder }}</span>
         </button>
       </nav>
       <nav aria-label="Folders">
@@ -256,6 +354,7 @@ async function logout() {
             <button class="ghost" data-tip="Clear selection" @click="selected = new Set()">✕</button>
           </div>
           <div class="bulk-row">
+            <button v-if="inbox.personalFolderId" @click="bulkRemoveFromFolder">Remove from folder</button>
             <button @click="bulk({ status: 'closed' })">Close</button>
             <button @click="bulk({ status: 'spam' })">Spam</button>
             <button @click="bulk({ status: 'trash' })">Trash</button>

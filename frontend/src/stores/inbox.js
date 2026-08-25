@@ -4,6 +4,8 @@ import { api } from '../api'
 export const useInbox = defineStore('inbox', {
   state: () => ({
     mailboxes: [],
+    personalFolders: [],
+    personalFolderId: null, // viewing a personal folder
     mailboxId: null,        // null = all mailboxes
     folder: 'unassigned',
     query: '',
@@ -22,12 +24,16 @@ export const useInbox = defineStore('inbox', {
       this.mailboxes = await api.get('/api/mailboxes')
       if (this.mailboxId && !this.mailboxes.some(m => m.id === this.mailboxId)) this.mailboxId = null
     },
+    async loadPersonalFolders() {
+      this.personalFolders = await api.get('/api/personal_folders')
+    },
     async loadConversations() {
       this._seq = (this._seq || 0) + 1
       const seq = this._seq
       this.loading = true
       try {
         const params = new URLSearchParams({ folder: this.folder })
+        if (this.personalFolderId) params.set('personal_folder_id', this.personalFolderId)
         if (this.mailboxId) params.set('mailbox_id', this.mailboxId)
         if (this.query) params.set('q', this.query)
         if (this.sort === 'oldest') params.set('sort', 'oldest')

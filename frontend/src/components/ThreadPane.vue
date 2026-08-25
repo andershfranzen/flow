@@ -117,6 +117,15 @@ function closeMenus() {
   document.querySelectorAll('details[open]').forEach((d) => (d.open = false))
 }
 
+async function addToPersonalFolder(e) {
+  closeMenus()
+  const id = e.target.value
+  e.target.value = ''
+  if (!id) return
+  await api.post(`/api/personal_folders/${id}/items`, { conversation_ids: [conv.value.id] })
+  await inbox.loadPersonalFolders()
+}
+
 async function mergeInto() {
   closeMenus()
   const number = window.prompt('Merge this conversation into #…\nEnter the target conversation number:')
@@ -258,6 +267,10 @@ function eventText(e) {
           <div class="card menu-card" style="display:flex; flex-direction:column; gap:6px; min-width:190px">
             <button type="button" class="ghost" style="text-align:left" @click="startForward">Forward…</button>
             <button type="button" class="ghost" style="text-align:left" @click="mergeInto">Merge into #…</button>
+            <select v-if="inbox.personalFolders.length" @change="addToPersonalFolder" aria-label="Add to personal folder">
+              <option value="">Add to my folder…</option>
+              <option v-for="pf in inbox.personalFolders" :key="pf.id" :value="pf.id">{{ pf.name }}</option>
+            </select>
             <select @change="snoozeUntil" aria-label="Snooze">
               <option value="">Snooze…</option>
               <option value="tomorrow">Until tomorrow 09:00</option>

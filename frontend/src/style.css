@@ -160,6 +160,20 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 .rail .count { font-size: 12px; font-weight: 800; color: var(--muted); }
 .rail .section { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; color: var(--muted); padding: 16px 12px 6px; }
 .rail .foot { margin-top: auto; padding: 14px 12px 0; border-top: 2px solid var(--border); }
+.pf-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
+.pf-item .label-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pf-actions { display: none; gap: 2px; flex: none; }
+.pf-item:hover .pf-actions { display: inline-flex; }
+.pf-item:hover .count { display: none; }
+.pf-act { font-size: 11px; color: var(--muted); padding: 1px 5px; border-radius: 6px; }
+.pf-act:hover { background: var(--panel-deep); color: var(--text); }
+.rail.dragging .pf-actions { display: none !important; }
+.pf-create { padding: 2px 4px; animation: flow-rise .15s var(--ease) both; }
+.pf-create input {
+  width: 100%; font-size: 13.5px; font-weight: 600;
+  padding: 5px 12px; border-radius: 999px; border: 2px solid var(--accent);
+  background: var(--panel);
+}
 .rail .foot .me { font-weight: 800; font-family: var(--font-round); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .list-col {
