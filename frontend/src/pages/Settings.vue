@@ -12,12 +12,19 @@ const props = defineProps({ tab: String })
 const router = useRouter()
 const session = useSession()
 
-const TABS = computed(() => {
-  const base = [['profile', 'My profile'], ['saved_replies', 'Saved replies'], ['tags', 'Tags'], ['tokens', 'API tokens']]
-  const admin = [['org', 'Organisation'], ['agents', 'Agents'], ['teams', 'Teams'], ['mailboxes', 'Mailboxes'], ['workflows', 'Workflows'], ['reports', 'Reports'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']]
-  return session.isAdmin ? [...admin, ...base] : base
+const GROUPS = computed(() => {
+  const personal = {
+    label: 'My settings',
+    tabs: [['profile', 'My profile'], ['saved_replies', 'Saved replies'], ['tags', 'Tags'], ['tokens', 'API tokens']],
+  }
+  const admin = {
+    label: 'Administration',
+    tabs: [['org', 'Organisation'], ['agents', 'Agents'], ['teams', 'Teams'], ['mailboxes', 'Mailboxes'],
+           ['workflows', 'Workflows'], ['reports', 'Reports'], ['webhooks', 'Webhooks'], ['plugins', 'Plugins']],
+  }
+  return session.isAdmin ? [personal, admin] : [personal]
 })
-const tab = computed(() => props.tab || (session.isAdmin ? 'org' : 'profile'))
+const tab = computed(() => props.tab || 'profile')
 
 const org = ref({})
 const agents = ref([])
@@ -31,7 +38,7 @@ const flash = ref('')
 const newToken = ref(null)
 const testResult = ref(null)
 
-const profile = ref({ name: '', password: '', notify_prefs: {}, muted_mailbox_ids: [] })
+const profile = ref({ name: '', password: '', notify_prefs: {}, ui_prefs: { motion: true }, muted_mailbox_ids: [] })
 const teams = ref([])
 const plugins = ref([])
 const restartHint = ref('')
@@ -235,9 +242,14 @@ const NOTIFY_LABELS = {
   <main class="settings-wrap">
     <p><router-link to="/inbox">← Inbox</router-link></p>
     <h1>{{ t.settings }}</h1>
-    <nav class="settings-tabs">
-      <button v-for="[key, label] in TABS" :key="key" :class="{ active: tab === key }"
-              @click="router.push(`/settings/${key}`)">{{ label }}</button>
+    <nav class="settings-nav">
+      <div v-for="group in GROUPS" :key="group.label" class="settings-group">
+        <div class="settings-group-label">{{ group.label }}</div>
+        <div class="settings-tabs">
+          <button v-for="[key, label] in group.tabs" :key="key" :class="{ active: tab === key }"
+                  @click="router.push(`/settings/${key}`)">{{ label }}</button>
+        </div>
+      </div>
     </nav>
     <p v-if="flash" class="ok-text">{{ flash }}</p>
 

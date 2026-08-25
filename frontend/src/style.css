@@ -428,7 +428,13 @@ details.quoted { color: var(--muted); }
 
 /* Settings */
 .settings-wrap { max-width: 920px; margin: 0 auto; padding: 28px 16px; }
-.settings-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.settings-nav { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.settings-group-label {
+  font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); margin-bottom: 5px;
+}
+.settings-group + .settings-group { border-top: 2px solid var(--border); padding-top: 12px; }
+.settings-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .settings-tabs button { border: 0; background: none; color: var(--muted); font-weight: 700; }
 .settings-tabs button.active { background: var(--text); color: var(--bg); }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
