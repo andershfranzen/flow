@@ -529,13 +529,42 @@ details.quoted { color: var(--muted); }
 .sig-toggle { font-size: 12.5px; padding: 4px 10px; margin-left: auto; }
 
 /* Login */
-.login-wrap { height: 100%; display: grid; place-items: center; }
+.login-wrap {
+  height: 100%; display: grid; place-items: center; position: relative; overflow: hidden;
+  background: linear-gradient(180deg, #fff 0%, #fbfaff 55%, var(--accent-soft) 100%);
+}
 .login-card {
   width: 340px; background: var(--panel); border: 2px solid var(--border); border-radius: 24px; padding: 32px;
   box-shadow: 0 8px 32px rgba(20, 20, 40, .08); display: flex; flex-direction: column; gap: 14px;
+  position: relative; z-index: 1;
 }
-.login-card h1 { font-size: 36px; font-weight: 900; }
+.login-card h1 { font-size: 36px; font-weight: 900; user-select: none; -webkit-user-select: none; cursor: default; }
 .login-card h1::after { content: "."; color: var(--accent); }
+.login-brand { display: flex; flex-direction: column; align-items: center; align-self: center; }
+.login-brand .company-logo { max-height: 52px; max-width: 240px; margin-bottom: 3px; }
+.login-brand .by-flow { padding: 0; margin-bottom: 8px; }
+.login-brand .by-flow::after { content: "."; color: var(--accent); }
+.login-brand h1 { margin-bottom: 8px; }
+
+/* PS3-style slow ribbon waves in the Flow purple */
+.login-waves { position: absolute; inset: auto 0 0 0; height: 46vh; pointer-events: none; }
+.login-waves .wave {
+  position: absolute; bottom: 0; height: 100%; width: 200%; left: -50%; fill: var(--accent);
+  transform-origin: bottom center;
+}
+.wave-a { opacity: .07; animation: flow-wave 26s ease-in-out infinite alternate; }
+.wave-b { opacity: .10; animation: flow-wave 19s ease-in-out infinite alternate-reverse; }
+.wave-c { opacity: .14; animation: flow-wave 13s ease-in-out infinite alternate; }
+@keyframes flow-wave {
+  from { transform: translateX(0) scaleY(1); }
+  to { transform: translateX(12%) scaleY(1.18); }
+}
+
+.open-source {
+  position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; z-index: 1;
+  font-family: var(--font-round); font-weight: 700; font-size: 13.5px; color: rgba(48, 28, 116, .6);
+}
+.open-source:hover { color: var(--accent); }
 .error-text { color: var(--danger); font-size: 13.5px; font-weight: 700; }
 .logo-row { display: flex; align-items: center; gap: 12px; }
 .ms-signin {

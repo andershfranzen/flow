@@ -37,8 +37,25 @@ async function submit() {
 
 <template>
   <main class="login-wrap">
+    <div class="login-waves" aria-hidden="true">
+      <svg class="wave wave-a" viewBox="0 0 1440 320" preserveAspectRatio="none">
+        <path d="M0,192 C240,120 420,260 720,208 C1020,156 1200,60 1440,128 L1440,320 L0,320 Z" />
+      </svg>
+      <svg class="wave wave-b" viewBox="0 0 1440 320" preserveAspectRatio="none">
+        <path d="M0,240 C280,160 520,290 820,236 C1120,182 1260,120 1440,180 L1440,320 L0,320 Z" />
+      </svg>
+      <svg class="wave wave-c" viewBox="0 0 1440 320" preserveAspectRatio="none">
+        <path d="M0,280 C320,220 560,310 880,268 C1200,226 1320,190 1440,232 L1440,320 L0,320 Z" />
+      </svg>
+    </div>
     <form class="login-card" @submit.prevent="submit">
-      <h1>{{ t.appName }}</h1>
+      <div class="login-brand">
+        <template v-if="session.org?.logo_url">
+          <img class="company-logo" :src="session.org.logo_url" :alt="session.org.site_name || 'Company logo'" draggable="false" />
+          <div class="brand by-flow">by {{ t.appName }}</div>
+        </template>
+        <h1 v-else class="brand-h1">{{ t.appName }}</h1>
+      </div>
       <template v-if="ssoOnly">
         <a class="ms-signin" href="/auth/microsoft/start">
           <svg width="17" height="17" viewBox="0 0 21 21" aria-hidden="true">
@@ -66,5 +83,8 @@ async function submit() {
         <button class="primary" :disabled="busy">{{ t.login }}</button>
       </template>
     </form>
+    <a class="open-source" href="https://github.com/andershfranzen/flow" target="_blank" rel="noopener">
+      Open-source, always.
+    </a>
   </main>
 </template>

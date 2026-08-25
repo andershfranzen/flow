@@ -10,7 +10,9 @@ class Api::SessionsController < Api::BaseController
       render json: agent_json(current_agent).merge(csrf_token: form_authenticity_token)
     else
       render json: { agent: nil, csrf_token: form_authenticity_token,
-                     sso: { enabled: Sso.enabled?, password_login: Sso.password_login_allowed? } }
+                     sso: { enabled: Sso.enabled?, password_login: Sso.password_login_allowed? },
+                     org: { site_name: OrgSetting.current.site_name,
+                            logo_url: OrgSetting.current.logo_url } }
     end
   end
 
