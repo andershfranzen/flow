@@ -107,6 +107,57 @@ class PipelineTest < ActiveSupport::TestCase
     assert_equal "Hi", msg.body_text.strip
   end
 
+  test "inline styles survive sanitization but css attacks do not" do
+    html = '<p style="color: #cc0000; font-family: Georgia">Warm</p>' \
+           '<div style="background: url(javascript:alert(1)); color: blue">tricky</div>' \
+           '<table bgcolor="#eeeeee" align="center"><tr><td style="width: 300px">cell</td></tr></table>'
+    @fetcher.ingest(raw_mail(text: nil, html: html))
+    out = Message.last.body_html
+    assert_includes out.delete(" "), "color:#cc0000", "benign styling must survive"
+    assert_includes out, 'bgcolor="#eeeeee"'
+    refute_includes out, "javascript:", "css url attacks must be stripped"
+  end
+
+  test "nested multipart with windows-1252 charset decodes" do
+    raw = <<~MAIL
+      From: kunde@example.dk
+      To: support@example.com
+      Subject: =?windows-1252?Q?K=F8leskab_st=F8jer?=
+      Message-ID: <cp1252@example.dk>
+      MIME-Version: 1.0
+      Content-Type: multipart/mixed; boundary="outer"
+
+      --outer
+      Content-Type: multipart/alternative; boundary="inner"
+
+      --inner
+      Content-Type: text/plain; charset=windows-1252
+      Content-Transfer-Encoding: quoted-printable
+
+      K=F8leskabet st=F8jer igen =96 kan I hj=E6lpe?
+      --inner
+      Content-Type: text/html; charset=windows-1252
+      Content-Transfer-Encoding: quoted-printable
+
+      <p>K=F8leskabet st=F8jer igen =96 kan I hj=E6lpe?</p>
+      --inner--
+      --outer
+      Content-Type: application/pdf; name="bilag.pdf"
+      Content-Disposition: attachment; filename="bilag.pdf"
+      Content-Transfer-Encoding: base64
+
+      JVBERi0xLjQ=
+      --outer--
+    MAIL
+    @fetcher.ingest(raw)
+    conversation = Conversation.last
+    assert_equal "Køleskab støjer", conversation.subject
+    message = conversation.messages.last
+    assert_includes message.body_text, "Køleskabet støjer igen – kan I hjælpe?"
+    assert_includes message.body_html, "hjælpe"
+    assert_equal [ "bilag.pdf" ], message.files.map { |f| f.filename.to_s }
+  end
+
   test "attachments are stored with content id" do
     raw = raw_mail do |m|
       m.attachments["photo.png"] = { mime_type: "image/png", content: "PNGDATA" }

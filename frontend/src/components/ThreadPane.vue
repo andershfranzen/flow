@@ -289,8 +289,8 @@ function eventText(e) {
                 <time :title="fullTime(item.created_at)">{{ shortTime(item.created_at) }}</time>
               </span>
             </div>
-            <div v-if="item.body_html" class="msg-body" v-html="renderHtml(item)"></div>
-            <div v-else class="msg-body" style="white-space:pre-wrap">{{ splitText(item.body_text).main }}<details v-if="splitText(item.body_text).quoted" class="quoted"><summary>•••</summary>{{ splitText(item.body_text).quoted }}</details></div>
+            <div v-if="item.body_html" class="msg-body" dir="auto" v-html="renderHtml(item)"></div>
+            <div v-else class="msg-body" dir="auto" style="white-space:pre-wrap">{{ splitText(item.body_text).main }}<details v-if="splitText(item.body_text).quoted" class="quoted"><summary>•••</summary>{{ splitText(item.body_text).quoted }}</details></div>
             <Attachments :attachments="item.attachments || []" />
           </article>
         </template>

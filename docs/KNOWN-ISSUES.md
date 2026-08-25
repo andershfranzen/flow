@@ -11,6 +11,17 @@ Listed per the plan's definition of done: known bugs are documented, not silent.
 - A reply that arrives before its parent finishes processing can miss the
   join (rare; the fetch loop is serial per mailbox).
 
+## Email format support
+- Inline CSS is preserved (safelist-sanitized), so styled/newsletter HTML
+  keeps its look; layout tricks relying on `position`, external stylesheets,
+  or web fonts degrade gracefully to clean structure.
+- TNEF (`winmail.dat` from legacy Outlook/Exchange) is not unpacked — it
+  arrives as an opaque attachment.
+- `text/calendar` invites are not parsed into anything richer than an .ics
+  attachment; inline calendar parts without a disposition may be dropped.
+- Non-ASCII (EAI/SMTPUTF8) sender addresses fail address validation and the
+  message is recorded as a processing failure rather than a conversation.
+
 ## Charsets / MIME
 - Bodies are converted to UTF-8 with replacement characters for invalid
   bytes; exotic charsets may show `�` rather than fail.

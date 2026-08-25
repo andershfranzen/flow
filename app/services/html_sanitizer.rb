@@ -6,7 +6,11 @@ class HtmlSanitizer
     a p br div span strong em b i u s ul ol li blockquote pre code
     h1 h2 h3 h4 h5 h6 table thead tbody tr td th hr img
   ].freeze
-  ALLOWED_ATTRIBUTES = %w[href src alt title width height colspan rowspan data-flow-cid].freeze
+  # `style` is CSS-sanitized by the safelist scrubber (colors/fonts survive,
+  # url()/expression/position tricks do not) — styled newsletters and Outlook
+  # mail keep their look without becoming an attack surface.
+  ALLOWED_ATTRIBUTES = %w[href src alt title width height colspan rowspan
+                          style align valign bgcolor border cellpadding cellspacing data-flow-cid].freeze
 
   def self.call(html)
     return "" if html.blank?
