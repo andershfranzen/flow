@@ -25,6 +25,7 @@ services:
       # SENTRY_DSN: https://...@sentry.example.com/1
     volumes:
       - flow-storage:/rails/storage
+      - flow-plugins:/rails/plugins
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/up"]
       interval: 30s
@@ -41,9 +42,11 @@ services:
       # SENTRY_DSN: https://...@sentry.example.com/1
     volumes:
       - flow-storage:/rails/storage
+      - flow-plugins:/rails/plugins
     depends_on:
       web:
         condition: service_healthy
 
 volumes:
   flow-storage:
+  flow-plugins:
