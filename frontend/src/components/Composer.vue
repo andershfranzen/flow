@@ -166,13 +166,7 @@ async function insertSavedReply(e) {
     <PendingFiles :files="files" @remove="(i) => files.splice(i, 1)" />
     <div v-if="!isNote && effectiveSignature && includeSignature" class="sig-preview">
       <span class="sig-label">signature</span>
-      <button type="button" class="sig-skip" data-tip="Don't append the signature to this mail"
-              @click="includeSignature = false">Skip</button>
       <div v-html="effectiveSignature"></div>
-    </div>
-    <div v-else-if="!isNote && effectiveSignature" class="sig-skipped">
-      Signature won't be added —
-      <button type="button" class="ghost" style="padding:0 6px" @click="includeSignature = true">undo</button>
     </div>
     <div class="actions">
       <template v-if="isNote">
@@ -192,6 +186,11 @@ async function insertSavedReply(e) {
       </template>
       <span class="spacer"></span>
       <span class="hint">{{ draftState }}</span>
+      <button v-if="!isNote && effectiveSignature" type="button" class="ghost sig-toggle"
+              :data-tip="includeSignature ? 'Send this mail without the signature' : 'Append the signature again'"
+              @click="includeSignature = !includeSignature">
+        {{ includeSignature ? 'Skip signature' : 'Add signature' }}
+      </button>
     </div>
   </form>
 </template>

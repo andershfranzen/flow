@@ -114,13 +114,7 @@ async function submit() {
         <PendingFiles :files="files" @remove="(i) => files.splice(i, 1)" />
         <div v-if="effectiveSignature() && includeSignature" class="sig-preview">
           <span class="sig-label">signature</span>
-          <button type="button" class="sig-skip" data-tip="Don't append the signature"
-                  @click="includeSignature = false">Skip</button>
           <div v-html="effectiveSignature()"></div>
-        </div>
-        <div v-else-if="effectiveSignature()" class="sig-skipped">
-          Signature won't be added —
-          <button type="button" class="ghost" style="padding:0 6px" @click="includeSignature = true">undo</button>
         </div>
       </div>
       <p v-if="error" class="error-text" style="margin:8px 0 0">{{ error }}</p>
@@ -131,6 +125,10 @@ async function submit() {
           <span class="pill" style="cursor:pointer">📎 {{ files.length || 'Attach' }}</span>
         </label>
         <span class="spacer" style="flex:1"></span>
+        <button v-if="effectiveSignature()" type="button" class="ghost sig-toggle"
+                @click="includeSignature = !includeSignature">
+          {{ includeSignature ? 'Skip signature' : 'Add signature' }}
+        </button>
         <button type="button" @click="emit('close')">{{ t.cancel }}</button>
       </div>
     </form>
