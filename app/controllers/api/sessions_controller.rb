@@ -9,11 +9,16 @@ class Api::SessionsController < Api::BaseController
     if current_agent
       render json: agent_json(current_agent).merge(csrf_token: form_authenticity_token)
     else
-      render json: { agent: nil, csrf_token: form_authenticity_token }
+      render json: { agent: nil, csrf_token: form_authenticity_token,
+                     sso: { enabled: Sso.enabled?, password_login: Sso.password_login_allowed? } }
     end
   end
 
   def create
+    unless Sso.password_login_allowed?
+      return render json: { error: "password_login_disabled",
+                            details: [ "This Flow uses Microsoft sign-in" ] }, status: :forbidden
+    end
     agent = Agent.find_by(email: params[:email].to_s.downcase.strip)
     if agent&.authenticate(params[:password].to_s)
       if agent.otp_required?

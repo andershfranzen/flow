@@ -3,7 +3,7 @@ import { api, setCsrf } from '../api'
 import { setLocale } from '../strings'
 
 export const useSession = defineStore('session', {
-  state: () => ({ agent: null, org: null, loaded: false }),
+  state: () => ({ agent: null, org: null, sso: null, loaded: false }),
   getters: {
     isAdmin: (s) => s.agent?.role === 'admin',
   },
@@ -13,6 +13,7 @@ export const useSession = defineStore('session', {
       setCsrf(data.csrf_token)
       this.agent = data.agent
       this.org = data.org || null
+      this.sso = data.sso || null
       this.loaded = true
     },
     async login(email, password, otpCode) {

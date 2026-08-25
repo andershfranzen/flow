@@ -64,13 +64,15 @@ Rails.application.routes.draw do
   end
 
   get "oauth/callback" => "oauth_callbacks#show"
+  get "auth/microsoft/start" => "sso#start"
+  get "auth/microsoft/callback" => "sso#callback"
 
   post "mcp" => "mcp#handle"
 
   # SPA fallback: anything that isn't API/rails/mcp gets the Vue app (H18).
   get "*path", to: "spa#index",
     constraints: ->(req) {
-      !req.path.start_with?("/api", "/rails", "/mcp", "/up", "/health", "/oauth") &&
+      !req.path.start_with?("/api", "/rails", "/mcp", "/up", "/health", "/oauth", "/auth") &&
         (req.format.nil? || req.format.html? || req.headers["Accept"].to_s.include?("*/*"))
     }
 end

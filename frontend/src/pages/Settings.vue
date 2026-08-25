@@ -310,6 +310,20 @@ const NOTIFY_LABELS = {
           <input v-model="org.ms_client_secret" type="password" style="width:100%" /></div>
         <div><label>Tenant (or "common")</label><input v-model="org.ms_tenant" style="width:100%" /></div>
       </div>
+
+      <h3 style="margin-top:16px">Sign in with Microsoft</h3>
+      <p class="hint-text">When enabled, everyone signs in through the Entra app above and password login is
+        turned off. New sign-ins can auto-create agent accounts, but only for the listed email domains.
+        Add a second redirect URI <code>{{ org.base_url || '&lt;base url&gt;' }}/auth/microsoft/callback</code>
+        with the <code>openid email profile</code> scopes to the app registration.</p>
+      <label class="choice"><input type="checkbox" v-model="org.ms_sso_enabled" />
+        Enable Microsoft sign-in (disables password login)</label>
+      <label class="choice"><input type="checkbox" v-model="org.sso_auto_provision" />
+        Auto-create agents on first sign-in</label>
+      <div class="form-grid">
+        <div><label>Allowed sign-in domains (comma-separated)</label>
+          <input v-model="org.sso_allowed_domains" placeholder="acmecool.com" style="width:100%" /></div>
+      </div>
       <h3 style="margin-top:16px">Google OAuth app</h3>
       <p class="hint-text">Google Cloud OAuth client (web), scope <code>https://mail.google.com/</code>, same redirect URI.</p>
       <div class="form-grid">

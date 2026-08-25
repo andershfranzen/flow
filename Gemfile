@@ -53,3 +53,6 @@ group :postgres, optional: true do
   gem "pg"
 end
 gem "rqrcode"
+
+# Microsoft SSO id_token verification (JWKS / RS256)
+gem "jwt"

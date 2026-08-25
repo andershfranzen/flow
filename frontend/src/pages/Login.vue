@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSession } from '../stores/session'
 import { t } from '../strings'
@@ -8,10 +8,13 @@ const session = useSession()
 const router = useRouter()
 const email = ref('')
 const password = ref('')
-const error = ref('')
+const error = ref(new URLSearchParams(window.location.search).get('sso_error') || '')
 const busy = ref(false)
 const otpNeeded = ref(false)
 const otpCode = ref('')
+
+// SSO on → Microsoft-only; the password form only exists when it's usable.
+const ssoOnly = computed(() => session.sso?.enabled && !session.sso?.password_login)
 
 async function submit() {
   busy.value = true
@@ -36,20 +39,32 @@ async function submit() {
   <main class="login-wrap">
     <form class="login-card" @submit.prevent="submit">
       <h1>{{ t.appName }}</h1>
-      <div>
-        <label for="email">{{ t.email }}</label>
-        <input id="email" v-model="email" type="email" autocomplete="username" required style="width:100%" />
-      </div>
-      <div>
-        <label for="password">{{ t.password }}</label>
-        <input id="password" v-model="password" type="password" autocomplete="current-password" required style="width:100%" />
-      </div>
-      <div v-if="otpNeeded">
-        <label for="otp">Authenticator code</label>
-        <input id="otp" v-model="otpCode" inputmode="numeric" autocomplete="one-time-code" required style="width:100%" />
-      </div>
-      <p v-if="error" class="error-text">{{ error }}</p>
-      <button class="primary" :disabled="busy">{{ t.login }}</button>
+      <template v-if="ssoOnly">
+        <a class="ms-signin" href="/auth/microsoft/start">
+          <svg width="17" height="17" viewBox="0 0 21 21" aria-hidden="true">
+            <rect x="0" y="0" width="10" height="10" fill="#f25022" /><rect x="11" y="0" width="10" height="10" fill="#7fba00" />
+            <rect x="0" y="11" width="10" height="10" fill="#00a4ef" /><rect x="11" y="11" width="10" height="10" fill="#ffb900" />
+          </svg>
+          Sign in with Microsoft
+        </a>
+        <p v-if="error" class="error-text">{{ error }}</p>
+      </template>
+      <template v-else>
+        <div>
+          <label for="email">{{ t.email }}</label>
+          <input id="email" v-model="email" type="email" autocomplete="username" required style="width:100%" />
+        </div>
+        <div>
+          <label for="password">{{ t.password }}</label>
+          <input id="password" v-model="password" type="password" autocomplete="current-password" required style="width:100%" />
+        </div>
+        <div v-if="otpNeeded">
+          <label for="otp">Authenticator code</label>
+          <input id="otp" v-model="otpCode" inputmode="numeric" autocomplete="one-time-code" required style="width:100%" />
+        </div>
+        <p v-if="error" class="error-text">{{ error }}</p>
+        <button class="primary" :disabled="busy">{{ t.login }}</button>
+      </template>
     </form>
   </main>
 </template>

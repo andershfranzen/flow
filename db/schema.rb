@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_070000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_25_120000) do
   create_table "action_mailbox_inbound_emails", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "message_checksum", null: false
@@ -271,9 +271,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_070000) do
     t.string "google_client_secret"
     t.string "ms_client_id"
     t.string "ms_client_secret"
+    t.boolean "ms_sso_enabled", default: false, null: false
     t.string "ms_tenant", default: "common", null: false
     t.string "notify_from"
     t.string "site_name", default: "Flow", null: false
+    t.string "sso_allowed_domains", default: "", null: false
+    t.boolean "sso_auto_provision", default: false, null: false
     t.datetime "updated_at", null: false
   end
 

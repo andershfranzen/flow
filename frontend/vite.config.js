@@ -13,7 +13,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: Object.fromEntries(
-      ['/api', '/mcp', '/rails', '/oauth', '/health'].map((path) => [
+      ['/api', '/mcp', '/rails', '/oauth', '/auth', '/health'].map((path) => [
         path,
         // changeOrigin must stay false: Rails' CSRF origin check compares the
         // browser Origin (5173) against the Host it receives.

@@ -79,3 +79,21 @@ re-enter mailbox credentials after a rotation); webhook deliveries refuse
 private-network targets unless `FLOW_ALLOW_PRIVATE_WEBHOOKS=1`; attachments
 capped at 25 MB out / 30 MB in; oversized inbound messages are skipped with
 a log line.
+
+## Sign in with Microsoft (SSO)
+
+Reuses the same Entra app registration as Microsoft 365 mailbox OAuth. To enable:
+
+1. In the Entra app registration, add a second redirect URI: `<base url>/auth/microsoft/callback`
+   (the mailbox flow already uses `<base url>/oauth/callback`). The `openid email profile`
+   scopes are requested at sign-in time; no extra API permissions are needed.
+2. Settings -> Organisation -> "Sign in with Microsoft": enable the toggle. Optionally enable
+   auto-provisioning and list the email domains allowed to self-create agent accounts
+   (auto-provisioned accounts get the regular `user` role).
+3. While SSO is enabled, password login is disabled for everyone ("one or the other").
+
+Lockout recovery: if the Entra app breaks and nobody can sign in, start the server with
+`FLOW_FORCE_PASSWORD_LOGIN=1` to temporarily re-allow password login, fix the app or disable
+the toggle, then remove the variable.
+
+Note: SSO sign-ins bypass Flow's built-in TOTP (Microsoft enforces its own MFA policies).
