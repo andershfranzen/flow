@@ -212,9 +212,11 @@ button { display: inline-flex; align-items: center; justify-content: center; gap
   animation: flow-pop .15s var(--ease) both; transform-origin: top left;
 }
 .notif-item {
-  display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left;
+  display: flex; flex-direction: column; gap: 1px; width: 100%;
+  align-items: flex-start; justify-content: flex-start; text-align: left;
   border: 0; background: none; padding: 8px 10px; border-radius: var(--radius-sm);
 }
+.notif-item .notif-num { color: var(--muted); font-weight: 700; font-size: 12px; margin-right: 5px; }
 .notif-item:hover { background: var(--panel-deep); }
 .notif-item.unread { background: var(--accent-soft); margin-bottom: 3px; }
 .notif-item .notif-kind { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }

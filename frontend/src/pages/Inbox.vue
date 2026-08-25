@@ -427,7 +427,7 @@ async function logout() {
             <button v-for="n in notifs" :key="n.id" class="notif-item" :class="{ unread: !n.read_at }"
                     @click="openNotif(n)">
               <span class="notif-kind">{{ NOTIF_LABELS[n.kind] || n.kind }} · {{ shortTime(n.created_at) }}</span>
-              <span class="notif-subject">#{{ n.conversation.number }} {{ n.conversation.subject || '(no subject)' }}</span>
+              <span class="notif-subject"><span class="notif-num">#{{ n.conversation.number }}</span>{{ n.conversation.subject || '(no subject)' }}</span>
             </button>
             <div v-if="!notifs.length" class="empty" style="padding:16px">Nothing yet</div>
           </div>
