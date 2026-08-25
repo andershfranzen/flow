@@ -49,7 +49,10 @@ class Api::StreamController < Api::BaseController
       end
       # Ping every tick — frees the thread promptly when the socket does report closed.
       sse.write({ t: Time.now.to_i }, event: "ping")
-      sleep TICK_SECONDS
+      # Release the autoload interlock while sleeping: otherwise dev-mode code
+      # reloads queue behind live streams and every request freezes for the
+      # stream's lifetime. No-op in production.
+      ActiveSupport::Dependencies.interlock.permit_concurrent_loads { sleep TICK_SECONDS }
     end
   rescue IOError, ActionController::Live::ClientDisconnected
     # client went away

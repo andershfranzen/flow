@@ -156,7 +156,10 @@ CREATE INDEX "index_conversation_reads_on_agent_id" ON "conversation_reads" ("ag
 CREATE INDEX "index_conversation_reads_on_conversation_id" ON "conversation_reads" ("conversation_id") /*application='Flow'*/;
 CREATE UNIQUE INDEX "index_conversation_reads_on_agent_id_and_conversation_id" ON "conversation_reads" ("agent_id", "conversation_id") /*application='Flow'*/;
 CREATE INDEX "index_conversations_on_snoozed_until" ON "conversations" ("snoozed_until") /*application='Flow'*/;
+CREATE TABLE "plugin_states" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "name" varchar NOT NULL, "enabled" boolean DEFAULT TRUE NOT NULL, "created_at" datetime(6) NOT NULL, "updated_at" datetime(6) NOT NULL);
+CREATE UNIQUE INDEX "index_plugin_states_on_name" ON "plugin_states" ("name") /*application='Flow'*/;
 INSERT INTO "schema_migrations" (version) VALUES
+('20260825000000'),
 ('20260824240000'),
 ('20260824230000'),
 ('20260824220000'),
