@@ -67,7 +67,7 @@ class Api::ConversationsController < Api::BaseController
         body_text: params[:body_text].to_s,
         body_html: HtmlSanitizer.call(append_signature(params[:body_html].to_s, mailbox))
       )
-      SendMessageJob.perform_later(message)
+      SendMessageJob.set(wait: 15.seconds).perform_later(message)
     end
     render json: conversation_json(conversation, full: true), status: :created
   end

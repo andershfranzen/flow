@@ -16,6 +16,11 @@ class Api::SessionsController < Api::BaseController
   def create
     agent = Agent.find_by(email: params[:email].to_s.downcase.strip)
     if agent&.authenticate(params[:password].to_s)
+      if agent.otp_required?
+        unless params[:otp_code].present? && Totp.valid?(agent.otp_secret, params[:otp_code])
+          return render json: { error: "otp_required" }, status: :unauthorized
+        end
+      end
       reset_session
       session[:agent_id] = agent.id
       session[:session_token] = agent.session_token

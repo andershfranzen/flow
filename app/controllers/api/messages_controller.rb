@@ -1,4 +1,23 @@
 class Api::MessagesController < Api::BaseController
+  UNDO_SECONDS = 15
+  MAX_ATTACHMENT_BYTES = 25.megabytes
+
+  rate_limit to: 60, within: 1.minute, only: :create # I4: sending is rate-limited
+
+  # DELETE /api/conversations/:conversation_id/messages/:id — undo send (still queued)
+  def destroy
+    conversation = find_accessible_conversation!(params[:conversation_id])
+    message = conversation.messages.find(params[:id])
+    unless message.kind == "outbound" && message.status == "queued"
+      return render json: { error: "already_sent" }, status: :unprocessable_entity
+    end
+    body_html = message.body_html
+    message.destroy!
+    draft = current_agent.drafts.find_or_initialize_by(conversation_id: conversation.id)
+    draft.update!(body: body_html, mailbox_id: conversation.mailbox_id)
+    render json: { undone: true, body: body_html }
+  end
+
   # POST /api/conversations/:conversation_id/messages — reply or note (B6/B7)
   def create
     conversation = find_accessible_conversation!(params[:conversation_id])
@@ -27,7 +46,8 @@ class Api::MessagesController < Api::BaseController
         cid_map.each { |local, content_id| html = html.gsub("cid:#{local}", "cid:#{content_id}") }
         message.update!(body_html: html)
       end
-      SendMessageJob.perform_later(message)
+      # Undo window (15s) before the queue picks it up.
+      SendMessageJob.set(wait: UNDO_SECONDS.seconds).perform_later(message)
       # Close-from-reply is one action (B5).
       conversation.set_status!("closed", agent: current_agent) if params[:close] == "true" || params[:close] == true
       current_agent.drafts.where(conversation: conversation).destroy_all
@@ -44,6 +64,7 @@ class Api::MessagesController < Api::BaseController
   def attach_uploads(message)
     Array(params[:files]).each do |upload|
       next unless upload.respond_to?(:original_filename)
+      next if upload.size > MAX_ATTACHMENT_BYTES # E2 size cap
       message.files.attach(io: upload.to_io, filename: upload.original_filename,
                            content_type: upload.content_type)
     end

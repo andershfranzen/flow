@@ -7,6 +7,10 @@ Rails.application.routes.draw do
     resources :agents, only: [ :index, :create, :update, :destroy ]
     get "me" => "agents#me"
     patch "me" => "agents#update_me"
+    post "me/2fa/setup" => "two_factor#setup"
+    post "me/2fa/enable" => "two_factor#enable"
+    post "me/2fa/disable" => "two_factor#disable"
+    get "reports" => "reports#show"
 
     resources :mailboxes, only: [ :index, :show, :create, :update, :destroy ] do
       member { post :test }
@@ -14,7 +18,7 @@ Rails.application.routes.draw do
 
     patch "conversations/bulk" => "conversations#bulk"
     resources :conversations, only: [ :index, :show, :create, :update ] do
-      resources :messages, only: [ :create ]
+      resources :messages, only: [ :create, :destroy ]
       post :presence, to: "stream#presence"
       member do
         post :merge

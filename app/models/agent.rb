@@ -7,6 +7,7 @@ class Agent < ApplicationRecord
     "note_on_mine" => true
   }.freeze
 
+  encrypts :otp_secret
   has_secure_password
   has_secure_token :session_token
 
