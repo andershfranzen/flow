@@ -17,7 +17,9 @@ const emit = defineEmits(['update:modelValue', 'change'])
 const open = ref(false)
 const active = ref(-1)
 const filter = ref('')
+const dropUp = ref(false)
 const rootEl = ref(null)
+const popEl = ref(null)
 const listEl = ref(null)
 const searchEl = ref(null)
 
@@ -36,9 +38,20 @@ function openList() {
   filter.value = ''
   active.value = visible.value.findIndex((o) => o.value === props.modelValue)
   nextTick(() => {
+    updatePlacement()
     searchEl.value?.focus()
     listEl.value?.querySelector('.sel-option.selected')?.scrollIntoView({ block: 'nearest' })
   })
+}
+// Selects near the viewport bottom (e.g. the composer's saved-replies picker)
+// flip to a drop-up when the popover would overflow below and there's more room above.
+function updatePlacement() {
+  const button = rootEl.value?.querySelector('.sel-button')
+  const pop = popEl.value
+  if (!button || !pop) return
+  const rect = button.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom
+  dropUp.value = pop.offsetHeight + 12 > spaceBelow && rect.top > spaceBelow
 }
 function close() { open.value = false; active.value = -1 }
 function choose(option) {
@@ -82,7 +95,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocDown))
       <span class="sel-value" :class="{ placeholder: !selected }">{{ selected?.label ?? placeholder }}</span>
       <ChevronDown :size="15" class="sel-chevron" :class="{ open }" />
     </button>
-    <div v-if="open" class="sel-pop">
+    <div v-if="open" ref="popEl" class="sel-pop" :class="{ up: dropUp }">
       <input v-if="searchable" ref="searchEl" v-model="filter" class="sel-search"
              placeholder="Filter…" aria-label="Filter options" />
       <div ref="listEl" class="sel-list" role="listbox">

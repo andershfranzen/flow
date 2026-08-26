@@ -630,6 +630,11 @@ a.crm-open:hover { color: var(--text); background: var(--panel-deep); }
   box-shadow: 0 10px 34px rgba(20, 20, 40, .18); padding: 6px;
   animation: flow-pop .13s var(--ease) both; transform-origin: top left;
 }
+.sel-pop.up {
+  top: auto; bottom: calc(100% + 6px);
+  animation-name: flow-pop-up; transform-origin: bottom left;
+}
+@keyframes flow-pop-up { from { opacity: 0; transform: scale(.95) translateY(4px); } }
 .sel-search { width: 100%; margin-bottom: 6px; padding: 6px 10px; font-size: 14px; }
 .sel-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; }
 .sel-option {
