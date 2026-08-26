@@ -26,6 +26,7 @@ Rails.application.routes.draw do
     resources :conversations, only: [ :index, :show, :create, :update ] do
       resources :messages, only: [ :create, :destroy ]
       member { post :presence }
+      member { get :insights }
       member do
         post :merge
         post :follow

@@ -34,6 +34,10 @@ class Api::PersonalFoldersController < Api::BaseController
       conversation = Conversation.find_by(id: cid)
       next unless conversation && current_agent.can_access?(conversation.mailbox)
       folder.personal_folder_items.find_or_create_by!(conversation_id: conversation.id)
+      unless conversation.assignee_id == current_agent.id
+        conversation.assign!(current_agent, agent: current_agent)
+        Notifier.assigned(conversation, by: current_agent)
+      end
       added += 1
     end
     render json: { added: added, count: folder.personal_folder_items.count }

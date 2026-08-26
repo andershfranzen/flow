@@ -13,6 +13,7 @@ import ColorPicker from '../components/ColorPicker.vue'
 import SaveButton from '../components/SaveButton.vue'
 import TogglePills from '../components/TogglePills.vue'
 import StyledSelect from '../components/StyledSelect.vue'
+import { dateOnly, fullTime } from '../format'
 
 const props = defineProps({ tab: String })
 const router = useRouter()
@@ -44,7 +45,7 @@ const flash = ref('')
 const newToken = ref(null)
 const testResult = ref(null)
 
-const profile = ref({ name: '', current_password: '', password: '', notify_prefs: {}, ui_prefs: { motion: true }, muted_mailbox_ids: [] })
+const profile = ref({ name: '', current_password: '', password: '', notify_prefs: {}, ui_prefs: { motion: true, hour_cycle: '24' }, muted_mailbox_ids: [] })
 const teams = ref([])
 const plugins = ref([])
 const restartHint = ref('')
@@ -96,7 +97,7 @@ async function load() {
     mailboxes.value = await api.get('/api/mailboxes')
     profile.value = { name: me.name, current_password: '', password: '', otp_code: '', locale: me.locale, timezone: me.timezone,
                       signature: me.signature || '',
-                      notify_prefs: me.notify_prefs, ui_prefs: { motion: true, ...(me.ui_prefs || {}) },
+                      notify_prefs: me.notify_prefs, ui_prefs: { motion: true, hour_cycle: '24', ...(me.ui_prefs || {}) },
                       muted_mailbox_ids: me.muted_mailbox_ids || [] }
   }
 }
@@ -160,7 +161,8 @@ function removeLogo() {
 
 async function saveProfile() {
   try {
-    await api.patch('/api/me', profile.value)
+    const me = await api.patch('/api/me', profile.value)
+    session.agent = { ...session.agent, ...me }
   } catch (e) {
     flash.value = e.message === 'otp_required' ? 'Authenticator code required' : (e.details?.[0] || e.message)
     return
@@ -588,7 +590,7 @@ const NOTIFY_LABELS = {
         <tbody>
           <tr v-for="m in mailboxes" :key="m.id">
             <td>{{ m.name }}</td><td>{{ m.address }}</td>
-            <td>{{ m.last_fetched_at ? new Date(m.last_fetched_at).toLocaleString() : 'never' }}</td>
+            <td>{{ m.last_fetched_at ? fullTime(m.last_fetched_at, session.agent) : 'never' }}</td>
             <td><span v-if="m.fetch_error" class="pill bounce" :title="m.fetch_error">error</span><span v-else class="pill status-active">ok</span></td>
             <td style="text-align:right">
               <button class="ghost" @click="editMailbox(m)">Edit</button>
@@ -743,6 +745,9 @@ const NOTIFY_LABELS = {
         <div><label>Language</label>
           <StyledSelect v-model="profile.locale" style="width:100%"
                         :options="[{ value: 'en', label: 'English' }, { value: 'da', label: 'Dansk' }]" /></div>
+        <div><label>Time format</label>
+          <StyledSelect v-model="profile.ui_prefs.hour_cycle" style="width:100%"
+                        :options="[{ value: '24', label: '24-hour (14:30)' }, { value: '12', label: '12-hour (2:30 PM)' }]" /></div>
       </div>
       <div style="margin-top:12px">
         <label>My signature (used instead of the mailbox signature)</label>
@@ -901,8 +906,8 @@ const NOTIFY_LABELS = {
         <tbody>
           <tr v-for="x in tokens" :key="x.id">
             <td>{{ x.name }}</td><td><span class="pill">{{ x.scope }}</span></td>
-            <td style="color:var(--muted)">{{ x.last_used_at ? `used ${new Date(x.last_used_at).toLocaleDateString()}` : 'never used' }}</td>
-            <td style="color:var(--muted)">expires {{ new Date(x.expires_at).toLocaleDateString() }}</td>
+            <td style="color:var(--muted)">{{ x.last_used_at ? `used ${dateOnly(x.last_used_at, session.agent)}` : 'never used' }}</td>
+            <td style="color:var(--muted)">expires {{ dateOnly(x.expires_at, session.agent) }}</td>
             <td style="text-align:right"><button class="ghost" @click="del(`/api/api_tokens/${x.id}`)">Revoke</button></td>
           </tr>
         </tbody>

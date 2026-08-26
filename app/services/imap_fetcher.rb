@@ -71,7 +71,7 @@ class ImapFetcher
       return :duplicate
     end
 
-    inbound_email = ActionMailbox::InboundEmail.create_and_extract_message_id!(raw)
+    inbound_email = ActionMailbox::InboundEmail.create_and_extract_message_id!(raw, status: :processing)
     begin
       InboundProcessor.call(@mailbox, inbound_email)
       inbound_email.delivered!

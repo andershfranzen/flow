@@ -47,6 +47,17 @@ class PersonalFoldersTest < ActionDispatch::IntegrationTest
     assert_equal [ @one.id ], response.parsed_body["conversations"].map { |c| c["id"] }
   end
 
+  test "adding a conversation to a personal folder assigns it to the owner" do
+    post "/api/personal_folders", params: { name: "Mine too" }
+    folder_id = response.parsed_body["id"]
+
+    post "/api/personal_folders/#{folder_id}/items", params: { conversation_ids: [ @one.id ] }
+    get "/api/conversations", params: { folder: "mine" }
+
+    assert_equal @ada.id, @one.reload.assignee_id
+    assert_includes response.parsed_body["conversations"].map { |conversation| conversation["id"] }, @one.id
+  end
+
   test "deleting a folder leaves conversations untouched" do
     post "/api/personal_folders", params: { name: "Temp" }
     folder_id = response.parsed_body["id"]
@@ -74,8 +85,9 @@ class PersonalFoldersTest < ActionDispatch::IntegrationTest
     post "/api/personal_folders", params: { name: "Sorted" }
     folder_id = response.parsed_body["id"]
     post "/api/personal_folders/#{folder_id}/items", params: { conversation_ids: [ @one.id, @two.id ] }
-    patch "/api/conversations/bulk", params: { ids: [ @one.id ], remove_from_folder_id: folder_id }
+    patch "/api/conversations/bulk", params: { ids: [ @one.id ], assignee_id: "", remove_from_folder_id: folder_id }
     get "/api/conversations", params: { personal_folder_id: folder_id }
     assert_equal [ @two.id ], response.parsed_body["conversations"].map { |c| c["id"] }
+    assert_nil @one.reload.assignee_id
   end
 end

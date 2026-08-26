@@ -13,6 +13,7 @@ class PluginRegistry
   @errors = {}
   @loading = nil
   @mutex = Mutex.new
+  @conversation_insights = {}
 
   class << self
     attr_reader :loading
@@ -62,6 +63,22 @@ class PluginRegistry
       state
     end
 
+    # Plugins return plain card data for the conversation Insights sidebar.
+    def register_conversation_insights(&provider)
+      raise ArgumentError, "must be called while loading a plugin" unless @loading && provider
+      @conversation_insights[@loading] = provider
+    end
+
+    def conversation_insights(conversation)
+      @conversation_insights.flat_map do |name, provider|
+        next [] unless enabled?(name)
+        Array(provider.call(conversation))
+      rescue StandardError => e
+        Rails.logger.error("plugin #{name} insights failed: #{e.class} #{e.message}")
+        []
+      end
+    end
+
     def enabled?(name)
       name.nil? || !PluginState.disabled_names.include?(name)
     end
@@ -73,6 +90,8 @@ class PluginRegistry
     def reset! # tests
       @loaded.clear
       @errors.clear
+      @conversation_insights.clear
+      @loading = nil
     end
 
     private

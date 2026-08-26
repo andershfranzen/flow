@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository="${FLOW_GITHUB_REPOSITORY:?set FLOW_GITHUB_REPOSITORY to owner/repository}"
+deploy_dir="${FLOW_DEPLOY_DIR:?set FLOW_DEPLOY_DIR to the existing Flow checkout}"
+environment="${FLOW_DEPLOY_ENVIRONMENT:-production}"
+health_url="${FLOW_DEPLOY_HEALTH_URL:-http://127.0.0.1:8080/up}"
+state_file="${FLOW_DEPLOY_STATE_FILE:-$deploy_dir/.deployed-sha}"
+check_only=false
+[[ "${1:-}" == "--check" ]] && check_only=true
+
+[[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "invalid repository" >&2; exit 1; }
+[[ "$environment" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "invalid environment" >&2; exit 1; }
+[[ "$deploy_dir" != "/" && "$deploy_dir" != "${HOME:-}" && -d "$deploy_dir/.git" ]] || {
+  echo "refusing unsafe deployment directory: $deploy_dir" >&2
+  exit 1
+}
+
+for command in curl docker flock git python3; do
+  command -v "$command" >/dev/null || { echo "missing command: $command" >&2; exit 1; }
+done
+
+origin_url="$(git -C "$deploy_dir" remote get-url origin)"
+case "$origin_url" in
+  "https://github.com/$repository"|"https://github.com/$repository.git"|"git@github.com:$repository.git") ;;
+  *) echo "origin does not match $repository: $origin_url" >&2; exit 1 ;;
+esac
+
+exec 9>"${FLOW_DEPLOY_LOCK_FILE:-/tmp/flow-github-deploy.lock}"
+flock -n 9 || exit 0
+
+curl_args=(
+  --fail --silent --show-error --location
+  --header "Accept: application/vnd.github+json"
+  --header "X-GitHub-Api-Version: 2022-11-28"
+)
+[[ -z "${FLOW_GITHUB_TOKEN:-}" ]] || curl_args+=(--header "Authorization: Bearer $FLOW_GITHUB_TOKEN")
+
+deployment_json="$(curl "${curl_args[@]}" \
+  "https://api.github.com/repos/$repository/deployments?environment=$environment&per_page=1")"
+deployment_sha="$(python3 -c 'import json,sys; rows=json.load(sys.stdin); print(rows[0]["sha"] if rows else "")' \
+  <<<"$deployment_json")"
+
+if [[ -z "$deployment_sha" ]]; then
+  echo "No $environment deployment has been queued yet."
+  exit 0
+fi
+[[ "$deployment_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid deployment SHA" >&2; exit 1; }
+
+if [[ "$check_only" == true ]]; then
+  echo "Latest $environment deployment: $deployment_sha"
+  exit 0
+fi
+[[ "$(cat "$state_file" 2>/dev/null || true)" != "$deployment_sha" ]] || exit 0
+
+git -C "$deploy_dir" fetch --quiet --prune origin main
+git -C "$deploy_dir" cat-file -e "$deployment_sha^{commit}"
+git -C "$deploy_dir" merge-base --is-ancestor "$deployment_sha" origin/main || {
+  echo "deployment is not on origin/main: $deployment_sha" >&2
+  exit 1
+}
+git -C "$deploy_dir" reset --hard "$deployment_sha"
+
+cd "$deploy_dir"
+docker compose build
+docker compose up -d --remove-orphans
+
+for _ in {1..30}; do
+  if curl --fail --silent --show-error "$health_url" >/dev/null; then
+    printf '%s\n' "$deployment_sha" > "$state_file"
+    echo "Deployed $deployment_sha"
+    exit 0
+  fi
+  sleep 2
+done
+
+docker compose logs --no-color --tail=100 web >&2
+echo "deployment health check failed: $health_url" >&2
+exit 1

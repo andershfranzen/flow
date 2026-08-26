@@ -230,7 +230,7 @@ button { display: inline-flex; align-items: center; justify-content: center; gap
 .notif-item.unread { background: var(--accent-soft); margin-bottom: 3px; }
 .notif-item .notif-kind { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .notif-item.unread .notif-kind { color: var(--accent); }
-.notif-item .notif-subject { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notif-item .notif-subject { width: 100%; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .list-col {
   width: 360px; flex: none;
@@ -611,6 +611,19 @@ details.quoted { color: var(--muted); }
 .fact-line a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 a.crm-open { display: inline-flex; padding: 2px 8px; color: var(--muted); border-radius: 999px; }
 a.crm-open:hover { color: var(--text); background: var(--panel-deep); }
+.plugin-insight-head { display: flex; justify-content: space-between; align-items: center; }
+.plugin-action { display: inline-flex; padding: 2px 8px; color: var(--muted); border-radius: 999px; }
+.plugin-action:hover { color: var(--text); background: var(--panel-deep); }
+.plugin-fact { display: flex; gap: 6px; font-size: 13px; margin-top: 3px; }
+.plugin-fact .muted { color: var(--muted); }
+.plugin-fact .muted::after { content: ":"; }
+.plugin-fact .strong { font-weight: 700; }
+.plugin-section { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.plugin-section-heading { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; font-size: 12px; }
+.plugin-section-heading span { color: var(--muted); }
+.plugin-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; font-size: 12px; }
+.plugin-item small { display: block; color: var(--muted); margin-top: 1px; }
+.plugin-item svg { flex: none; color: var(--muted); }
 
 /* Styled select: pill trigger + popover listbox */
 .sel { position: relative; display: inline-block; min-width: 120px; }

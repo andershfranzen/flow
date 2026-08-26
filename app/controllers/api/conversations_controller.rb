@@ -24,9 +24,10 @@ class Api::ConversationsController < Api::BaseController
     ids = conversations.map(&:id)
     reads = ConversationRead.where(agent: current_agent, conversation_id: ids)
                             .pluck(:conversation_id, :last_read_at).to_h
+    activity = Message.where(conversation_id: ids).group(:conversation_id).maximum(:created_at)
     my_stars = Star.where(agent: current_agent, conversation_id: ids).pluck(:conversation_id).to_set
     render json: { conversations: conversations.map { |c|
-                     conversation_json(c).merge("unread" => unread?(c, reads[c.id]),
+                     conversation_json(c).merge("unread" => unread?(activity[c.id], reads[c.id]),
                                                 "starred" => my_stars.include?(c.id)) },
                    folder_counts: folder_counts }
   end
@@ -66,6 +67,11 @@ class Api::ConversationsController < Api::BaseController
                               last_read_at: Time.current, created_at: Time.current, updated_at: Time.current },
                             unique_by: [ :agent_id, :conversation_id ])
     render json: conversation_json(conversation, full: true)
+  end
+
+  def insights
+    conversation = find_accessible_conversation!(params[:id])
+    render json: { cards: PluginRegistry.conversation_insights(conversation) }
   end
 
   # POST /api/conversations — agent starts a new outbound conversation (B17).
@@ -216,9 +222,9 @@ class Api::ConversationsController < Api::BaseController
     end
   end
 
-  def unread?(conversation, last_read_at)
-    return false if conversation.last_message_at.nil?
-    last_read_at.nil? || conversation.last_message_at > last_read_at
+  def unread?(activity_at, last_read_at)
+    return false if activity_at.nil?
+    last_read_at.nil? || activity_at > last_read_at
   end
 
   # Everyone on the thread except our own mailbox address (display + reply-all).

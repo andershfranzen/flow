@@ -91,6 +91,7 @@ function onDropFolder(folder) {
   const attrs = folder === 'mine' ? { assignee_id: session.agent.id }
     : folder === 'unassigned' ? { assignee_id: '' }
     : { status: folder }
+  if (inbox.personalFolderId) attrs.remove_from_folder_id = inbox.personalFolderId
   onDragEnd()
   removeRowsLocally(ids)
   selected.value = new Set()
@@ -114,8 +115,8 @@ function removeRowsLocally(ids) {
 
 function backgroundPatch(payload) {
   api.patch('/api/conversations/bulk', payload)
-    .then(() => inbox.loadConversations())
-    .catch(() => inbox.loadConversations())
+    .then(() => { inbox.loadConversations(); if (payload.remove_from_folder_id) inbox.loadPersonalFolders() })
+    .catch(() => { inbox.loadConversations(); if (payload.remove_from_folder_id) inbox.loadPersonalFolders() })
 }
 
 function bulk(attrs) {
@@ -206,6 +207,7 @@ async function toggleNotifs(e) {
   const data = await api.get('/api/notifications')
   notifs.value = data.notifications
   inbox.unread = data.unread
+  if (data.unread) markAllRead()
 }
 
 function onGlobalPointer(e) {
@@ -217,9 +219,8 @@ function onGlobalPointer(e) {
   }
 }
 
-async function openNotif(n) {
+function openNotif(n) {
   showNotifs.value = false
-  api.post('/api/notifications/read', { ids: [n.id] }).then(() => inbox.refreshUnread())
   router.push(`/conversations/${n.conversation.id}`)
 }
 
@@ -281,8 +282,8 @@ function onDropPersonalFolder(pf) {
   selected.value = new Set()
   pf.count = (pf.count || 0) + ids.length // optimistic; reconciled below
   api.post(`/api/personal_folders/${pf.id}/items`, { conversation_ids: ids })
-    .then(() => inbox.loadPersonalFolders())
-    .catch(() => inbox.loadPersonalFolders())
+    .then(() => { inbox.loadPersonalFolders(); inbox.loadConversations() })
+    .catch(() => { inbox.loadPersonalFolders(); inbox.loadConversations() })
 }
 
 function bulkRemoveFromFolder() {
@@ -428,12 +429,10 @@ async function logout() {
           <div v-if="showNotifs" class="notif-panel card" :style="notifPanelStyle">
             <div class="insights-head" style="margin-bottom:6px">
               <span>Notifications</span>
-              <button v-if="inbox.unread" class="ghost" style="padding:2px 8px; font-size:11px"
-                      @click="markAllRead">Mark all read</button>
             </div>
             <button v-for="n in notifs" :key="n.id" class="notif-item" :class="{ unread: !n.read_at }"
                     @click="openNotif(n)">
-              <span class="notif-kind">{{ NOTIF_LABELS[n.kind] || n.kind }} · {{ shortTime(n.created_at) }}</span>
+              <span class="notif-kind">{{ NOTIF_LABELS[n.kind] || n.kind }} · {{ shortTime(n.created_at, session.agent) }}</span>
               <span class="notif-subject"><span class="notif-num">#{{ n.conversation.number }}</span>{{ n.conversation.subject || '(no subject)' }}</span>
             </button>
             <div v-if="!notifs.length" class="empty" style="padding:16px">Nothing yet</div>
@@ -492,7 +491,7 @@ async function logout() {
             <span class="conv-main">
               <span class="row1">
                 <span class="who">{{ c.customer.name || c.customer.email }}</span>
-                <span class="when">{{ shortTime(c.last_message_at) }}</span>
+                <span class="when">{{ shortTime(c.last_message_at, session.agent) }}</span>
               </span>
               <span class="line2">
                 <Star v-if="c.starred" :size="12" class="star" fill="currentColor" /><span class="subj">{{ c.subject || '(no subject)' }}</span><span class="prev"> — {{ c.preview }}</span>

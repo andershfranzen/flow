@@ -1,6 +1,8 @@
 require "test_helper"
 
 class PipelineTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   setup do
     @mailbox = Mailbox.create!(address: "support@example.com", name: "Support",
                                smtp_host: "smtp.example.com")
@@ -8,12 +10,13 @@ class PipelineTest < ActiveSupport::TestCase
   end
 
   def raw_mail(from: "kunde@example.dk", to: "support@example.com", subject: "Help",
-               message_id: "m-#{SecureRandom.hex(6)}@example.dk", headers: {}, html: nil, text: "hello", &block)
+               message_id: "m-#{SecureRandom.hex(6)}@example.dk", headers: {}, html: nil, text: "hello", date: nil, &block)
     m = Mail.new
     m.from = from
     m.to = to
     m.subject = subject
     m.message_id = "<#{message_id}>"
+    m.date = date if date
     headers.each { |k, v| m.header[k] = v }
     if html
       m.text_part = Mail::Part.new { body "fallback" } if text
@@ -33,6 +36,14 @@ class PipelineTest < ActiveSupport::TestCase
     assert_equal "active", conv.status
     assert_equal "kunde@example.dk", conv.customer.email
     assert_equal "It beeps", conv.messages.first.body_text.strip
+  end
+
+  test "imported mail keeps its original timestamp" do
+    sent_at = 4.hours.ago.change(usec: 0)
+    @fetcher.ingest(raw_mail(date: sent_at))
+
+    assert_equal sent_at, Message.last.sent_at
+    assert_equal sent_at, Conversation.last.last_message_at
   end
 
   test "fetching the same mail twice does not duplicate" do
@@ -75,7 +86,9 @@ class PipelineTest < ActiveSupport::TestCase
   end
 
   test "mail from the mailbox itself is skipped" do
-    @fetcher.ingest(raw_mail(from: "support@example.com"))
+    assert_no_enqueued_jobs only: ActionMailbox::RoutingJob do
+      @fetcher.ingest(raw_mail(from: "support@example.com"))
+    end
     assert_equal 0, Conversation.count
   end
 

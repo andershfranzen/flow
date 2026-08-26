@@ -10,7 +10,7 @@ import { avatarColor, initials } from '../avatar'
 import Attachments from './Attachments.vue'
 import { ArrowLeft, Star, PanelRight, ChevronsRight, Ellipsis, Eye, Building2, Phone, MapPin, ExternalLink } from 'lucide-vue-next'
 import StyledSelect from './StyledSelect.vue'
-import { shortTime, fullTime } from '../format'
+import { shortTime, fullTime, dateOnly } from '../format'
 
 const router = useRouter()
 const session = useSession()
@@ -32,6 +32,7 @@ const transcriptEl = ref(null)
 let heartbeatTimer = null
 
 const conv = computed(() => inbox.current)
+const itemTime = (item) => item._type === 'message' ? (item.sent_at || item.created_at) : item.created_at
 
 // Messages + events merged, newest-last (B2).
 const timeline = computed(() => {
@@ -40,7 +41,7 @@ const timeline = computed(() => {
     ...(conv.value.messages || []).map((m) => ({ ...m, _type: 'message' })),
     ...(conv.value.events || []).map((e) => ({ ...e, _type: 'event' })),
   ]
-  return items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  return items.sort((a, b) => new Date(itemTime(a)) - new Date(itemTime(b)))
 })
 
 async function heartbeat() {
@@ -97,6 +98,15 @@ watch(() => conv.value?.customer?.email, async (email) => {
   } finally {
     crmLoading.value = false
   }
+}, { immediate: true })
+
+const insightCards = ref([])
+watch(() => conv.value?.id, async (id) => {
+  insightCards.value = []
+  if (!id) return
+  try {
+    insightCards.value = (await api.get(`/api/conversations/${id}/insights`)).cards || []
+  } catch {}
 }, { immediate: true })
 
 function startEditCustomer() {
@@ -306,7 +316,7 @@ function eventText(e) {
             <Eye :size="15" style="vertical-align:-3px" /> {{ inbox.viewers.map((v) => v.name).join(', ') }} {{ t.viewing }}
           </div>
         <template v-for="item in timeline" :key="item._type + item.id">
-          <div v-if="item._type === 'event'" class="event-line">{{ eventText(item) }} · {{ shortTime(item.created_at) }}</div>
+          <div v-if="item._type === 'event'" class="event-line">{{ eventText(item) }} · {{ shortTime(item.created_at, session.agent) }}</div>
           <article v-else class="msg" :class="item.kind">
             <div class="msg-head">
               <span class="who-line">
@@ -320,7 +330,7 @@ function eventText(e) {
                 <button v-if="item.status === 'queued' && item.kind === 'outbound'" type="button"
                         class="ghost" style="padding:0 8px; font-size:12px" data-tip="Cancel before it sends" @click="undoSend(item)">Undo</button>
                 <span v-if="item.status === 'failed'" class="pill bounce">{{ t.failed }}</span>
-                <time :title="fullTime(item.created_at)">{{ shortTime(item.created_at) }}</time>
+                <time :title="fullTime(itemTime(item), session.agent)">{{ shortTime(itemTime(item), session.agent) }}</time>
               </span>
             </div>
             <div v-if="item.body_html" class="msg-body" dir="auto" v-html="renderHtml(item)"></div>
@@ -374,12 +384,44 @@ function eventText(e) {
           </template>
           <button class="ghost" style="margin-top:8px; padding:2px 8px; font-size:12px" @click="mergeCustomer">{{ t.mergeCustomer }}</button>
         </div>
+        <div v-for="card in insightCards" :key="card.id" class="card plugin-insight">
+          <h3 class="plugin-insight-head">
+            {{ card.title }}
+            <a v-if="card.action?.url" class="ghost plugin-action" :href="card.action.url"
+               target="_blank" rel="noopener">
+              {{ card.action.label }} <ExternalLink :size="13" />
+            </a>
+          </h3>
+          <div v-for="(fact, index) in card.facts || []" :key="`${card.id}-fact-${index}`" class="plugin-fact">
+            <span v-if="fact.label" class="muted">{{ fact.label }}</span>
+            <component :is="fact.url ? 'a' : 'span'" :href="fact.url || undefined"
+                       :target="fact.url ? '_blank' : undefined" :rel="fact.url ? 'noopener' : undefined"
+                       :class="{ strong: fact.emphasis }">{{ fact.value }}</component>
+          </div>
+          <div v-for="(section, sectionIndex) in card.sections || []"
+               :key="`${card.id}-section-${sectionIndex}`" class="plugin-section">
+            <div class="plugin-section-heading">
+              <strong>{{ section.title }}</strong><span v-if="section.meta">{{ section.meta }}</span>
+            </div>
+            <component v-for="(item, itemIndex) in section.items || []"
+                       :key="item.url || item.title || itemIndex" :is="item.url ? 'a' : 'div'"
+                       class="plugin-item" :href="item.url || undefined"
+                       :target="item.url ? '_blank' : undefined" :rel="item.url ? 'noopener' : undefined">
+              <span><strong>{{ item.title }}</strong><small>
+                <template v-if="item.timestamp">{{ dateOnly(item.timestamp, session.agent) }}</template><template v-if="item.timestamp && item.meta"> · </template>{{ item.meta }}
+              </small></span>
+              <ExternalLink v-if="item.url" :size="12" />
+            </component>
+          </div>
+        </div>
         <div v-if="session.org?.crm_enabled" class="card">
           <h3 style="display:flex; justify-content:space-between; align-items:center">
             Dynamics 365
             <a v-if="crm?.contact?.url || crm?.account?.url" class="ghost crm-open"
                :href="crm.contact?.url || crm.account?.url" target="_blank" rel="noopener"
-               data-tip="Open in Dynamics"><ExternalLink :size="13" /></a>
+               aria-label="Open customer in Dynamics 365">
+              Open <ExternalLink :size="13" />
+            </a>
           </h3>
           <div v-if="crmLoading" class="hint-text" style="margin:0">Looking up…</div>
           <template v-else-if="crm?.contact || crm?.account">

@@ -74,3 +74,18 @@ jobs:
         run: |
           bin/rails db:prepare
           bin/e2e-greenmail
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, audit, e2e]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      deployments: write
+    concurrency:
+      group: production
+      cancel-in-progress: true
+    steps:
+      - name: Queue tested commit for production
+        run: echo "Queued ${GITHUB_SHA} for production"

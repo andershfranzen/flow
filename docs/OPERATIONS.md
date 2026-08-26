@@ -131,6 +131,30 @@ Settings -> Organisation -> Base URL to the public https URL. For PostgreSQL,
 set `DATABASE_URL` on both services. Kamal users: the stock Rails `Dockerfile`
 works as-is with `kamal setup`.
 
+## Continuous deployment from GitHub
+
+The included CI workflow queues a `production` deployment only after the test,
+audit, and live mail jobs pass for a push to `main`. On the Docker host, run
+`bin/deploy-from-github` from a systemd timer or cron. It reads that deployment
+from GitHub, checks that the exact commit is on `origin/main`, resets tracked
+code to it, rebuilds both services, and records success only after `/up` passes.
+
+Required host configuration:
+
+```sh
+FLOW_GITHUB_REPOSITORY=owner/flow
+FLOW_DEPLOY_DIR=/path/to/flow
+```
+
+Optional settings are `FLOW_DEPLOY_ENVIRONMENT` (`production`),
+`FLOW_DEPLOY_HEALTH_URL` (`http://127.0.0.1:8080/up`), and
+`FLOW_DEPLOY_STATE_FILE`. Use `bin/deploy-from-github --check` for a read-only
+configuration check. Public repositories need no server credential; private
+repositories can supply a read-only `FLOW_GITHUB_TOKEN`. Keep `.env`, Compose
+overrides, certificates, and other host configuration untracked so deployments
+preserve them. This outbound polling design avoids exposing SSH or attaching a
+host-privileged self-hosted Actions runner to a public repository.
+
 ## Monitoring
 
 - `GET /up` — process liveness (use for container healthchecks).

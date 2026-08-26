@@ -48,7 +48,7 @@ class InboundProcessor
       return :skipped_flood if flooded?
       conversation = Conversation.create!(
         mailbox: @mailbox, customer: customer,
-        subject: subject, last_message_at: Time.current
+        subject: subject, last_message_at: sent_time
       )
       message = create_message(conversation, bounce: bounce?)
       Notifier.new_conversation(message)
@@ -65,6 +65,7 @@ class InboundProcessor
   def from_email = @mail.from&.first.to_s.downcase.presence || "unknown@invalid"
   def from_name = @mail[:from]&.display_names&.first
   def subject = @mail.subject.to_s.scrub.strip
+  def sent_time = (@mail.date&.to_time rescue nil)
 
   def loop?
     return true if from_email == @mailbox.address
@@ -147,7 +148,7 @@ class InboundProcessor
       body_html: extract_html,
       bounce: bounce,
       auto_submitted: list_mail?,
-      sent_at: (@mail.date&.to_time rescue nil)
+      sent_at: sent_time
     )
     attach_files(message)
     message
