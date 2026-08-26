@@ -14,7 +14,10 @@ class WorkflowEngine
     conversation = Conversation.find_by(id: conversation_id)
     return unless conversation
     message = event.start_with?("message.") ? Message.find_by(id: payload[:id]) : nil
-    return if message&.auto_submitted?
+    # Never react to our own auto-submitted outbound (no reply loops after
+    # delivery); inbound list mail still gets triage workflows, but the
+    # reply-sending actions below refuse to answer it.
+    return if message&.auto_submitted? && message.kind == "outbound"
 
     Workflow.runnable_for(event, conversation.mailbox_id).each do |workflow|
       next unless workflow.matches?(conversation, message)
@@ -76,7 +79,9 @@ class WorkflowEngine
     when "add_note"
       conversation.messages.create!(kind: "note", status: "received", body_text: value)
     when "send_reply"
-      # Loop-safe canned reply: marked auto-submitted, never re-triggers (A13/D6).
+      # Loop-safe canned reply: marked auto-submitted, never re-triggers (A13/D6),
+      # and never answers auto-submitted mail (mailing lists, bounces).
+      return if message&.auto_submitted?
       body = rendered_reply(value, conversation)
       return if body.blank?
       outbound = conversation.messages.create!(
@@ -85,6 +90,7 @@ class WorkflowEngine
       )
       SendMessageJob.perform_later(outbound)
     when "forward_to"
+      return if message&.auto_submitted?
       return unless value.match?(URI::MailTo::EMAIL_REGEXP)
       source = message || conversation.messages.where(kind: "inbound").last
       outbound = conversation.messages.create!(

@@ -82,9 +82,6 @@ class Sso
     tenant_id = claims["tid"].to_s
     subject = (claims["oid"].presence || claims["sub"]).to_s.presence
     raise Error, "no stable Microsoft subject" if subject.blank?
-    domain = email.split("@", 2).last
-    raise Error, "#{domain} is not in the allowed sign-in domains" unless allowed_domain?(domain)
-
     agent = Agent.find_by(sso_tenant_id: tenant_id, sso_subject: subject)
     return agent if agent
 
@@ -92,6 +89,10 @@ class Sso
     return bind_agent!(agent, tenant_id, subject) if agent
 
     raise Error, "no Flow account for #{email} (auto-provisioning is off)" unless settings.sso_auto_provision
+    # The domain list gates auto-provisioning only; existing agents already
+    # passed the tenant check, and a blank list must not lock everyone out.
+    domain = email.split("@", 2).last
+    raise Error, "#{domain} is not in the allowed sign-in domains" unless allowed_domain?(domain)
     Agent.create!(email: email, name: claims["name"].presence || email.split("@").first,
                   role: "user", password: SecureRandom.hex(24),
                   sso_tenant_id: tenant_id, sso_subject: subject)

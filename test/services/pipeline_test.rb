@@ -46,6 +46,18 @@ class PipelineTest < ActiveSupport::TestCase
     assert_equal sent_at, Conversation.last.last_message_at
   end
 
+  test "a future Date header cannot pin the conversation to the top" do
+    @fetcher.ingest(raw_mail(date: 2.years.from_now))
+    conv = Conversation.last
+    assert conv.last_message_at <= Time.current
+
+    travel 1.minute do
+      @fetcher.ingest(raw_mail(subject: "Re: Help", text: "still broken",
+                               headers: { "In-Reply-To" => "<#{conv.messages.first.message_id_header}>" }))
+    end
+    assert_equal "still broken", conv.reload.preview
+  end
+
   test "fetching the same mail twice does not duplicate" do
     raw = raw_mail
     @fetcher.ingest(raw)

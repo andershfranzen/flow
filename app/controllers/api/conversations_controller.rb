@@ -131,8 +131,8 @@ class Api::ConversationsController < Api::BaseController
       source.update!(merged_into_id: target.id, status: "closed", assignee: nil)
       Conversation.reset_counters(source.id, :messages)
       Conversation.reset_counters(target.id, :messages)
-      last = target.messages.order(:created_at).last
-      target.update_columns(last_message_at: last&.created_at,
+      last = target.messages.order(Arel.sql("COALESCE(sent_at, created_at) DESC")).first
+      target.update_columns(last_message_at: last && (last.sent_at || last.created_at),
                             preview: last&.body_text.to_s.gsub(/\s+/, " ").strip.truncate(140))
       target.events.create!(agent: current_agent, kind: "merged", data: { from_number: source.number })
     end

@@ -174,6 +174,16 @@ class SsoTest < ActionDispatch::IntegrationTest
     assert_equal 2, calls
   end
 
+  test "the domain list only gates auto-provisioning, never existing agents" do
+    Agent.create!(email: "old@partner.org", name: "Old", password: "secret123")
+    OrgSetting.current.update!(sso_allowed_domains: "")
+
+    start_and_callback(email: "old@partner.org")
+    assert_redirected_to "/inbox"
+    get "/api/me"
+    assert_equal "old@partner.org", response.parsed_body["email"]
+  end
+
   test "unknown domain is rejected, no agent created" do
     start_and_callback(email: "mallory@evil.com")
     assert_match %r{/login\?sso_error=}, response.location

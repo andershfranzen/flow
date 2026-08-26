@@ -82,6 +82,23 @@ class WorkflowTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "list mail still gets triage workflows but never an automatic reply" do
+    Workflow.create!(name: "Newsletter triage", trigger: "message.inbound",
+      actions: [ { "type" => "add_tag", "value" => "newsletter" },
+                 { "type" => "send_reply", "value" => "We got it" } ])
+    raw = Mail.new do
+      from "news@list.example"; to "support@example.com"; subject "Weekly digest"; body "hi"
+      message_id "<digest-1@x>"
+    end
+    raw.header["List-Id"] = "<list.example>"
+    @fetcher.ingest(raw.to_s)
+    conversation = Conversation.order(:id).last
+
+    assert_equal [ "newsletter" ], conversation.tags.pluck(:name)
+    assert_empty conversation.messages.where(kind: "outbound"),
+                 "auto-submitted mail must not receive workflow replies"
+  end
+
   test "mailbox scoping and disabled workflows are skipped" do
     other_mailbox = Mailbox.create!(address: "sales@example.com", name: "Sales")
     Workflow.create!(name: "Sales only", trigger: "message.inbound", mailbox: other_mailbox,

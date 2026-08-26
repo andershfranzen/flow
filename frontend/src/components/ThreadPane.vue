@@ -105,7 +105,8 @@ watch(() => conv.value?.id, async (id) => {
   insightCards.value = []
   if (!id) return
   try {
-    insightCards.value = (await api.get(`/api/conversations/${id}/insights`)).cards || []
+    const { cards } = await api.get(`/api/conversations/${id}/insights`)
+    if (conv.value?.id === id) insightCards.value = cards || []
   } catch {}
 }, { immediate: true })
 

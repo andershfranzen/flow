@@ -65,7 +65,11 @@ class InboundProcessor
   def from_email = @mail.from&.first.to_s.downcase.presence || "unknown@invalid"
   def from_name = @mail[:from]&.display_names&.first
   def subject = @mail.subject.to_s.scrub.strip
-  def sent_time = (@mail.date&.to_time rescue nil)
+  # Clamped: a future Date header would pin the thread atop the inbox for good.
+  def sent_time
+    time = (@mail.date&.to_time rescue nil)
+    time && [ time, Time.current ].min
+  end
 
   def loop?
     return true if from_email == @mailbox.address

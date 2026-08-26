@@ -206,8 +206,10 @@ async function toggleNotifs(e) {
     : { left: '10px', right: '10px', top: `${Math.round(r.bottom + 8)}px` }
   const data = await api.get('/api/notifications')
   notifs.value = data.notifications
-  inbox.unread = data.unread
-  if (data.unread) markAllRead()
+  // Opening the panel clears the badge, but the unread highlights stay
+  // until the next open so you can still see what's new.
+  inbox.unread = 0
+  if (data.unread) api.post('/api/notifications/read')
 }
 
 function onGlobalPointer(e) {
@@ -222,12 +224,6 @@ function onGlobalPointer(e) {
 function openNotif(n) {
   showNotifs.value = false
   router.push(`/conversations/${n.conversation.id}`)
-}
-
-async function markAllRead() {
-  inbox.unread = 0 // optimistic
-  notifs.value = notifs.value.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
-  await api.post('/api/notifications/read')
 }
 
 const creatingFolder = ref(false)
