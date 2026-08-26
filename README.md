@@ -116,6 +116,7 @@ ordinary core code here. This is a commons project, not a SaaS pitch.
 ```sh
 git clone https://github.com/andershfranzen/flow.git && cd flow
 export SECRET_KEY_BASE=$(openssl rand -hex 64)   # keep it safe — it also encrypts mailbox credentials
+export FLOW_HEALTH_TOKEN=$(openssl rand -hex 32) # bearer token for detailed monitoring
 export APP_URL=https://inbox.example.com          # behind your TLS reverse proxy
 docker compose up -d --build
 docker compose exec web bin/create-admin you@example.com "Your Name"
@@ -168,7 +169,9 @@ docker compose exec web bin/fetch-now                 # fetch immediately
 docker compose exec web bin/send-test MAILBOX TO      # verify SMTP
 ```
 
-`GET /health` reports the database and last successful fetch per mailbox.
+`GET /health` reports the database and last successful fetch per mailbox. It
+requires `Authorization: Bearer $FLOW_HEALTH_TOKEN`; use `/up` for an
+unauthenticated container liveness check.
 
 ## API, webhooks, MCP, plugins
 
@@ -179,7 +182,10 @@ curl -H "Authorization: Bearer si_..." https://inbox.example.com/api/conversatio
 
 Webhooks POST signed JSON (`X-Inbox-Signature`, HMAC-SHA256) on
 `thread.created`, `message.inbound`, `message.outbound`, `thread.assigned`,
-`thread.status`. Point any MCP client at `POST /mcp` with the same token.
+`thread.status`. MCP is disabled by default; explicitly enable it in
+Settings → Organisation before pointing a client at `POST /mcp`. Start with a
+read-scope token, treat inbound customer content as untrusted instructions,
+and use draft-first plus human review before any write or send tool.
 For in-process plugins and a hello-world bot that needs no PR to core, read
 [docs/EXTENDING.md](docs/EXTENDING.md).
 

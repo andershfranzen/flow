@@ -2,7 +2,7 @@ class Api::AgentsController < Api::BaseController
   before_action :require_admin!, except: [ :index, :me, :update_me ]
 
   def index
-    render json: Agent.order(:name).map { |a| agent_json(a) }
+    render json: Agent.order(:name).map { |a| current_agent.admin? ? agent_json(a) : agent_summary(a) }
   end
 
   def create
@@ -29,6 +29,13 @@ class Api::AgentsController < Api::BaseController
   def update_me
     permitted = params.permit(:name, :password, :locale, :timezone, :signature, notify_prefs: {}, ui_prefs: {}, muted_mailbox_ids: [])
     permitted.reject! { |k, v| v.blank? && !%w[muted_mailbox_ids signature ui_prefs].include?(k) }
+    if permitted[:password].present? && !current_agent.authenticate(params[:current_password].to_s)
+      return render json: { error: "invalid_current_password" }, status: :unprocessable_entity
+    end
+    if permitted[:password].present? && current_agent.otp_required? &&
+       (params[:otp_code].blank? || !Totp.valid?(current_agent.otp_secret, params[:otp_code]))
+      return render json: { error: "otp_required" }, status: :unprocessable_entity
+    end
     current_agent.update!(permitted)
     session[:session_token] = current_agent.session_token # survive own password change
     render json: agent_json(current_agent)
@@ -54,7 +61,12 @@ class Api::AgentsController < Api::BaseController
 
   def agent_json(agent)
     agent.as_json(only: [ :id, :email, :name, :role, :locale, :timezone, :signature, :otp_required, :last_seen_at ])
-         .merge(notify_prefs: agent.notify_prefs, ui_prefs: agent.ui_prefs || {},
+         .merge("signature" => HtmlSanitizer.call(agent.signature),
+                notify_prefs: agent.notify_prefs, ui_prefs: agent.ui_prefs || {},
                 mailbox_ids: agent.mailbox_ids, muted_mailbox_ids: agent.muted_mailbox_ids)
+  end
+
+  def agent_summary(agent)
+    agent.as_json(only: [ :id, :email, :name ])
   end
 end

@@ -1,4 +1,6 @@
 require "test_helper"
+require "rubygems/package"
+require "zlib"
 
 class BackupRestoreTest < ActiveSupport::TestCase
   # VACUUM INTO reads committed state on disk, so no test transaction here.
@@ -38,6 +40,62 @@ class BackupRestoreTest < ActiveSupport::TestCase
     end
   end
 
+  test "restore stamps must be exact and stay under the backup root" do
+    Dir.mktmpdir do |tmp|
+      root = Pathname.new(tmp).join("backups")
+      selected = root.join("20260825-120000")
+      outside = Pathname.new(tmp).join("outside")
+      FileUtils.mkdir_p([ selected, outside ])
+
+      assert_equal File.realpath(selected), Backup.backup_dir("20260825-120000", root: root)
+      assert_raises(ArgumentError) { Backup.backup_dir("../outside", root: root) }
+      assert_raises(ArgumentError) { Backup.backup_dir("latest", root: root) }
+
+      File.symlink(outside, root.join("20260826-120000"))
+      assert_raises(ArgumentError) { Backup.backup_dir("20260826-120000", root: root) }
+    end
+  end
+
+  test "restore rejects unsafe archive paths and links before touching storage" do
+    Dir.mktmpdir do |tmp|
+      stamp = Pathname.new(tmp).join("stamp")
+      restored = Pathname.new(tmp).join("restored")
+      FileUtils.mkdir_p([ stamp, restored ])
+      File.write(restored.join("sentinel"), "keep")
+      File.write(stamp.join("test.sqlite3"), "new-db")
+      File.write(restored.join("test.sqlite3"), "keep-db")
+
+      [ "../escape", "/absolute", "safe/../../escape" ].each do |name|
+        write_archive(stamp.join("files.tgz")) do |tar, _raw|
+          tar.add_file(name, 0o644) { |file| file.write("bad") }
+        end
+        assert_raises(ArgumentError) { Backup.restore(stamp, into: restored) }
+        assert_equal "keep", File.read(restored.join("sentinel"))
+        assert_equal "keep-db", File.read(restored.join("test.sqlite3"))
+        refute File.exist?(Pathname.new(tmp).join("escape"))
+      end
+
+      [ "/outside", "../../outside" ].each do |target|
+        write_archive(stamp.join("files.tgz")) do |tar, _raw|
+          tar.add_symlink("link", target, 0o777)
+        end
+        assert_raises(ArgumentError) { Backup.restore(stamp, into: restored) }
+        assert_equal "keep", File.read(restored.join("sentinel"))
+        assert_equal "keep-db", File.read(restored.join("test.sqlite3"))
+      end
+
+      write_archive(stamp.join("files.tgz")) do |tar, raw|
+        tar.add_file("safe", 0o644) { |file| file.write("safe") }
+        raw.write Gem::Package::TarHeader.new(name: "link", mode: 0o644, size: 0,
+                                               prefix: "", typeflag: "1",
+                                               linkname: "../outside").to_s
+      end
+      assert_raises(ArgumentError) { Backup.restore(stamp, into: restored) }
+      assert_equal "keep", File.read(restored.join("sentinel"))
+      assert_equal "keep-db", File.read(restored.join("test.sqlite3"))
+    end
+  end
+
   test "housekeeping purges old trash and spam" do
     mailbox = Mailbox.create!(address: "hk@example.com", name: "HK")
     customer = Customer.create!(email: "c@example.com")
@@ -48,5 +106,18 @@ class BackupRestoreTest < ActiveSupport::TestCase
     HousekeepingJob.perform_now
     assert_nil Conversation.find_by(id: old.id)
     assert Conversation.find_by(id: fresh.id)
+  end
+
+  private
+
+  def write_archive(path)
+    raw = Tempfile.new("backup-tar")
+    Gem::Package::TarWriter.new(raw) { |tar| yield tar, raw }
+    raw.close
+    File.open(path, "wb") do |file|
+      Zlib::GzipWriter.wrap(file) { |gzip| gzip.write(File.binread(raw.path)) }
+    end
+  ensure
+    raw&.unlink
   end
 end

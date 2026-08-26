@@ -42,6 +42,20 @@ class PluginManagerTest < ActionDispatch::IntegrationTest
     file
   end
 
+  def make_zip_with_lying_size(name, content, declared_size)
+    file = make_zip(name => content)
+    bytes = File.binread(file.path)
+    local_header = bytes.index([ 0x50, 0x4b, 0x03, 0x04 ].pack("C*"))
+    central_header = bytes.index([ 0x50, 0x4b, 0x01, 0x02 ].pack("C*"))
+    refute_nil local_header
+    refute_nil central_header
+    bytes[local_header + 22, 4] = [ declared_size ].pack("V")
+    bytes[central_header + 24, 4] = [ declared_size ].pack("V")
+    File.binwrite(file.path, bytes)
+    file.rewind
+    file
+  end
+
   def upload(zipfile, filename: "my_zip_plugin.zip")
     post "/api/plugins/install_zip",
          params: { file: Rack::Test::UploadedFile.new(zipfile.path, "application/zip",
@@ -85,6 +99,20 @@ class PluginManagerTest < ActionDispatch::IntegrationTest
     upload(make_zip("gitty/plugin.rb" => "GITTY2 = 1"))
     assert_response :unprocessable_entity
     assert_equal "installed_from_git", response.parsed_body["error"]
+  end
+
+  test "zip install enforces the actual inflated byte cap when headers lie" do
+    archive = make_zip_with_lying_size(
+      "bomb/plugin.rb",
+      "x" * (Api::PluginsController::MAX_UNPACKED_BYTES + 1),
+      1
+    )
+    upload(archive, filename: "bomb.zip")
+    assert_response :unprocessable_entity
+    assert_equal "invalid_zip", response.parsed_body["error"]
+    refute File.exist?(@tmp.join("bomb")), "a rejected archive must not replace the installed plugin"
+  ensure
+    archive&.close!
   end
 
   test "declared plugin settings save, filter, and mask secrets" do

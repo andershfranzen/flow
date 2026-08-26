@@ -1,6 +1,7 @@
 # One-command Flow: `docker compose up -d` behind your TLS proxy of choice.
 #
 #   1. echo "SECRET_KEY_BASE=$(openssl rand -hex 64)" > .env
+#      echo "FLOW_HEALTH_TOKEN=$(openssl rand -hex 32)" >> .env
 #   2. docker compose up -d
 #   3. Point a reverse proxy (Caddy, Traefik, nginx) with TLS at :8080,
 #      or expose the app directly on a trusted network.
@@ -19,6 +20,7 @@ services:
       - "8080:80"
     environment:
       SECRET_KEY_BASE: "${SECRET_KEY_BASE:?missing - generate with openssl rand -hex 64 into .env}"
+      FLOW_HEALTH_TOKEN: "${FLOW_HEALTH_TOKEN:-}"
       # Uncomment for PostgreSQL instead of the bundled SQLite:
       # DATABASE_URL: postgres://flow:flow@db/flow
       # Optional error tracking:
@@ -37,7 +39,7 @@ services:
     restart: unless-stopped
     command: ./bin/jobs
     environment:
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE:?missing - generate with openssl rand -hex 64 into .env}"
       # DATABASE_URL: postgres://flow:flow@db/flow
       # SENTRY_DSN: https://...@sentry.example.com/1
     volumes:

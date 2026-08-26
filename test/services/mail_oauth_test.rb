@@ -3,11 +3,20 @@ require "test_helper"
 class MailOauthTest < ActiveSupport::TestCase
   def stub_tokens(response)
     MailOauth.singleton_class.alias_method :orig_post_token, :post_token
-    MailOauth.define_singleton_method(:post_token) { |*| response }
+    MailOauth.define_singleton_method(:post_token) { |*args| response.respond_to?(:call) ? response.call(*args) : response }
     yield
   ensure
     MailOauth.singleton_class.alias_method :post_token, :orig_post_token
     MailOauth.singleton_class.remove_method :orig_post_token
+  end
+
+  def stub_smtp(smtp)
+    Net::SMTP.singleton_class.alias_method :orig_new, :new
+    Net::SMTP.define_singleton_method(:new) { |*| smtp }
+    yield
+  ensure
+    Net::SMTP.singleton_class.alias_method :new, :orig_new
+    Net::SMTP.singleton_class.remove_method :orig_new
   end
 
   setup do
@@ -18,7 +27,11 @@ class MailOauthTest < ActiveSupport::TestCase
 
   test "configured? reflects org settings" do
     assert MailOauth.configured?("microsoft")
+    assert MailOauth.configured?("microsoft_app")
     assert MailOauth.configured?("google")
+    OrgSetting.current.update!(ms_tenant: "common")
+    refute MailOauth.configured?("microsoft_app")
+    assert MailOauth.configured?("microsoft")
     OrgSetting.current.update!(ms_client_secret: nil)
     refute MailOauth.configured?("microsoft")
   end
@@ -58,6 +71,23 @@ class MailOauthTest < ActiveSupport::TestCase
     assert_equal "rt", @mailbox.reload.oauth_refresh_token, "refresh token kept when not rotated"
   end
 
+  test "app-only Microsoft mailboxes use client credentials without a user token" do
+    @mailbox.update!(auth_kind: "microsoft_app")
+    request = nil
+    stub_tokens(->(_config, params) { request = params; { "access_token" => "app-token" } }) do
+      assert_equal "app-token", MailOauth.access_token!(@mailbox)
+    end
+
+    assert_equal "client_credentials", request[:grant_type]
+    assert_equal "https://outlook.office365.com/.default", request[:scope]
+    assert @mailbox.oauth_connected?
+    assert_equal "outlook.office365.com", @mailbox.imap_host
+    assert_equal "smtp.office365.com", @mailbox.smtp_host
+    assert_equal @mailbox.address, @mailbox.imap_user
+    assert_equal @mailbox.address, @mailbox.smtp_user
+    assert_nil @mailbox.oauth_refresh_token
+  end
+
   test "smtp_options switches to xoauth2 for oauth mailboxes" do
     @mailbox.update!(auth_kind: "microsoft", oauth_refresh_token: "rt", oauth_access_token: "tok",
                      oauth_expires_at: 1.hour.from_now, smtp_host: "smtp.office365.com")
@@ -65,6 +95,19 @@ class MailOauthTest < ActiveSupport::TestCase
     assert_equal :xoauth2, opts[:authentication]
     assert_equal "tok", opts[:password]
     assert_equal "support@contoso.com", opts[:user_name]
+  end
+
+  test "connection test uses the configured SMTP authenticator" do
+    @mailbox.update!(auth_kind: "microsoft", oauth_refresh_token: "rt", oauth_access_token: "tok",
+                     oauth_expires_at: 1.hour.from_now, smtp_host: "smtp.office365.com")
+    authentication = nil
+    smtp = Object.new
+    smtp.define_singleton_method(:enable_starttls_auto) {}
+    smtp.define_singleton_method(:open_timeout=) { |_| }
+    smtp.define_singleton_method(:start) { |_domain, _user, _secret, auth, &block| authentication = auth; block.call }
+
+    stub_smtp(smtp) { assert @mailbox.test_smtp[:ok] }
+    assert_equal :xoauth2, authentication
   end
 
   test "xoauth2 smtp authenticator is registered" do

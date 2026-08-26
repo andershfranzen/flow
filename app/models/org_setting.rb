@@ -11,6 +11,21 @@ class OrgSetting < ApplicationRecord
 
   def self.current = first || create!
 
+  # Only configured HTTPS URLs may be used as browser OAuth origins. Never
+  # derive this from the request Host header.
+  def canonical_base_url
+    value = base_url.to_s.strip
+    return if value.blank?
+
+    uri = URI.parse(value)
+    return unless uri.is_a?(URI::HTTPS) && uri.host.present? && uri.userinfo.blank? &&
+      uri.query.blank? && uri.fragment.blank?
+
+    value.sub(%r{/+\z}, "")
+  rescue URI::InvalidURIError
+    nil
+  end
+
   def logo_url
     return nil unless logo.attached?
     Rails.application.routes.url_helpers.rails_storage_proxy_path(logo, only_path: true)

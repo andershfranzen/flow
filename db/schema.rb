@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_26_011000) do
   create_table "action_mailbox_inbound_emails", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "message_checksum", null: false
@@ -62,21 +62,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_160000) do
     t.string "role", default: "user", null: false
     t.string "session_token", null: false
     t.text "signature"
+    t.string "sso_subject"
+    t.string "sso_tenant_id"
     t.string "timezone", default: "UTC", null: false
     t.json "ui_prefs", default: {}, null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_agents_on_email", unique: true
+    t.index ["sso_tenant_id", "sso_subject"], name: "index_agents_on_sso_tenant_and_subject", unique: true
   end
 
   create_table "api_tokens", force: :cascade do |t|
     t.integer "agent_id", null: false
     t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
     t.datetime "last_used_at"
     t.string "name", null: false
     t.string "scope", default: "read", null: false
     t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.index ["agent_id"], name: "index_api_tokens_on_agent_id"
+    t.index ["expires_at"], name: "index_api_tokens_on_expires_at"
     t.index ["token_digest"], name: "index_api_tokens_on_token_digest", unique: true
   end
 
@@ -271,7 +276,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_160000) do
     t.text "default_signature"
     t.string "google_client_id"
     t.string "google_client_secret"
-    t.boolean "mcp_enabled", default: true, null: false
+    t.boolean "mcp_enabled", default: false, null: false
     t.string "ms_client_id"
     t.string "ms_client_secret"
     t.boolean "ms_sso_enabled", default: false, null: false

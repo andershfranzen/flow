@@ -1,5 +1,5 @@
 class Mailbox < ApplicationRecord
-  AUTH_KINDS = %w[password microsoft google].freeze
+  AUTH_KINDS = %w[password microsoft microsoft_app google].freeze
 
   encrypts :imap_password, :smtp_password, :oauth_refresh_token, :oauth_access_token
 
@@ -15,6 +15,7 @@ class Mailbox < ApplicationRecord
   validates :auth_kind, inclusion: { in: AUTH_KINDS }
 
   before_validation { self.address = address.to_s.downcase.strip }
+  before_validation :apply_microsoft_app_defaults
 
   # A To/Cc/Bcc address matches this mailbox, including plus-addressing (A12).
   def matches_address?(email)
@@ -25,7 +26,7 @@ class Mailbox < ApplicationRecord
   end
 
   def oauth? = auth_kind != "password"
-  def oauth_connected? = oauth? && oauth_refresh_token.present?
+  def oauth_connected? = auth_kind == "microsoft_app" ? MailOauth.configured?(auth_kind) : oauth? && oauth_refresh_token.present?
 
   def imap_configured?
     return imap_host.present? && imap_user.present? && oauth_connected? if oauth?
@@ -81,13 +82,24 @@ class Mailbox < ApplicationRecord
     smtp.enable_tls if opts[:tls]
     smtp.open_timeout = 5
     if opts[:user_name]
-      smtp.start(opts[:domain], opts[:user_name], opts[:password], :plain) {}
+      smtp.start(opts[:domain], opts[:user_name], opts[:password], opts[:authentication]) {}
     else
       smtp.start(opts[:domain]) {}
     end
     { ok: true }
   rescue StandardError => e
     { ok: false, error: e.message.truncate(200) }
+  end
+
+  private
+
+  def apply_microsoft_app_defaults
+    return unless auth_kind == "microsoft_app"
+
+    self.imap_host = "outlook.office365.com" if imap_host.blank?
+    self.imap_user = address if imap_user.blank?
+    self.smtp_host = "smtp.office365.com" if smtp_host.blank?
+    self.smtp_user = address if smtp_user.blank?
   end
 
 end

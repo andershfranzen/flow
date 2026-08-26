@@ -107,6 +107,16 @@ class PipelineTest < ActiveSupport::TestCase
     assert_equal "Hi", msg.body_text.strip
   end
 
+  test "svg data images are removed while supported raster data images survive" do
+    html = '<img src="data:image/svg+xml;base64,PHN2Zy8+">' \
+           '<img src="data:image/png;base64,AAAA">'
+
+    sanitized = HtmlSanitizer.call(html)
+
+    refute_includes sanitized, "image/svg+xml"
+    assert_includes sanitized, "data:image/png;base64,AAAA"
+  end
+
   test "inline styles survive sanitization but css attacks do not" do
     html = '<p style="color: #cc0000; font-family: Georgia">Warm</p>' \
            '<div style="background: url(javascript:alert(1)); color: blue">tricky</div>' \

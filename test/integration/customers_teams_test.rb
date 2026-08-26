@@ -29,6 +29,45 @@ class CustomersTeamsTest < ActionDispatch::IntegrationTest
     assert_equal [ "+45 11 22 33 44" ], body["phones"]
   end
 
+  test "customer details require a conversation in an accessible mailbox" do
+    private_mailbox = Mailbox.create!(address: "private@example.com", name: "Private", smtp_host: "s.example.com")
+    private_customer = Customer.create!(email: "private@example.com", notes: "secret")
+    Conversation.create!(mailbox: private_mailbox, customer: private_customer, subject: "Private")
+    user = Agent.create!(email: "limited@example.com", name: "Limited", password: "secret123", role: "user")
+    MailboxAccess.create!(agent: user, mailbox: @mailbox)
+
+    post "/api/session", params: { email: user.email, password: "secret123" }
+    get "/api/customers/#{private_customer.id}"
+    assert_response :not_found
+    patch "/api/customers/#{private_customer.id}", params: { notes: "changed" }
+    assert_response :not_found
+    assert_equal "secret", private_customer.reload.notes
+
+    visible = ingest(subject: "Visible", from: "visible@example.dk")
+    get "/api/customers/#{visible.customer_id}"
+    assert_response :success
+    patch "/api/customers/#{visible.customer_id}", params: { notes: "updated" }
+    assert_response :success
+  end
+
+  test "customer merge rejects hidden conversations before global reparenting" do
+    private_mailbox = Mailbox.create!(address: "private@example.com", name: "Private", smtp_host: "s.example.com")
+    user = Agent.create!(email: "limited@example.com", name: "Limited", password: "secret123", role: "user")
+    MailboxAccess.create!(agent: user, mailbox: @mailbox)
+
+    target = ingest(subject: "Target", from: "target@example.dk")
+    source_visible = ingest(subject: "Source visible", from: "source@example.dk")
+    hidden = Conversation.create!(mailbox: private_mailbox, customer: source_visible.customer, subject: "Source hidden")
+
+    post "/api/session", params: { email: user.email, password: "secret123" }
+    post "/api/customers/#{target.customer_id}/merge", params: { source_email: source_visible.customer.email }
+
+    assert_response :not_found
+    assert_equal source_visible.customer_id, source_visible.reload.customer_id
+    assert_equal source_visible.customer_id, hidden.reload.customer_id
+    assert Customer.exists?(source_visible.customer_id)
+  end
+
   test "merge folds identities and future mail from either address maps to one customer" do
     c1 = ingest(subject: "One", from: "kunde@example.dk")
     c2 = ingest(subject: "Two", from: "k.hansen@gmail.com")

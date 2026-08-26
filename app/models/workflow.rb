@@ -61,7 +61,7 @@ class Workflow < ApplicationRecord
   end
 
   def safe_regex_match?(value, pattern)
-    Regexp.new(pattern, Regexp::IGNORECASE).match?(value)
+    Regexp.new(pattern, Regexp::IGNORECASE, timeout: 1.0).match?(value)
   rescue RegexpError, Regexp::TimeoutError
     false
   end

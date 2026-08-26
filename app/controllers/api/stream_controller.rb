@@ -30,6 +30,7 @@ class Api::StreamController < Api::BaseController
 
   # GET /api/stream?conversation_id= — emits `conversations` bumps and `presence`.
   def show
+    conversation = find_accessible_conversation!(params[:conversation_id]) if params[:conversation_id].present?
     response.headers["Content-Type"] = "text/event-stream"
     response.headers["Cache-Control"] = "no-cache"
     generation = self.class.open_stream!(current_agent.id)
@@ -44,8 +45,8 @@ class Api::StreamController < Api::BaseController
         last_stamp = current
         sse.write({ changed_at: current }, event: "conversations")
       end
-      if params[:conversation_id].present?
-        viewers = Presence.viewers(params[:conversation_id]).reject { |v| v["id"] == current_agent.id }
+      if conversation
+        viewers = Presence.viewers(conversation.id).reject { |v| v["id"] == current_agent.id }
         if viewers != last_viewers
           last_viewers = viewers
           sse.write({ viewers: viewers }, event: "presence")

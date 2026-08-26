@@ -13,6 +13,9 @@ class MailOauth
   def self.configured?(provider)
     case provider
     when "microsoft" then settings.ms_client_id.present? && settings.ms_client_secret.present?
+    when "microsoft_app"
+      settings.ms_client_id.present? && settings.ms_client_secret.present? &&
+        settings.ms_tenant.present? && !%w[common organizations consumers].include?(settings.ms_tenant.downcase)
     when "google"    then settings.google_client_id.present? && settings.google_client_secret.present?
     else false
     end
@@ -25,7 +28,7 @@ class MailOauth
       tenant = s.ms_tenant.presence || "common"
       { auth_url: "https://login.microsoftonline.com/#{tenant}/oauth2/v2.0/authorize",
         token_url: "https://login.microsoftonline.com/#{tenant}/oauth2/v2.0/token",
-        scope: "offline_access https://outlook.office365.com/IMAP.AccessAsUser.All https://outlook.office365.com/SMTP.Send",
+        scope: "offline_access https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send",
         client_id: s.ms_client_id, client_secret: s.ms_client_secret,
         imap_host: "outlook.office365.com", smtp_host: "smtp.office365.com", smtp_port: 587 }
     when "google"
@@ -75,6 +78,8 @@ class MailOauth
 
   # A valid access token, refreshed when within a minute of expiry.
   def self.access_token!(mailbox)
+    return application_access_token! if mailbox.auth_kind == "microsoft_app"
+
     raise Error, "mailbox #{mailbox.address} is not OAuth-connected" if mailbox.oauth_refresh_token.blank?
     return mailbox.oauth_access_token if mailbox.oauth_access_token.present? &&
                                          mailbox.oauth_expires_at&.after?(1.minute.from_now)
@@ -86,6 +91,19 @@ class MailOauth
       oauth_refresh_token: tokens["refresh_token"].presence || mailbox.oauth_refresh_token
     )
     mailbox.oauth_access_token
+  end
+
+  # Exchange app-only access uses one short-lived token for every mailbox
+  # explicitly granted to the service principal by the tenant administrator.
+  def self.application_access_token!
+    raise Error, "Microsoft application access needs a client ID, secret, and tenant ID" unless configured?("microsoft_app")
+
+    s = settings
+    Rails.cache.fetch([ "mail-oauth", "microsoft-app", s.ms_tenant, s.ms_client_id ], expires_in: 50.minutes) do
+      post_token(provider_config("microsoft"),
+        grant_type: "client_credentials", scope: "https://outlook.office365.com/.default")
+        .fetch("access_token") { raise Error, "token endpoint returned no access token" }
+    end
   end
 
   def self.post_token(config, params)

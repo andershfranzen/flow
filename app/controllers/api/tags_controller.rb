@@ -1,5 +1,5 @@
 class Api::TagsController < Api::BaseController
-  before_action :require_admin!, only: [ :destroy ]
+  before_action :require_admin!, only: [ :create, :update, :destroy ]
 
   def index
     render json: Tag.order(:name).as_json(only: [ :id, :name, :color ])

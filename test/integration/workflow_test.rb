@@ -1,4 +1,5 @@
 require "test_helper"
+require "timeout"
 
 class WorkflowTest < ActionDispatch::IntegrationTest
   include ActiveJob::TestHelper
@@ -49,16 +50,36 @@ class WorkflowTest < ActionDispatch::IntegrationTest
     assert_equal [], ingest(subject: "calm request").tags.pluck(:name)
   end
 
-  test "send_reply is auto-submitted and does not cascade other workflows" do
+  test "catastrophic regex conditions time out" do
+    workflow = Workflow.new
+    assert_not Timeout.timeout(2) {
+      workflow.send(:safe_regex_match?, "a" * 100 + "!", "^(a+)+\\1b$")
+    }
+  end
+
+  test "send_reply is auto-submitted and does not recurse after delivery" do
     Workflow.create!(name: "Ack", trigger: "message.inbound",
       actions: [ { "type" => "send_reply", "value" => "We got it, {{customer.name}}" } ])
-    Workflow.create!(name: "Outbound spy", trigger: "message.outbound",
-      actions: [ { "type" => "add_tag", "value" => "should-never-appear" } ])
+    Workflow.create!(name: "Outbound reply", trigger: "message.outbound",
+      actions: [ { "type" => "send_reply", "value" => "Thanks for your message" } ])
     conversation = ingest(subject: "Ping")
     reply = conversation.messages.find_by(kind: "outbound")
     assert reply.auto_submitted
     assert_includes reply.body_text, "We got it"
-    assert_equal [], conversation.tags.pluck(:name), "workflow actions must not trigger workflows"
+
+    # OutboundSender emits this event after a successful delivery. The
+    # workflow engine must ignore its auto-submitted message rather than
+    # enqueueing another reply.
+    assert_no_difference -> { conversation.messages.where(kind: "outbound").count } do
+      Notifier.outbound_sent(reply)
+    end
+
+    # A regular outbound message still starts the outbound workflow.
+    human_reply = conversation.messages.create!(kind: "outbound", status: "sent",
+      auto_submitted: false, to: [ conversation.customer.email ], body_text: "A human reply")
+    assert_difference -> { conversation.messages.where(kind: "outbound").count }, 1 do
+      Notifier.outbound_sent(human_reply)
+    end
   end
 
   test "mailbox scoping and disabled workflows are skipped" do

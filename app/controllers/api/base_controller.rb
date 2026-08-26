@@ -27,6 +27,12 @@ class Api::BaseController < ApplicationController
     conversation
   end
 
+  def find_accessible_customer!(id)
+    customer = Customer.find(id)
+    raise ActiveRecord::RecordNotFound unless customer.accessible_to?(current_agent)
+    customer
+  end
+
   def paginate(scope)
     page = [ params.fetch(:page, 1).to_i, 1 ].max
     per = params.fetch(:per_page, 50).to_i.clamp(1, 200)

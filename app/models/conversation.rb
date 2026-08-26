@@ -45,6 +45,7 @@ class Conversation < ApplicationRecord
   end
 
   def assign!(to, agent: nil)
+    raise ActiveRecord::RecordNotFound if to && !to.can_access?(mailbox)
     update!(assignee: to)
     events.create!(agent: agent, kind: to ? "assigned" : "unassigned",
                    data: { assignee_id: to&.id, assignee_name: to&.name })

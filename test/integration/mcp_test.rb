@@ -2,6 +2,7 @@ require "test_helper"
 
 class McpTest < ActionDispatch::IntegrationTest
   setup do
+    OrgSetting.current.update!(mcp_enabled: true)
     @agent = Agent.create!(email: "a@example.com", name: "Ada", password: "secret123", role: "admin")
     _, @raw_token = ApiToken.issue(agent: @agent, name: "mcp", scope: "write")
     _, @read_token = ApiToken.issue(agent: @agent, name: "ro", scope: "read")
@@ -26,6 +27,15 @@ class McpTest < ActionDispatch::IntegrationTest
 
   test "rejects without token" do
     post "/mcp", params: {}.to_json, headers: { "Content-Type" => "application/json" }
+    assert_response :unauthorized
+  end
+
+  test "rejects a browser session without a bearer token" do
+    post "/api/session", params: { email: "a@example.com", password: "secret123" }
+    assert_response :success
+
+    post "/mcp", params: { jsonrpc: "2.0", id: 1, method: "tools/list" }.to_json,
+                 headers: { "Content-Type" => "application/json" }
     assert_response :unauthorized
   end
 
@@ -89,11 +99,64 @@ class McpTest < ActionDispatch::IntegrationTest
     assert_not_equal "closed", @conversation.reload.status
   end
 
+  test "non-admin mcp listings and mutations keep mailbox scope" do
+    admin_agents = tool_text(call_tool("list_agents", {}))
+    assert admin_agents.first.key?("role")
+    assert admin_agents.first.key?("mailboxes")
+
+    user = Agent.create!(email: "u@example.com", name: "U", password: "secret123", role: "user")
+    MailboxAccess.create!(agent: user, mailbox: @mailbox)
+    outsider = Agent.create!(email: "outsider@example.com", name: "Outsider", password: "secret123", role: "user")
+    private_mailbox = Mailbox.create!(address: "private@example.com", name: "Private", smtp_host: "s.example.com")
+    _, token = ApiToken.issue(agent: user, name: "u", scope: "write")
+
+    agents = tool_text(call_tool("list_agents", {}, token: token))
+    assert agents.all? { |a| a.keys.sort == %w[email name] }
+
+    body = call_tool("assign", { number: @conversation.number, agent_email: outsider.email }, token: token)
+    assert body.dig("result", "isError") || body["error"].present?
+    assert_nil @conversation.reload.assignee_id
+    refute Notification.exists?(agent: outsider, conversation: @conversation)
+
+    body = call_tool("save_saved_reply", { name: "global", body: "Global" }, token: token)
+    assert body.dig("result", "isError") || body["error"].present?
+    refute SavedReply.exists?(name: "global")
+
+    body = call_tool("save_saved_reply", { name: "private", body: "Private", mailbox_address: private_mailbox.address }, token: token)
+    assert body.dig("result", "isError") || body["error"].present?
+    refute SavedReply.exists?(name: "private")
+
+    body = call_tool("save_saved_reply", { name: "support", body: "Support", mailbox_address: @mailbox.address }, token: token)
+    assert body.dig("result", "content")
+    assert_equal @mailbox.id, SavedReply.find_by!(name: "support").mailbox_id
+
+    body = call_tool("save_saved_reply", { name: "support", body: "Updated" }, token: token)
+    assert body.dig("result", "content")
+    assert_equal [ "Updated", @mailbox.id ], SavedReply.find_by!(name: "support").values_at(:body, :mailbox_id)
+
+    body = call_tool("save_tag", { name: "hidden" }, token: token)
+    assert body.dig("result", "isError") || body["error"].present?
+    refute Tag.exists?(name: "hidden")
+
+    existing = Tag.create!(name: "existing")
+    body = call_tool("tag_conversation", { number: @conversation.number, tag: existing.name }, token: token)
+    assert body.dig("result", "content")
+    assert_includes @conversation.reload.tags, existing
+
+    body = call_tool("tag_conversation", { number: @conversation.number, tag: "new" }, token: token)
+    assert body.dig("result", "isError") || body["error"].present?
+    refute Tag.exists?(name: "new")
+  end
+
   test "mcp endpoint can be disabled in org settings" do
     OrgSetting.current.update!(mcp_enabled: false)
     post "/mcp", params: { jsonrpc: "2.0", id: 1, method: "tools/list" }.to_json,
                  headers: { "Content-Type" => "application/json", "Authorization" => "Bearer #{@raw_token}" }
     assert_response :not_found
+  end
+
+  test "new organisation settings keep MCP off by default" do
+    assert_equal false, OrgSetting.new.mcp_enabled
   end
 
   test "search then get_thread then send" do

@@ -48,6 +48,9 @@ class Agent < ApplicationRecord
   private
 
   def rotate_session_on_password_change
-    self.session_token = self.class.generate_unique_secure_token if password_digest_changed? && !new_record?
+    return unless password_digest_changed? && !new_record?
+
+    self.session_token = self.class.generate_unique_secure_token
+    api_tokens.delete_all
   end
 end

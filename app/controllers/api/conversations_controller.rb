@@ -34,15 +34,19 @@ class Api::ConversationsController < Api::BaseController
   # PATCH /api/conversations/bulk { ids: [], status:|assignee_id:|starred: }
   def bulk
     ids = Array(params.require(:ids))
+    conversations = Conversation.where(id: ids).to_a.select { |c| current_agent.can_access?(c.mailbox) }
+    assignee = params[:assignee_id].present? ? Agent.find(params[:assignee_id]) : nil
+    if assignee && conversations.any? { |conversation| !assignee.can_access?(conversation.mailbox) }
+      raise ActiveRecord::RecordNotFound
+    end
+
     updated = 0
-    Conversation.where(id: ids).find_each do |conversation|
-      next unless current_agent.can_access?(conversation.mailbox)
+    conversations.each do |conversation|
       if params.key?(:status)
         conversation.set_status!(params[:status], agent: current_agent)
         Notifier.status_changed(conversation)
       end
       if params.key?(:assignee_id)
-        assignee = params[:assignee_id].present? ? Agent.find(params[:assignee_id]) : nil
         conversation.assign!(assignee, agent: current_agent)
         Notifier.assigned(conversation, by: current_agent) if assignee
       end
@@ -106,7 +110,7 @@ class Api::ConversationsController < Api::BaseController
   def merge
     source = find_accessible_conversation!(params[:id])
     target = Conversation.find_by!(number: params.require(:into_number))
-    raise ActiveRecord::RecordNotFound unless current_agent.can_access?(source.mailbox)
+    raise ActiveRecord::RecordNotFound unless current_agent.can_access?(target.mailbox)
     if source.id == target.id || source.merged_into_id || target.merged_into_id
       return render json: { error: "cannot_merge" }, status: :unprocessable_entity
     end

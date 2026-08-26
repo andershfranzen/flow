@@ -58,6 +58,7 @@ class Api::PluginsController < Api::BaseController
   MAX_ZIP_BYTES = 10.megabytes
   MAX_UNPACKED_BYTES = 30.megabytes
   MAX_ENTRIES = 500
+  ZIP_READ_CHUNK_BYTES = 64.kilobytes
 
   def install_zip
     file = params.require(:file)
@@ -148,10 +149,16 @@ class Api::PluginsController < Api::BaseController
       dest = File.expand_path(File.join(staging, relative))
       # zip-slip: every path must resolve inside the staging directory
       raise Zip::Error, "unsafe path #{entry.name}" unless dest.start_with?("#{File.expand_path(staging)}/")
-      unpacked += entry.size
-      raise Zip::Error, "archive too large" if unpacked > MAX_UNPACKED_BYTES
       FileUtils.mkdir_p(File.dirname(dest))
-      File.binwrite(dest, entry.get_input_stream.read)
+      File.open(dest, "wb") do |output|
+        entry.get_input_stream do |input|
+          while (chunk = input.read(ZIP_READ_CHUNK_BYTES))
+            unpacked += chunk.bytesize
+            raise Zip::Error, "archive too large" if unpacked > MAX_UNPACKED_BYTES
+            output.write(chunk)
+          end
+        end
+      end
     end
     FileUtils.rm_rf(target)
     FileUtils.mv(staging, target)

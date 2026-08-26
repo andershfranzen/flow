@@ -31,7 +31,9 @@ it's a data copy exercise.
 
 ## Monitoring
 
-`GET /health` returns JSON with per-mailbox fetch status **and queue depth**:
+`GET /health` returns JSON with per-mailbox fetch status **and queue depth**.
+Set `FLOW_HEALTH_TOKEN` and send it as `Authorization: Bearer ...`; `/up`
+remains unauthenticated for container liveness checks.
 
 ```json
 { "ok": true, "mailboxes": [...], "queue": { "pending": 0, "failed": 0, "oldest_pending_seconds": null } }
@@ -78,23 +80,31 @@ rest with keys derived from `SECRET_KEY_BASE` (rotating it invalidates them —
 re-enter mailbox credentials after a rotation); webhook deliveries refuse
 private-network targets unless `FLOW_ALLOW_PRIVATE_WEBHOOKS=1`; attachments
 capped at 25 MB out / 30 MB in; oversized inbound messages are skipped with
-a log line.
+a log line. MCP is disabled by default and requires an explicit organisation
+opt-in. Use a read-scope token first, treat inbound customer content as
+untrusted instructions, and require human review of a draft before enabling
+write or send tools.
 
 ## Sign in with Microsoft (SSO)
 
-Reuses the same Entra app registration as Microsoft 365 mailbox OAuth. To enable:
+Reuses the same Entra app registration as Microsoft 365 mailbox OAuth. Set
+Organisation → Base URL to the public HTTPS URL first; browser OAuth and SSO
+never derive a redirect or popup origin from the request Host header. To enable:
 
 1. In the Entra app registration, add a second redirect URI: `<base url>/auth/microsoft/callback`
    (the mailbox flow already uses `<base url>/oauth/callback`). The `openid email profile`
    scopes are requested at sign-in time; no extra API permissions are needed.
-2. Settings -> Organisation -> "Sign in with Microsoft": enable the toggle. Optionally enable
-   auto-provisioning and list the email domains allowed to self-create agent accounts
+2. Set the Microsoft tenant to its GUID (the `common`, `organizations`, and `consumers`
+   modes are intentionally refused for SSO), then enable Settings -> Organisation ->
+   "Sign in with Microsoft". List allowed email domains; the domain check applies to
+   existing and auto-provisioned accounts. Optionally enable auto-provisioning
    (auto-provisioned accounts get the regular `user` role).
 3. While SSO is enabled, password login is disabled for everyone ("one or the other").
 
 Lockout recovery: if the Entra app breaks and nobody can sign in, start the server with
-`FLOW_FORCE_PASSWORD_LOGIN=1` to temporarily re-allow password login, fix the app or disable
-the toggle, then remove the variable.
+`FLOW_FORCE_PASSWORD_LOGIN=1` (or the explicit value `true`) to temporarily re-allow
+password login, fix the app or disable the toggle, then remove the variable. Values such
+as `0` and `false` do not override SSO.
 
 Note: SSO sign-ins bypass Flow's built-in TOTP (Microsoft enforces its own MFA policies).
 
@@ -103,6 +113,7 @@ Note: SSO sign-ins bypass Flow's built-in TOTP (Microsoft enforces its own MFA p
 ```
 git clone https://github.com/andershfranzen/flow && cd flow
 echo "SECRET_KEY_BASE=$(openssl rand -hex 64)" > .env
+echo "FLOW_HEALTH_TOKEN=$(openssl rand -hex 32)" >> .env
 docker compose up -d
 ```
 
@@ -123,7 +134,7 @@ works as-is with `kamal setup`.
 ## Monitoring
 
 - `GET /up` — process liveness (use for container healthchecks).
-- `GET /health` — JSON with database status, per-mailbox fetch staleness
+- `GET /health` — authenticated JSON with database status, per-mailbox fetch staleness
   (`stale: true` after 15 minutes without a successful fetch), a `warnings`
   count, and job-queue depth/age. Point your uptime monitor here and alert on
   non-200 or `warnings > 0`.

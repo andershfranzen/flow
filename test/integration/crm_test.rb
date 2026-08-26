@@ -2,11 +2,17 @@ require "test_helper"
 
 class CrmTest < ActionDispatch::IntegrationTest
   setup do
+    OrgSetting.current.update!(mcp_enabled: true)
     @agent = Agent.create!(email: "a@example.com", name: "Ada", password: "secret123", role: "admin")
     post "/api/session", params: { email: "a@example.com", password: "secret123" }
     OrgSetting.current.update!(crm_enabled: true, crm_url: "https://acmecool.crm4.dynamics.com",
                                ms_client_id: "cid", ms_client_secret: "sec",
                                ms_tenant: "11111111-2222-3333-4444-555555555555")
+    @mailbox = Mailbox.create!(address: "support@example.com", name: "Support", smtp_host: "s.example.com")
+    %w[lars@nordiccooling.dk unknown@nordiccooling.dk someone@gmail.com x@y.dk].each do |email|
+      Conversation.create!(mailbox: @mailbox, customer: Customer.create!(email: email), subject: email)
+    end
+    Conversation.create!(mailbox: @mailbox, customer: Customer.create!(email: "o'brien@example.org"), subject: "O'Brien")
     Rails.cache.clear
   end
 
@@ -41,6 +47,7 @@ class CrmTest < ActionDispatch::IntegrationTest
     assert body["configured"]
     assert_equal "Lars Beck", body.dig("contact", "name")
     assert_equal "Nordic Køling A/S", body.dig("account", "name")
+    assert_equal "https://nordiccooling.dk", body.dig("account", "website")
     assert_includes body.dig("contact", "url"), "etn=contact&id=abc-123"
     assert_includes captured["$filter"], "emailaddress1 eq 'lars@nordiccooling.dk'"
   end
@@ -66,6 +73,48 @@ class CrmTest < ActionDispatch::IntegrationTest
       get "/api/crm/lookup", params: { email: "o'brien@example.org" }
     end
     assert_includes captured["$filter"], "eq 'o''brien@example.org'"
+  end
+
+  test "account websites allow only http and https" do
+    contact = CONTACT.deep_dup
+    contact["parentcustomerid_account"]["websiteurl"] = "javascript:alert(1)"
+    stub_crm("contacts" => ->(_) { { "value" => [ contact ] } }) do
+      get "/api/crm/lookup", params: { email: "lars@nordiccooling.dk" }
+    end
+    assert_response :success
+    assert_nil response.parsed_body.dig("account", "website")
+  end
+
+  test "lookup is limited to visible customers and their aliases for HTTP and MCP" do
+    visible = Customer.find_by!(email: "lars@nordiccooling.dk")
+    visible.update!(emails: [ "alias@nordiccooling.dk" ])
+    limited = Agent.create!(email: "limited@example.com", name: "Limited", password: "secret123", role: "user")
+    MailboxAccess.create!(agent: limited, mailbox: @mailbox)
+    private_mailbox = Mailbox.create!(address: "private@example.com", name: "Private", smtp_host: "s.example.com")
+    private_customer = Customer.create!(email: "private@example.com")
+    Conversation.create!(mailbox: private_mailbox, customer: private_customer, subject: "Private")
+    post "/api/session", params: { email: limited.email, password: "secret123" }
+
+    calls = 0
+    stub_crm("contacts" => ->(_) { calls += 1; { "value" => [ CONTACT.deep_dup ] } }) do
+      get "/api/crm/lookup", params: { email: "ALIAS@nordiccooling.DK" }
+      assert_equal "Lars Beck", response.parsed_body.dig("contact", "name")
+      assert_equal 1, calls
+
+      calls = 0
+      get "/api/crm/lookup", params: { email: private_customer.email }
+      assert_response :success
+      assert_nil response.parsed_body["contact"]
+      assert_nil response.parsed_body["account"]
+      assert_equal 0, calls
+
+      _, token = ApiToken.issue(agent: limited, name: "crm", scope: "read")
+      post "/mcp", params: { jsonrpc: "2.0", id: 1, method: "tools/call",
+                             params: { name: "crm_lookup", arguments: { email: private_customer.email } } }.to_json,
+                   headers: { "Content-Type" => "application/json", "Authorization" => "Bearer #{token}" }
+      assert_equal({}, JSON.parse(response.parsed_body.dig("result", "content").first["text"]))
+      assert_equal 0, calls
+    end
   end
 
   test "unconfigured and errors are graceful" do

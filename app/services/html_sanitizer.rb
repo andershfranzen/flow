@@ -37,7 +37,7 @@ class HtmlSanitizer
     fragment.css("img").each do |img|
       if (cid = img.remove_attribute("data-flow-cid")&.value)
         img["src"] = "cid:#{cid}"
-      elsif img["src"] && !img["src"].match?(%r{\A(https?:|data:image/)}i)
+      elsif img["src"] && !img["src"].match?(%r{\A(?:https?:|data:image/(?:gif|jpeg|png)(?:;[^,]*)?,)}i)
         img.remove_attribute("src")
       end
     end

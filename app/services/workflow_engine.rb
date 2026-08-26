@@ -14,6 +14,7 @@ class WorkflowEngine
     conversation = Conversation.find_by(id: conversation_id)
     return unless conversation
     message = event.start_with?("message.") ? Message.find_by(id: payload[:id]) : nil
+    return if message&.auto_submitted?
 
     Workflow.runnable_for(event, conversation.mailbox_id).each do |workflow|
       next unless workflow.matches?(conversation, message)

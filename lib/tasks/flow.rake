@@ -6,7 +6,7 @@ namespace :flow do
 
   desc "Restore a backup (flow:restore[20260825-120000]). STOP web + jobs first."
   task :restore, [ :stamp ] => :environment do |_t, args|
-    dir = Rails.root.join("storage", "backups", args.fetch(:stamp))
+    dir = Backup.backup_dir(args.fetch(:stamp))
     Backup.restore(dir)
     puts "Restored #{dir}. Restart the app."
   end

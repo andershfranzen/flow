@@ -47,6 +47,7 @@ class Api::MailboxesController < Api::BaseController
 
   def mailbox_json(m, full: false)
     json = m.as_json(only: [ :id, :address, :name, :from_name, :signature, :last_fetched_at, :fetch_error ])
+    json["signature"] = HtmlSanitizer.call(m.signature)
     if full
       json.merge!(m.as_json(only: [ :imap_host, :imap_port, :imap_ssl, :imap_user, :imap_folder,
                                     :smtp_host, :smtp_port, :smtp_user, :smtp_security,

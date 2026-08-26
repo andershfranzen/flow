@@ -1,10 +1,10 @@
 class Api::CustomersController < Api::BaseController
   def show
-    show_target(Customer.find(params[:id]))
+    show_target(find_accessible_customer!(params[:id]))
   end
 
   def update
-    customer = Customer.find(params[:id])
+    customer = find_accessible_customer!(params[:id])
     permitted = params.permit(:name, :company, :notes, phones: [])
     permitted[:phones] = Array(params[:phones]).grep(String).reject(&:blank?) if params.key?(:phones)
     customer.update!(permitted)
@@ -13,8 +13,10 @@ class Api::CustomersController < Api::BaseController
 
   # POST /api/customers/:id/merge { source_email } — the other identity folds in (C7)
   def merge
-    target = Customer.find(params[:id])
+    target = find_accessible_customer!(params[:id])
     source = Customer.find_by!(email: params.require(:source_email).to_s.downcase.strip)
+    raise ActiveRecord::RecordNotFound unless source.fully_accessible_to?(current_agent)
+    raise ActiveRecord::RecordNotFound unless target.fully_accessible_to?(current_agent)
     if source.id == target.id
       return render json: { error: "same_customer" }, status: :unprocessable_entity
     end

@@ -44,7 +44,7 @@ const flash = ref('')
 const newToken = ref(null)
 const testResult = ref(null)
 
-const profile = ref({ name: '', password: '', notify_prefs: {}, ui_prefs: { motion: true }, muted_mailbox_ids: [] })
+const profile = ref({ name: '', current_password: '', password: '', notify_prefs: {}, ui_prefs: { motion: true }, muted_mailbox_ids: [] })
 const teams = ref([])
 const plugins = ref([])
 const restartHint = ref('')
@@ -85,12 +85,16 @@ async function load() {
     plugins.value = data.plugins
     restartHint.value = data.restart_hint
   }
-  if (tab.value === 'tokens') tokens.value = await api.get('/api/api_tokens')
+  if (tab.value === 'tokens') {
+    tokens.value = await api.get('/api/api_tokens')
+    const me = await api.get('/api/me')
+    otp.value = { setup: null, code: '', enabled: !!me.otp_required }
+  }
   if (tab.value === 'profile') {
     const me = await api.get('/api/me')
     otp.value = { setup: null, code: '', enabled: !!me.otp_required }
     mailboxes.value = await api.get('/api/mailboxes')
-    profile.value = { name: me.name, password: '', locale: me.locale, timezone: me.timezone,
+    profile.value = { name: me.name, current_password: '', password: '', otp_code: '', locale: me.locale, timezone: me.timezone,
                       signature: me.signature || '',
                       notify_prefs: me.notify_prefs, ui_prefs: { motion: true, ...(me.ui_prefs || {}) },
                       muted_mailbox_ids: me.muted_mailbox_ids || [] }
@@ -155,15 +159,28 @@ function removeLogo() {
 }
 
 async function saveProfile() {
-  await api.patch('/api/me', profile.value)
+  try {
+    await api.patch('/api/me', profile.value)
+  } catch (e) {
+    flash.value = e.message === 'otp_required' ? 'Authenticator code required' : (e.details?.[0] || e.message)
+    return
+  }
+  profile.value.current_password = ''
   profile.value.password = ''
+  profile.value.otp_code = ''
   setLocale(profile.value.locale)
   if (session.agent) session.agent.locale = profile.value.locale
   document.body.classList.toggle('no-motion', profile.value.ui_prefs.motion === false)
   ok()
 }
 
-async function otpSetup() { otp.value.setup = await api.post('/api/me/2fa/setup') }
+async function otpSetup() {
+  try {
+    otp.value.setup = await api.post('/api/me/2fa/setup')
+  } catch (e) {
+    flash.value = e.details?.[0] || e.message
+  }
+}
 async function otpEnable() {
   try {
     await api.post('/api/me/2fa/enable', { code: otp.value.code })
@@ -259,13 +276,24 @@ async function saveTag() {
 }
 async function saveWebhook() {
   const w = editing.value
-  if (w.id) await api.patch(`/api/webhooks/${w.id}`, w)
-  else await api.post('/api/webhooks', w)
-  await load(); ok()
+  if (w.id) {
+    await api.patch(`/api/webhooks/${w.id}`, w)
+    await load(); ok()
+  } else {
+    const saved = await api.post('/api/webhooks', w)
+    await load()
+    editing.value = saved
+    ok('Webhook created — copy the signing secret now')
+  }
 }
 async function createToken() {
-  newToken.value = await api.post('/api/api_tokens', editing.value)
-  await load()
+  try {
+    newToken.value = await api.post('/api/api_tokens', editing.value)
+    editing.value = null
+    await load()
+  } catch (e) {
+    flash.value = e.message === 'otp_required' ? 'Authenticator code required' : (e.details?.[0] || e.message)
+  }
 }
 async function del(path) { await api.delete(path); await load() }
 
@@ -419,7 +447,12 @@ const NOTIFY_LABELS = {
       <div class="modal-editor"><RichEditor v-model="org.default_signature" placeholder="Best regards, the Support team" /></div>
 
       <h3 style="margin-top:16px">Microsoft 365 OAuth app</h3>
-      <p class="hint-text">Register an app in Entra ID with delegated IMAP.AccessAsUser.All + SMTP.Send permissions and redirect URI <code>{{ org.base_url || '&lt;base url&gt;' }}/oauth/callback</code>.</p>
+      <p class="hint-text">Register one app in Entra ID. User-delegated mailboxes need
+        <code>IMAP.AccessAsUser.All</code> + <code>SMTP.Send</code> and redirect URI
+        <code>{{ org.base_url || '&lt;base url&gt;' }}/oauth/callback</code>. App-only mailboxes need the
+        Office 365 Exchange Online application permissions <code>IMAP.AccessAsApp</code> +
+        <code>SMTP.SendAsApp</code>, tenant admin consent, and mailbox-scoped FullAccess + SendAs grants
+        for the Exchange service principal.</p>
       <div class="form-grid">
         <div><label>Client ID</label><input v-model="org.ms_client_id" style="width:100%" /></div>
         <div><label>Client secret {{ org.ms_client_secret_set ? '(set — blank keeps it)' : '' }}</label>
@@ -430,6 +463,7 @@ const NOTIFY_LABELS = {
       <h3 style="margin-top:16px">Sign in with Microsoft</h3>
       <p class="hint-text">When enabled, everyone signs in through the Entra app above and password login is
         turned off. New sign-ins can auto-create agent accounts, but only for the listed email domains.
+        Auto-created agents start without mailbox access; an admin must grant it.
         Add a second redirect URI <code>{{ org.base_url || '&lt;base url&gt;' }}/auth/microsoft/callback</code>
         with the <code>openid email profile</code> scopes to the app registration.</p>
       <label class="choice"><input type="checkbox" v-model="org.ms_sso_enabled" />
@@ -575,16 +609,23 @@ const NOTIFY_LABELS = {
           <div><label>Method</label>
             <StyledSelect v-model="editing.auth_kind" style="width:100%"
                           :options="[{ value: 'password', label: 'Password (IMAP/SMTP)' },
-                                     { value: 'microsoft', label: 'Microsoft 365 (OAuth)' },
+                                     { value: 'microsoft', label: 'Microsoft 365 (delegated OAuth)' },
+                                     { value: 'microsoft_app', label: 'Microsoft 365 (app-only OAuth)' },
                                      { value: 'google', label: 'Google (OAuth)' }]" /></div>
-          <div v-if="editing.auth_kind !== 'password'" style="align-self:end; display:flex; gap:8px; align-items:center">
+          <div v-if="editing.auth_kind === 'microsoft' || editing.auth_kind === 'google'" style="align-self:end; display:flex; gap:8px; align-items:center">
             <button type="button" class="primary" @click="connectOauth">
               Connect {{ editing.auth_kind === 'microsoft' ? 'Microsoft 365' : 'Google' }}
             </button>
             <span v-if="editing.oauth_connected" class="pill status-active">connected</span>
             <span v-else class="pill">not connected</span>
           </div>
+          <div v-else-if="editing.auth_kind === 'microsoft_app'" style="align-self:end">
+            <span v-if="editing.oauth_connected" class="pill status-active">app configured</span>
+            <span v-else class="pill">configure the Microsoft app above</span>
+          </div>
         </div>
+        <p v-if="editing.auth_kind === 'microsoft_app'" class="hint-text">No user signs in and no refresh token is stored.
+          Flow requests short-lived client-credentials tokens and authenticates as this mailbox address.</p>
         <h3 style="margin-top:14px">IMAP (incoming)</h3>
         <div class="form-grid">
           <div><label>Host</label><input v-model="editing.imap_host" style="width:100%" /></div>
@@ -690,6 +731,12 @@ const NOTIFY_LABELS = {
         <div><label>New password</label>
           <input v-model="profile.password" type="password" autocomplete="new-password"
                  placeholder="Blank keeps current" style="width:100%" /></div>
+        <div v-if="profile.password"><label>Current password</label>
+          <input v-model="profile.current_password" type="password" autocomplete="current-password"
+                 required style="width:100%" /></div>
+        <div v-if="profile.password && otp.enabled"><label>Authenticator code</label>
+          <input v-model="profile.otp_code" inputmode="numeric" autocomplete="one-time-code"
+                 required style="width:100%" /></div>
         <div><label>Timezone</label>
           <StyledSelect v-model="profile.timezone" searchable style="width:100%"
                         :options="TIMEZONES" /></div>
@@ -740,7 +787,8 @@ const NOTIFY_LABELS = {
     <!-- Saved replies -->
     <div v-if="tab === 'saved_replies'">
       <div class="form-actions" style="margin:0 0 12px">
-        <button class="primary" @click="editing = { name: '', body: '', mailbox_id: null }">Add saved reply</button>
+        <button v-if="session.isAdmin || mailboxes.length" class="primary"
+                @click="editing = { name: '', body: '', mailbox_id: session.isAdmin ? null : mailboxes[0].id }">Add saved reply</button>
         <span class="hint" style="color:var(--muted)">Variables: <code v-pre>{{customer.name}} {{agent.name}} {{mailbox.name}}</code></span>
       </div>
       <table class="card" style="padding:0">
@@ -749,8 +797,8 @@ const NOTIFY_LABELS = {
             <td>{{ r.name }}</td>
             <td style="color:var(--muted)">{{ r.body.slice(0, 80) }}</td>
             <td style="text-align:right">
-              <button class="ghost" @click="editing = { ...r }">Edit</button>
-              <button class="ghost" @click="del(`/api/saved_replies/${r.id}`)">{{ t.delete }}</button>
+              <button v-if="session.isAdmin || r.mailbox_id" class="ghost" @click="editing = { ...r }">Edit</button>
+              <button v-if="session.isAdmin || r.mailbox_id" class="ghost" @click="del(`/api/saved_replies/${r.id}`)">{{ t.delete }}</button>
             </td>
           </tr>
         </tbody>
@@ -758,9 +806,9 @@ const NOTIFY_LABELS = {
       <form v-if="editing" class="card" @submit.prevent="saveSavedReply">
         <div><label>Name</label><input v-model="editing.name" required style="width:100%" /></div>
         <div style="margin-top:8px"><label>Body</label><textarea v-model="editing.body" rows="5" required style="width:100%"></textarea></div>
-        <div style="margin-top:8px"><label>Mailbox (blank = global)</label>
+        <div style="margin-top:8px"><label>{{ session.isAdmin ? 'Mailbox (blank = global)' : 'Mailbox' }}</label>
           <StyledSelect v-model="editing.mailbox_id" style="width:100%"
-                        :options="[{ value: null, label: 'Global' }, ...mailboxes.map((m) => ({ value: m.id, label: m.name }))]" /></div>
+                        :options="[...(session.isAdmin ? [{ value: null, label: 'Global' }] : []), ...mailboxes.map((m) => ({ value: m.id, label: m.name }))]" /></div>
         <div class="form-actions">
           <button class="primary">{{ t.save }}</button>
           <button type="button" @click="editing = null">{{ t.cancel }}</button>
@@ -770,7 +818,7 @@ const NOTIFY_LABELS = {
 
     <!-- Tags -->
     <div v-if="tab === 'tags'">
-      <div class="form-actions" style="margin:0 0 12px">
+      <div v-if="session.isAdmin" class="form-actions" style="margin:0 0 12px">
         <button class="primary" @click="editing = { name: '', color: '#2563eb' }">Add tag</button>
       </div>
       <table class="card" style="padding:0">
@@ -779,14 +827,14 @@ const NOTIFY_LABELS = {
             <td><span class="tag-pill" :style="{ background: x.color }">{{ x.name }}</span></td>
             <td style="color:var(--muted); font-family: ui-monospace, Menlo, monospace; font-size:13px">{{ x.color }}</td>
             <td style="text-align:right">
-              <button class="ghost" @click="editing = { ...x }">{{ t.edit }}</button>
+              <button v-if="session.isAdmin" class="ghost" @click="editing = { ...x }">{{ t.edit }}</button>
               <button v-if="session.isAdmin" class="ghost" @click="del(`/api/tags/${x.id}`)">{{ t.delete }}</button>
             </td>
           </tr>
           <tr v-if="!tags.length"><td style="color:var(--muted)">No tags yet</td></tr>
         </tbody>
       </table>
-      <form v-if="editing" class="card" @submit.prevent="saveTag">
+      <form v-if="editing && session.isAdmin" class="card" @submit.prevent="saveTag">
         <h3>{{ editing.id ? 'Edit tag' : 'New tag' }}</h3>
         <div style="display:flex; align-items:flex-end; gap:14px">
           <div style="flex:1"><label>Name</label><input v-model="editing.name" required style="width:100%" /></div>
@@ -844,7 +892,7 @@ const NOTIFY_LABELS = {
     <!-- API tokens -->
     <div v-if="tab === 'tokens'">
       <div class="form-actions" style="margin:0 0 12px">
-        <button class="primary" @click="editing = { name: '', scope: 'read' }; newToken = null">New token</button>
+        <button class="primary" @click="editing = { name: '', scope: 'read', current_password: '', otp_code: '' }; newToken = null">New token</button>
       </div>
       <p v-if="newToken" class="card ok-text">
         Token created — copy it now, it is shown once:<br /><code>{{ newToken.token }}</code>
@@ -854,6 +902,7 @@ const NOTIFY_LABELS = {
           <tr v-for="x in tokens" :key="x.id">
             <td>{{ x.name }}</td><td><span class="pill">{{ x.scope }}</span></td>
             <td style="color:var(--muted)">{{ x.last_used_at ? `used ${new Date(x.last_used_at).toLocaleDateString()}` : 'never used' }}</td>
+            <td style="color:var(--muted)">expires {{ new Date(x.expires_at).toLocaleDateString() }}</td>
             <td style="text-align:right"><button class="ghost" @click="del(`/api/api_tokens/${x.id}`)">Revoke</button></td>
           </tr>
         </tbody>
@@ -864,6 +913,12 @@ const NOTIFY_LABELS = {
           <div><label>Scope</label>
             <StyledSelect v-model="editing.scope" style="width:100%"
                           :options="[{ value: 'read', label: 'Read only' }, { value: 'write', label: 'Read + write' }]" /></div>
+          <div><label>Current password</label>
+            <input v-model="editing.current_password" type="password" autocomplete="current-password"
+                   required style="width:100%" /></div>
+          <div v-if="otp.enabled"><label>Authenticator code</label>
+            <input v-model="editing.otp_code" inputmode="numeric" autocomplete="one-time-code"
+                   required style="width:100%" /></div>
         </div>
         <div class="form-actions">
           <button class="primary">Create</button>

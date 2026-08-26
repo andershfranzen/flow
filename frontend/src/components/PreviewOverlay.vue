@@ -26,7 +26,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
         </header>
         <div class="preview-body">
           <img v-if="file.kind === 'image'" :src="file.url" :alt="file.name" />
-          <iframe v-else-if="file.kind === 'pdf'" :src="file.url" :title="file.name"></iframe>
+          <iframe v-else-if="file.kind === 'pdf'" :src="file.url" :title="file.name" sandbox></iframe>
           <audio v-else-if="file.kind === 'audio'" :src="file.url" controls autoplay></audio>
           <video v-else-if="file.kind === 'video'" :src="file.url" controls></video>
           <pre v-else-if="file.kind === 'text'">{{ file.text ?? 'Loading…' }}</pre>

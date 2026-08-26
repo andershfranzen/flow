@@ -36,7 +36,8 @@ class Api::OrgSettingsController < Api::BaseController
     s = OrgSetting.current
     s.as_json(only: [ :site_name, :base_url, :notify_from, :default_signature, :ms_client_id, :ms_tenant, :google_client_id,
                       :ms_sso_enabled, :sso_auto_provision, :sso_allowed_domains, :mcp_enabled, :crm_enabled, :crm_url ])
-     .merge("logo_url" => s.logo_url,
+     .merge("default_signature" => HtmlSanitizer.call(s.default_signature),
+            "logo_url" => s.logo_url,
             "theme" => s.theme || {},
             "ms_client_secret_set" => s.ms_client_secret.present?,
             "google_client_secret_set" => s.google_client_secret.present?,

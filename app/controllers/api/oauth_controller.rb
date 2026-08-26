@@ -11,6 +11,8 @@ class Api::OauthController < Api::BaseController
                             details: [ "Add the #{provider} client id and secret under Settings → Organisation first" ] },
                     status: :unprocessable_entity
     end
+    return render json: { error: "oauth_not_configured" }, status: :unprocessable_entity unless redirect_uri
+
     mailbox = Mailbox.find(params.require(:mailbox_id))
     render json: { url: MailOauth.authorize_url(provider, mailbox, redirect_uri) }
   end
@@ -18,7 +20,7 @@ class Api::OauthController < Api::BaseController
   private
 
   def redirect_uri
-    base = OrgSetting.current.base_url.presence || request.base_url
-    "#{base.chomp('/')}/oauth/callback"
+    base = OrgSetting.current.canonical_base_url
+    "#{base}/oauth/callback" if base
   end
 end

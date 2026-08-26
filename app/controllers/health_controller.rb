@@ -1,5 +1,7 @@
 # GET /health — db + last successful fetch per mailbox (F3).
 class HealthController < ActionController::Base
+  before_action :require_health_token!
+
   def show
     db_ok = ActiveRecord::Base.connection.select_value("SELECT 1") == 1
     mailboxes = Mailbox.all.map do |m|
@@ -15,6 +17,13 @@ class HealthController < ActionController::Base
   end
 
   private
+
+  def require_health_token!
+    expected = ENV["FLOW_HEALTH_TOKEN"].to_s
+    provided = request.headers["Authorization"].to_s.match(/\ABearer (.+)\z/)&.[](1)
+    return head :unauthorized unless expected.present? && provided.present?
+    head :unauthorized unless ActiveSupport::SecurityUtils.secure_compare(expected, provided)
+  end
 
   # "Mail silently stopped sending" must be visible from the outside (F3).
   def queue_stats

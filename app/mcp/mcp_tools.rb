@@ -178,14 +178,18 @@ module McpTools
   class TagConversation < MCP::Tool
     extend Helpers
     tool_name "tag_conversation"
-    description "Add or remove a tag on a conversation by tag name (tag is created if missing)."
+    description "Add or remove an existing tag on a conversation; admins may create it if missing."
     input_schema(properties: { number: { type: "integer" }, tag: { type: "string" },
                                remove: { type: "boolean" } }, required: [ "number", "tag" ])
 
     def self.call(number:, tag:, remove: false, server_context:)
       require_write!(server_context)
       c = find_conversation!(server_context, number)
-      record = Tag.find_or_create_by!(name: tag.strip)
+      record = Tag.find_by(name: tag.strip)
+      unless record
+        require_admin!(server_context)
+        record = Tag.create!(name: tag.strip)
+      end
       remove ? c.tags.delete(record) : (c.tags << record unless c.tags.include?(record))
       text_response({ number: c.number, tags: c.tags.reload.map(&:name) })
     end
@@ -196,13 +200,17 @@ module McpTools
   class ListAgents < MCP::Tool
     extend Helpers
     tool_name "list_agents"
-    description "List all agents with role and mailbox access."
+    description "List agent identities; admins also see roles and mailbox access."
     input_schema(properties: {}, required: [])
 
     def self.call(server_context:)
       text_response(Agent.order(:name).map { |a|
-        { email: a.email, name: a.name, role: a.role,
-          mailboxes: a.admin? ? "all" : Mailbox.where(id: a.mailbox_ids).pluck(:address) }
+        if agent(server_context).admin?
+          { email: a.email, name: a.name, role: a.role,
+            mailboxes: a.admin? ? "all" : Mailbox.where(id: a.mailbox_ids).pluck(:address) }
+        else
+          { email: a.email, name: a.name }
+        end
       })
     end
   end
@@ -238,7 +246,7 @@ module McpTools
   class SaveMailbox < MCP::Tool
     extend Helpers
     tool_name "save_mailbox"
-    description "Create or update a mailbox by address (admin). Full IMAP/SMTP config: name, from_name, signature, auth_kind (password/microsoft/google), imap_host, imap_port, imap_ssl, imap_user, imap_password, imap_folder, smtp_host, smtp_port, smtp_security (starttls/ssl/none), smtp_user, smtp_password, auto_reply_enabled, auto_reply_body. OAuth mailboxes still need a human to click through the provider consent (Settings -> Mailboxes -> Connect)."
+    description "Create or update a mailbox by address (admin). Full IMAP/SMTP config: name, from_name, signature, auth_kind (password/microsoft/microsoft_app/google), imap_host, imap_port, imap_ssl, imap_user, imap_password, imap_folder, smtp_host, smtp_port, smtp_security (starttls/ssl/none), smtp_user, smtp_password, auto_reply_enabled, auto_reply_body. Delegated OAuth mailboxes still need a human to click through provider consent (Settings -> Mailboxes -> Connect); Microsoft app-only OAuth uses the organization credentials configured in Settings."
     input_schema(properties: { address: { type: "string" }, attributes: { type: "object", additionalProperties: true } },
                  required: [ "address" ])
 
@@ -293,11 +301,11 @@ module McpTools
   class SaveTag < MCP::Tool
     extend Helpers
     tool_name "save_tag"
-    description "Create or update a tag (write scope). color is a #rrggbb hex."
+    description "Create or update a tag (admin). color is a #rrggbb hex."
     input_schema(properties: { name: { type: "string" }, color: { type: "string" } }, required: [ "name" ])
 
     def self.call(name:, color: nil, server_context:)
-      require_write!(server_context)
+      require_admin!(server_context)
       tag = Tag.find_or_create_by!(name: name.strip)
       tag.update!(color: color) if color.present?
       text_response({ name: tag.name, color: tag.color })
@@ -307,14 +315,31 @@ module McpTools
   class SaveSavedReply < MCP::Tool
     extend Helpers
     tool_name "save_saved_reply"
-    description "Create or update a saved reply by name (write scope). Supports {{customer.name}}, {{agent.name}}, {{mailbox.name}} variables. mailbox_address scopes it to one mailbox (omit = global)."
+    description "Create or update a saved reply by name (write scope). Supports {{customer.name}}, {{agent.name}}, {{mailbox.name}} variables. mailbox_address scopes new replies or retargets an update; omit it for a new global reply or to preserve an existing scope."
     input_schema(properties: { name: { type: "string" }, body: { type: "string" },
                                mailbox_address: { type: "string" } }, required: [ "name", "body" ])
 
     def self.call(name:, body:, mailbox_address: nil, server_context:)
       require_write!(server_context)
       reply = SavedReply.find_or_initialize_by(name: name.strip)
-      reply.update!(body: body, mailbox_id: mailbox_address.present? ? find_mailbox!(mailbox_address).id : nil)
+      if reply.persisted?
+        if reply.mailbox.nil?
+          require_admin!(server_context)
+        elsif !agent(server_context).can_access?(reply.mailbox)
+          raise ActiveRecord::RecordNotFound
+        end
+      end
+
+      mailbox =
+        if mailbox_address.present?
+          candidate = find_mailbox!(mailbox_address)
+          raise ActiveRecord::RecordNotFound unless agent(server_context).can_access?(candidate)
+          candidate
+        else
+          reply.mailbox
+        end
+      require_admin!(server_context) if mailbox.nil?
+      reply.update!(body: body, mailbox_id: mailbox&.id)
       text_response({ name: reply.name, mailbox: reply.mailbox&.address || "global" })
     end
   end
@@ -471,7 +496,9 @@ module McpTools
 
     def self.call(email:, server_context:)
       return text_response({ configured: false }) unless Crm.configured?
-      text_response(Crm.lookup(email) || {})
+      normalized = email.to_s.downcase.strip
+      return text_response({}) unless Customer.accessible_for_email(normalized, agent(server_context))
+      text_response(Crm.lookup(normalized) || {})
     end
   end
 

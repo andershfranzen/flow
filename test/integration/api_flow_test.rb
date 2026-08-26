@@ -40,12 +40,74 @@ class ApiFlowTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "acl: merge cannot target an inaccessible mailbox" do
+    private_mailbox = Mailbox.create!(address: "private@example.com", name: "Private", smtp_host: "smtp.example.com")
+    private_conversation = Conversation.create!(
+      mailbox: private_mailbox,
+      customer: Customer.create!(email: "private-customer@example.com"),
+      subject: "Private thread"
+    )
+
+    login("b@example.com")
+    post "/api/conversations/#{@conversation.id}/merge", params: { into_number: private_conversation.number }
+
+    assert_response :not_found
+    assert_nil @conversation.reload.merged_into_id
+    assert_equal [ @conversation.id ], @conversation.messages.reload.map(&:conversation_id).uniq
+    assert_empty private_conversation.reload.events
+  end
+
+  test "acl: drafts require an accessible conversation and use its mailbox" do
+    private_mailbox = Mailbox.create!(address: "private@example.com", name: "Private", smtp_host: "smtp.example.com")
+    private_conversation = Conversation.create!(
+      mailbox: private_mailbox,
+      customer: Customer.create!(email: "private-customer@example.com"),
+      subject: "Private thread"
+    )
+
+    login("b@example.com")
+    put "/api/drafts", params: { conversation_id: @conversation.id, mailbox_id: private_mailbox.id, body: "Visible draft" }
+    assert_response :success
+    draft = @bob.drafts.find_by!(conversation_id: @conversation.id)
+    assert_equal @mailbox.id, draft.mailbox_id
+
+    put "/api/drafts", params: { conversation_id: private_conversation.id, body: "Hidden draft" }
+    assert_response :not_found
+    refute @bob.drafts.exists?(conversation_id: private_conversation.id)
+  end
+
+  test "acl: stream presence requires an accessible conversation" do
+    private_mailbox = Mailbox.create!(address: "private@example.com", name: "Private", smtp_host: "smtp.example.com")
+    private_conversation = Conversation.create!(
+      mailbox: private_mailbox,
+      customer: Customer.create!(email: "private-customer@example.com"),
+      subject: "Private thread"
+    )
+    Presence.heartbeat(private_conversation.id, @admin)
+
+    login("b@example.com")
+    with_stream_ticks(0) do
+      get "/api/stream", params: { conversation_id: private_conversation.id }
+    end
+
+    assert_response :not_found
+  end
+
   test "assign notifies the assignee" do
     login("a@example.com")
     patch "/api/conversations/#{@conversation.id}", params: { assignee_id: @bob.id }
     assert_equal "Bob", response.parsed_body.dig("assignee", "name")
     assert Notification.exists?(agent: @bob, conversation: @conversation, kind: "assigned_to_me")
     assert_equal "assigned", @conversation.events.last.kind
+  end
+
+  test "bulk assignment rejects an assignee without mailbox access" do
+    login("b@example.com")
+    patch "/api/conversations/bulk", params: { ids: [ @conversation.id ], assignee_id: @outsider.id }
+
+    assert_response :not_found
+    assert_nil @conversation.reload.assignee_id
+    refute Notification.exists?(agent: @outsider, conversation: @conversation)
   end
 
   test "reply queues an outbound message and can close in one action" do
@@ -98,6 +160,51 @@ class ApiFlowTest < ActionDispatch::IntegrationTest
     assert_equal "Hello kunde@example.dk, — Ada", response.parsed_body["body"]
   end
 
+  test "saved reply visibility and mutation follow mailbox scope" do
+    private_mailbox = Mailbox.create!(address: "private@example.com", name: "Private", smtp_host: "smtp.example.com")
+    global = SavedReply.create!(name: "global", body: "Global")
+    private_reply = SavedReply.create!(name: "private", body: "Private", mailbox: private_mailbox)
+    scoped = SavedReply.create!(name: "scoped", body: "Scoped", mailbox: @mailbox)
+
+    login("b@example.com")
+    get "/api/saved_replies"
+    assert_includes response.parsed_body.map { |r| r["name"] }, "global"
+    refute_includes response.parsed_body.map { |r| r["name"] }, "private"
+
+    get "/api/saved_replies/#{global.id}/render", params: { conversation_id: @conversation.id }
+    assert_response :success
+    get "/api/saved_replies/#{private_reply.id}/render"
+    assert_response :not_found
+    patch "/api/saved_replies/#{private_reply.id}", params: { body: "changed" }
+    assert_response :not_found
+    delete "/api/saved_replies/#{private_reply.id}"
+    assert_response :not_found
+    post "/api/saved_replies", params: { name: "hidden", body: "hidden", mailbox_id: private_mailbox.id }
+    assert_response :not_found
+
+    patch "/api/saved_replies/#{global.id}", params: { body: "changed" }
+    assert_response :forbidden
+    delete "/api/saved_replies/#{global.id}"
+    assert_response :forbidden
+    patch "/api/saved_replies/#{scoped.id}", params: { body: "updated", mailbox_id: private_mailbox.id }
+    assert_response :not_found
+    assert_equal "Scoped", scoped.reload.body
+  end
+
+  test "tag definitions are admin-managed while users can attach existing tags" do
+    tag = Tag.create!(name: "billing", color: "#2563eb")
+    login("b@example.com")
+
+    post "/api/tags", params: { name: "new-tag" }
+    assert_response :forbidden
+    patch "/api/tags/#{tag.id}", params: { color: "#dc2626" }
+    assert_response :forbidden
+
+    patch "/api/conversations/#{@conversation.id}", params: { tag_ids: [ tag.id ] }
+    assert_response :success
+    assert_includes @conversation.reload.tags, tag
+  end
+
   test "new outbound conversation from an agent defaults assignment to the author" do
     login("b@example.com")
     assert_enqueued_with(job: SendMessageJob) do
@@ -138,9 +245,44 @@ class ApiFlowTest < ActionDispatch::IntegrationTest
     refute body.key?("imap_password")
   end
 
-  test "health endpoint reports mailboxes without auth" do
-    get "/health"
-    assert_response :success
-    assert_equal "support@example.com", response.parsed_body["mailboxes"].first["address"]
+  test "health endpoint requires a token and preserves detailed diagnostics" do
+    with_health_token(nil) do
+      get "/health"
+      assert_response :unauthorized
+    end
+
+    with_health_token("health-secret") do
+      get "/health"
+      assert_response :unauthorized
+
+      get "/health", headers: { "Authorization" => "Bearer wrong" }
+      assert_response :unauthorized
+
+      get "/health", headers: { "Authorization" => "Bearer health-secret" }
+      assert_response :success
+      body = response.parsed_body
+      assert_equal "support@example.com", body["mailboxes"].first["address"]
+      assert body.key?("queue")
+    end
+  end
+
+  private
+
+  def with_health_token(value)
+    previous = ENV["FLOW_HEALTH_TOKEN"]
+    value.nil? ? ENV.delete("FLOW_HEALTH_TOKEN") : ENV["FLOW_HEALTH_TOKEN"] = value
+    yield
+  ensure
+    previous.nil? ? ENV.delete("FLOW_HEALTH_TOKEN") : ENV["FLOW_HEALTH_TOKEN"] = previous
+  end
+
+  def with_stream_ticks(value)
+    previous = Api::StreamController::TICKS
+    Api::StreamController.send(:remove_const, :TICKS)
+    Api::StreamController.const_set(:TICKS, value)
+    yield
+  ensure
+    Api::StreamController.send(:remove_const, :TICKS)
+    Api::StreamController.const_set(:TICKS, previous)
   end
 end
