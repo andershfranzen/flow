@@ -19,10 +19,8 @@ class Customer < ApplicationRecord
     return nil if normalized.blank?
 
     alias_pattern = "%\"#{sanitize_sql_like(normalized)}\"%"
-    joins(:conversations)
-      .where(conversations: { mailbox_id: agent.accessible_mailboxes.select(:id) })
+    where(id: Conversation.where(mailbox_id: agent.accessible_mailboxes.select(:id)).select(:customer_id))
       .where("customers.email = :email OR CAST(customers.emails AS TEXT) LIKE :alias", email: normalized, alias: alias_pattern)
-      .distinct
       .first
   end
 
