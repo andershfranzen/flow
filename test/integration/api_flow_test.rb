@@ -148,6 +148,20 @@ class ApiFlowTest < ActionDispatch::IntegrationTest
     assert_equal "closed", @conversation.reload.status
   end
 
+  test "list flags conversations where the customer spoke last" do
+    login("b@example.com")
+    row = -> { get "/api/conversations"; response.parsed_body["conversations"].find { |c| c["id"] == @conversation.id } }
+    assert row.()["awaiting_reply"], "inbound-last thread awaits a reply"
+
+    post "/api/conversations/#{@conversation.id}/messages",
+         params: { kind: "note", body_text: "looking into it" }
+    assert row.()["awaiting_reply"], "a note is not an answer"
+
+    post "/api/conversations/#{@conversation.id}/messages",
+         params: { kind: "outbound", body_text: "On it" }
+    refute row.()["awaiting_reply"], "our reply clears the flag"
+  end
+
   test "note stays internal and is visually distinct data" do
     login("b@example.com")
     post "/api/conversations/#{@conversation.id}/messages",

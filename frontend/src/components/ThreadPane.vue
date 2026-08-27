@@ -372,6 +372,7 @@ function eventText(e) {
               <template v-if="item.kind === 'inbound' && item.received_at"><dt>Received</dt><dd>{{ fullTime(item.received_at, session.agent) }}</dd></template>
               <template v-if="item.kind === 'outbound'"><dt>Status</dt><dd>{{ item.status }}</dd></template>
               <template v-if="(item.attachments || []).length"><dt>Files</dt><dd>{{ item.attachments.length }} attachment{{ item.attachments.length === 1 ? '' : 's' }}</dd></template>
+              <template v-if="item.message_id_header"><dt>Message-ID</dt><dd>&lt;{{ item.message_id_header }}&gt;</dd></template>
             </dl>
             </div>
             </Transition>

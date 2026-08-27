@@ -119,7 +119,7 @@ async function submit() {
         <button type="submit" class="primary" :disabled="busy">{{ t.send }}</button>
         <label style="margin:0">
           <input type="file" multiple style="display:none" @change="pickFiles" />
-          <span class="pill" style="cursor:pointer">📎 {{ files.length || 'Attach' }}</span>
+          <span class="attach-btn" data-tip="Attach files"><Paperclip :size="15" />{{ files.length || '' }}</span>
         </label>
         <span class="spacer" style="flex:1"></span>
         <button v-if="effectiveSignature()" type="button" class="ghost sig-toggle"

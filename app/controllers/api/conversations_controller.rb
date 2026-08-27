@@ -28,8 +28,14 @@ class Api::ConversationsController < Api::BaseController
     # archive doesn't flag every thread; created_at covers the rest.
     activity = Message.where(conversation_id: ids).group(:conversation_id)
                       .maximum(Arel.sql("COALESCE(received_at, created_at)"))
+    # Awaiting reply: the customer spoke last (notes don't count as answers).
+    last_real = Message.where(conversation_id: ids).where.not(kind: "note")
+                       .group(:conversation_id).maximum(:id)
+    inbound_last = Message.where(id: last_real.values, kind: "inbound").pluck(:conversation_id).to_set
     render json: { conversations: conversations.map { |c|
-                     conversation_json(c).merge("unread" => unread?(activity[c.id], reads[c.id])) },
+                     conversation_json(c).merge(
+                       "unread" => unread?(activity[c.id], reads[c.id]),
+                       "awaiting_reply" => %w[active pending].include?(c.status) && inbound_last.include?(c.id)) },
                    folder_counts: folder_counts }
   end
 
@@ -275,7 +281,8 @@ class Api::ConversationsController < Api::BaseController
 
   def message_json(m)
     m.as_json(only: [ :id, :kind, :status, :from_email, :from_name, :to, :cc,
-                      :body_text, :body_html, :bounce, :auto_submitted, :sent_at, :received_at, :created_at ])
+                      :body_text, :body_html, :bounce, :auto_submitted, :sent_at, :received_at, :created_at,
+                      :message_id_header ])
      .merge(
        "agent" => m.agent&.as_json(only: [ :id, :name ]),
        "attachments" => m.files.map { |f|

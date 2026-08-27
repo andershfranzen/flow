@@ -247,6 +247,11 @@ function openNotif(n) {
   router.push(`/conversations/${n.conversation.id}`)
 }
 
+// Tab title carries the waiting work: unassigned mail + folder attention.
+watch(() => inbox.mailboxes.reduce((n, m) => n + (m.unassigned_count || 0), 0) +
+            inbox.personalFolders.reduce((n, f) => n + (f.attention || 0), 0),
+  (n) => { document.title = n ? `(${n}) Flow` : 'Flow' }, { immediate: true })
+
 const creatingFolder = ref(false)
 const newFolderName = ref('')
 const newFolderInput = ref(null)
@@ -541,7 +546,8 @@ async function logout() {
               <span class="line2">
                 <span class="subj">{{ c.subject || '(no subject)' }}</span><span class="prev"> — {{ c.preview }}</span>
               </span>
-              <span v-if="c.assignee || c.tags.length || c.status === 'pending'" class="meta">
+              <span v-if="c.awaiting_reply || c.assignee || c.tags.length || c.status === 'pending'" class="meta">
+                <span v-if="c.awaiting_reply" class="pill awaiting" data-tip="Customer spoke last">awaiting reply</span>
                 <span v-if="c.status === 'pending'" class="pill status-pending">{{ t.statuses.pending }}</span>
                 <span v-if="c.assignee" class="pill">{{ c.assignee.name }}</span>
                 <span v-for="tag in c.tags" :key="tag.id" class="tag-pill" :style="{ background: tag.color }">{{ tag.name }}</span>
