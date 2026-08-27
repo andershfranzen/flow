@@ -32,6 +32,22 @@ class PersonalFoldersTest < ActionDispatch::IntegrationTest
     assert_response :not_found, "Bob must not modify Ada's folder"
   end
 
+  test "folders flag unread open conversations as attention" do
+    post "/api/personal_folders", params: { name: "Chase" }
+    folder_id = response.parsed_body["id"]
+    post "/api/personal_folders/#{folder_id}/items", params: { conversation_ids: [ @one.id, @two.id ] }
+
+    get "/api/personal_folders"
+    assert_equal 2, response.parsed_body.first["attention"], "unread open threads count"
+
+    ConversationRead.create!(agent: @ada, conversation: @one, last_read_at: 1.minute.from_now)
+    @two.set_status!("closed")
+    get "/api/personal_folders"
+    folder = response.parsed_body.first
+    assert_equal 0, folder["attention"], "read or closed threads stop demanding attention"
+    assert_equal 2, folder["count"]
+  end
+
   test "personal folder filters the conversation list regardless of status" do
     post "/api/personal_folders", params: { name: "Chase later" }
     folder_id = response.parsed_body["id"]
@@ -65,20 +81,6 @@ class PersonalFoldersTest < ActionDispatch::IntegrationTest
     delete "/api/personal_folders/#{folder_id}"
     assert_response :no_content
     assert Conversation.exists?(@one.id)
-  end
-
-  test "stars are per-agent" do
-    patch "/api/conversations/#{@one.id}", params: { starred: true }
-    assert response.parsed_body["starred"]
-    get "/api/conversations", params: { folder: "starred" }
-    assert_equal [ @one.id ], response.parsed_body["conversations"].map { |c| c["id"] }
-
-    login_bob
-    get "/api/conversations", params: { folder: "starred" }
-    assert_equal [], response.parsed_body["conversations"], "Ada's star must be invisible to Bob"
-    get "/api/conversations", params: { folder: "unassigned" }
-    starred_flags = response.parsed_body["conversations"].map { |c| c["starred"] }
-    assert starred_flags.none?, "starred flag is personal in the list too"
   end
 
   test "bulk remove-from-folder works from a folder view" do

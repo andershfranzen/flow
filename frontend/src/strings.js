@@ -6,7 +6,7 @@ const en = {
   login: 'Log in', logout: 'Log out', email: 'Email', password: 'Password',
   loginFailed: 'Wrong email or password',
   folders: {
-    unassigned: 'Unassigned', mine: 'Mine', assigned: 'Assigned', starred: 'Starred',
+    unassigned: 'Unassigned', mine: 'Mine', assigned: 'Assigned',
     snoozed: 'Snoozed', drafts: 'Drafts', closed: 'Closed', spam: 'Spam', trash: 'Trash',
   },
   statuses: { active: 'Active', pending: 'Pending', closed: 'Closed', spam: 'Spam', trash: 'Trash' },
@@ -28,7 +28,7 @@ const da = {
   login: 'Log ind', logout: 'Log ud', email: 'E-mail', password: 'Adgangskode',
   loginFailed: 'Forkert e-mail eller adgangskode',
   folders: {
-    unassigned: 'Ufordelte', mine: 'Mine', assigned: 'Tildelte', starred: 'Stjernemarkerede',
+    unassigned: 'Ufordelte', mine: 'Mine', assigned: 'Tildelte',
     snoozed: 'Udsatte', drafts: 'Kladder', closed: 'Lukkede', spam: 'Spam', trash: 'Papirkurv',
   },
   statuses: { active: 'Aktiv', pending: 'Afventer', closed: 'Lukket', spam: 'Spam', trash: 'Papirkurv' },

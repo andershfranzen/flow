@@ -23,16 +23,14 @@ class WorkflowTest < ActionDispatch::IntegrationTest
     Conversation.order(:id).last
   end
 
-  test "matching workflow tags, assigns and stars a new conversation" do
+  test "matching workflow tags and assigns a new conversation" do
     Workflow.create!(name: "Billing triage", trigger: "message.inbound",
       conditions: [ { "field" => "subject", "operator" => "contains", "value" => "invoice" } ],
       actions: [ { "type" => "add_tag", "value" => "billing" },
-                 { "type" => "assign", "value" => @admin.id.to_s },
-                 { "type" => "star" } ])
+                 { "type" => "assign", "value" => @admin.id.to_s } ])
     conversation = ingest(subject: "Invoice 900 is wrong")
     assert_equal [ "billing" ], conversation.tags.pluck(:name)
     assert_equal @admin.id, conversation.assignee_id
-    assert Star.exists?(agent: @admin, conversation: conversation), "star action stars for the assignee"
     assert_equal "workflow", conversation.events.last.kind
     assert_equal 1, Workflow.first.reload.runs_count
 
@@ -129,7 +127,7 @@ class WorkflowTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
 
     post "/api/workflows", params: { name: "Good", trigger: "message.inbound",
-      conditions: [], actions: [ { type: "star" } ] }
+      conditions: [], actions: [ { type: "set_status", value: "closed" } ] }
     assert_response :created
   end
 end

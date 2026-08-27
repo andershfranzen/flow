@@ -3,7 +3,8 @@
 // Parents read content via the exposed methods; pasted images upload as CID
 // inline attachments named by their local placeholder.
 import { ref, watch, onMounted } from 'vue'
-import { Link2, List } from 'lucide-vue-next'
+import { dialog } from '../dialog'
+import { Link2, List, ListOrdered, Quote, RemoveFormatting } from 'lucide-vue-next'
 
 const props = defineProps({
   placeholder: { type: String, default: '' },
@@ -35,9 +36,36 @@ function exec(command, arg = null) {
   onNativeInput()
 }
 
-function addLink() {
-  const url = window.prompt('Link URL:', 'https://')
-  if (url) exec('createLink', url)
+async function addLink() {
+  // The modal steals focus, so preserve the text selection across the dialog.
+  const range = window.getSelection()?.rangeCount ? window.getSelection().getRangeAt(0).cloneRange() : null
+  const url = await dialog.prompt('Link URL:', { initial: 'https://' })
+  if (!url) return
+  if (range) {
+    const sel = window.getSelection()
+    sel.removeAllRanges()
+    sel.addRange(range)
+  }
+  exec('createLink', url)
+}
+
+function startResize(e) {
+  const startY = e.clientY
+  const startH = editorEl.value.offsetHeight
+  // Grip sits below the editor: dragging down grows it.
+  const move = (ev) => { editorEl.value.style.height = `${Math.max(120, startH + (ev.clientY - startY))}px` }
+  const up = () => {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', up)
+  }
+  window.addEventListener('pointermove', move)
+  window.addEventListener('pointerup', up)
+}
+
+function clearFormatting() {
+  exec('removeFormat')
+  exec('unlink')
+  exec('formatBlock', 'div') // lift blockquotes/lists back to plain lines
 }
 
 function onPaste(e) {
@@ -95,12 +123,20 @@ defineExpose({
 <template>
   <div class="rich-editor">
     <div class="fmt-bar">
-      <button type="button" class="ghost fmt" data-tip="Bold" @mousedown.prevent="exec('bold')"><b>B</b></button>
-      <button type="button" class="ghost fmt" data-tip="Italic" @mousedown.prevent="exec('italic')"><i>I</i></button>
+      <button type="button" class="ghost fmt" data-tip="Bold (⌘B)" @mousedown.prevent="exec('bold')"><b>B</b></button>
+      <button type="button" class="ghost fmt" data-tip="Italic (⌘I)" @mousedown.prevent="exec('italic')"><i>I</i></button>
+      <button type="button" class="ghost fmt" data-tip="Underline (⌘U)" @mousedown.prevent="exec('underline')"><u>U</u></button>
+      <button type="button" class="ghost fmt" data-tip="Strikethrough" @mousedown.prevent="exec('strikeThrough')"><s>S</s></button>
+      <span class="fmt-sep"></span>
       <button type="button" class="ghost fmt" data-tip="Bullet list" @mousedown.prevent="exec('insertUnorderedList')"><List :size="14" /></button>
+      <button type="button" class="ghost fmt" data-tip="Numbered list" @mousedown.prevent="exec('insertOrderedList')"><ListOrdered :size="14" /></button>
+      <button type="button" class="ghost fmt" data-tip="Quote" @mousedown.prevent="exec('formatBlock', 'blockquote')"><Quote :size="13" /></button>
       <button type="button" class="ghost fmt" data-tip="Link" @mousedown.prevent="addLink"><Link2 :size="14" /></button>
+      <span class="fmt-sep"></span>
+      <button type="button" class="ghost fmt" data-tip="Clear formatting" @mousedown.prevent="clearFormatting"><RemoveFormatting :size="14" /></button>
     </div>
     <div ref="editorEl" class="editor" contenteditable="true" role="textbox" aria-multiline="true"
          :data-placeholder="placeholder" @input="onNativeInput" @paste="onPaste"></div>
+    <div class="resize-grip" aria-hidden="true" @pointerdown.prevent="startResize"><span></span></div>
   </div>
 </template>

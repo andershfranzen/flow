@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "flow-dev",
+      "runtimeExecutable": "bin/dev",
+      "runtimeArgs": [],
+      "port": 5173
+    }
+  ]
+}

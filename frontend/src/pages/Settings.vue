@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useSession } from '../stores/session'
 import { api } from '../api'
 import { t, setLocale } from '../strings'
+import { dialog } from '../dialog'
 import WorkflowBuilder from '../components/WorkflowBuilder.vue'
 import RichEditor from '../components/RichEditor.vue'
 import ReportsPanel from '../components/ReportsPanel.vue'
@@ -191,7 +192,7 @@ async function otpEnable() {
   } catch { flash.value = 'Wrong code — try again' }
 }
 async function otpDisable() {
-  const code = window.prompt('Enter a current code from your authenticator to disable 2FA:')
+  const code = await dialog.prompt('Enter a current code from your authenticator to disable 2FA:', { placeholder: '123456' })
   if (!code) return
   try {
     await api.post('/api/me/2fa/disable', { code })
@@ -221,7 +222,7 @@ async function saveAgent() {
   await load(); ok()
 }
 async function deleteAgent(a) {
-  if (!confirm(`Delete agent ${a.name}?`)) return
+  if (!await dialog.confirm(`Delete agent ${a.name}?`, { danger: true })) return
   await api.delete(`/api/agents/${a.id}`); await load()
 }
 
@@ -259,7 +260,7 @@ async function testMailbox() {
   testResult.value = await api.post(`/api/mailboxes/${editing.value.id}/test`)
 }
 async function deleteMailbox(m) {
-  if (!confirm(`Delete mailbox ${m.address} and all its conversations?`)) return
+  if (!await dialog.confirm(`Delete mailbox ${m.address} and all its conversations?`, { danger: true })) return
   await api.delete(`/api/mailboxes/${m.id}`); await load()
 }
 
@@ -358,7 +359,7 @@ async function upgradePlugin(p) {
 }
 
 async function removePlugin(p) {
-  if (!confirm(`Uninstall plugin "${p.name}"? Its files are deleted.`)) return
+  if (!await dialog.confirm(`Uninstall plugin "${p.name}"? Its files are deleted.`, { danger: true })) return
   const data = await api.delete(`/api/plugins/${p.name}`)
   plugins.value = data.plugins
 }

@@ -1,4 +1,5 @@
 <script setup>
+import GlobalDialog from './components/GlobalDialog.vue'
 </script>
 
 <template>
@@ -7,4 +8,5 @@
       <component :is="Component" />
     </Transition>
   </router-view>
+  <GlobalDialog />
 </template>

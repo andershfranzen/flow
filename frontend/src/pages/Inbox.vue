@@ -6,12 +6,14 @@ import { useInbox } from '../stores/inbox'
 import { openStream } from '../sse'
 import { api } from '../api'
 import { t } from '../strings'
+import { dialog } from '../dialog'
 import ThreadPane from '../components/ThreadPane.vue'
 import NewConversationModal from '../components/NewConversationModal.vue'
 import { avatarColor, initials } from '../avatar'
 import { shortTime } from '../format'
-import { Bell, Plus, X, Pencil, Star, Check, ArrowUp, ArrowDown, TriangleAlert, Settings as SettingsIcon, LogOut } from 'lucide-vue-next'
+import { Bell, Plus, X, Pencil, Check, ArrowUp, ArrowDown, TriangleAlert, Settings as SettingsIcon, LogOut } from 'lucide-vue-next'
 import StyledSelect from '../components/StyledSelect.vue'
+import ColorPicker from '../components/ColorPicker.vue'
 
 const props = defineProps({ id: String })
 const route = useRoute()
@@ -19,7 +21,7 @@ const router = useRouter()
 const session = useSession()
 const inbox = useInbox()
 
-const FOLDERS = ['unassigned', 'mine', 'assigned', 'starred', 'snoozed', 'closed', 'spam', 'trash']
+const FOLDERS = ['unassigned', 'mine', 'assigned', 'snoozed', 'closed', 'spam', 'trash']
 const searchInput = ref('')
 const selected = ref(new Set())
 const dragging = ref(null) // conversation id mid-drag
@@ -39,7 +41,7 @@ const currentId = computed(() => (props.id ? Number(props.id) : null))
 function restream() {
   stream?.close()
   stream = openStream(currentId.value, {
-    onConversations: () => { inbox.loadConversations(); inbox.refreshUnread() },
+    onConversations: () => { inbox.loadConversations(); inbox.refreshUnread(); inbox.loadMailboxes(); inbox.loadPersonalFolders() },
     onPresence: ({ viewers }) => { inbox.viewers = viewers },
   })
 }
@@ -57,6 +59,8 @@ function onKeydown(e) {
   } else if (e.key === 'e' && currentId.value) {
     inbox.update(currentId.value, { status: 'closed' })
     e.preventDefault()
+  } else if (e.key === 'Escape' && ctxMenu.value) {
+    ctxMenu.value = null
   } else if (e.key === 'Escape' && showNotifs.value) {
     showNotifs.value = false
   } else if (e.key === 'r' && currentId.value) {
@@ -96,6 +100,22 @@ function onDropFolder(folder) {
   removeRowsLocally(ids)
   selected.value = new Set()
   if (inbox.folderCounts[folder] != null) inbox.folderCounts[folder] += ids.length
+  backgroundPatch({ ids, ...attrs })
+}
+
+// Right-click menu on a row; acts on the whole selection when the row is in it.
+const ctxMenu = ref(null) // { x, y, id }
+
+function onRowContext(c, e) {
+  ctxMenu.value = { x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 300), id: c.id }
+}
+
+function ctxApply(attrs) {
+  const id = ctxMenu.value.id
+  const ids = selected.value.has(id) && selected.value.size > 1 ? [...selected.value] : [id]
+  ctxMenu.value = null
+  removeRowsLocally(ids)
+  selected.value = new Set()
   backgroundPatch({ ids, ...attrs })
 }
 
@@ -219,6 +239,7 @@ function onGlobalPointer(e) {
   if (showUserMenu.value && !e.target.closest?.('.user-menu') && !e.target.closest?.('.me-button')) {
     showUserMenu.value = false
   }
+  if (ctxMenu.value && !e.target.closest?.('.ctx-menu')) ctxMenu.value = null
 }
 
 function openNotif(n) {
@@ -229,18 +250,22 @@ function openNotif(n) {
 const creatingFolder = ref(false)
 const newFolderName = ref('')
 const newFolderInput = ref(null)
+const newFolderColor = ref('#5522fa')
+const folderPicker = ref(null) // folder id being recoloured, or 'new'
 
 function startCreateFolder() {
   creatingFolder.value = true
   newFolderName.value = ''
+  newFolderColor.value = '#5522fa'
   nextTick(() => newFolderInput.value?.focus())
 }
 
 async function commitCreateFolder() {
+  if (folderPicker.value === 'new') return // blur caused by the colour picker
   const name = newFolderName.value.trim()
   if (!name) { creatingFolder.value = false; return }
   try {
-    await api.post('/api/personal_folders', { name })
+    await api.post('/api/personal_folders', { name, color: newFolderColor.value })
     await inbox.loadPersonalFolders()
   } finally {
     creatingFolder.value = false
@@ -251,17 +276,23 @@ async function commitCreateFolder() {
 function cancelCreateFolder() {
   creatingFolder.value = false
   newFolderName.value = ''
+  folderPicker.value = null
+}
+
+function saveFolderColor(pf) {
+  folderPicker.value = null
+  api.patch(`/api/personal_folders/${pf.id}`, { color: pf.color })
 }
 
 async function renamePersonalFolder(pf) {
-  const name = window.prompt('Rename folder:', pf.name)
+  const name = await dialog.prompt('Rename folder:', { initial: pf.name })
   if (!name?.trim() || name.trim() === pf.name) return
   await api.patch(`/api/personal_folders/${pf.id}`, { name: name.trim() })
   await inbox.loadPersonalFolders()
 }
 
-function deletePersonalFolder(pf) {
-  if (!confirm(`Delete folder "${pf.name}"? Conversations stay untouched.`)) return
+async function deletePersonalFolder(pf) {
+  if (!await dialog.confirm(`Delete folder "${pf.name}"? Conversations stay untouched.`, { danger: true })) return
   inbox.personalFolders = inbox.personalFolders.filter((f) => f.id !== pf.id) // instant
   const wasViewing = inbox.personalFolderId === pf.id
   if (wasViewing) { inbox.personalFolderId = null; inbox.folder = 'unassigned' }
@@ -348,6 +379,7 @@ async function logout() {
                 :data-tip="m.address">
           <span class="label-text">{{ m.name }}</span>
           <span v-if="m.fetch_error" data-tip="Mail fetch is failing" style="color:var(--warn); display:inline-flex"><TriangleAlert :size="14" /></span>
+          <span class="count" :class="{ attn: m.unassigned_count }" data-tip="Unassigned waiting">{{ m.unassigned_count || '' }}</span>
         </button>
       </nav>
       <nav aria-label="My folders" v-if="inbox.personalFolders.length || true">
@@ -360,14 +392,30 @@ async function logout() {
                 @dragenter.prevent="dragging && (dragOverFolder = `pf${pf.id}`)"
                 @dragleave="dragOverFolder === `pf${pf.id}` && (dragOverFolder = null)"
                 @drop.prevent="onDropPersonalFolder(pf)">
-          <span class="label-text"><span class="pf-dot" :style="{ background: pf.color }"></span>{{ pf.name }}</span>
+          <span class="swatch-wrap" @click.stop>
+            <span class="pf-dot pf-dot-btn" :style="{ background: pf.color }" role="button"
+                  aria-label="Folder colour" data-tip="Change colour"
+                  @click="folderPicker === pf.id ? saveFolderColor(pf) : (folderPicker = pf.id)"></span>
+            <ColorPicker v-if="folderPicker === pf.id" :model-value="pf.color"
+                         @update:model-value="(v) => (pf.color = v)" @close="saveFolderColor(pf)" />
+          </span>
+          <span class="label-text">{{ pf.name }}</span>
           <span class="pf-actions">
             <span class="pf-act" :data-tip="`Rename`" @click.stop="renamePersonalFolder(pf)"><Pencil :size="11" /></span>
             <span class="pf-act" :data-tip="`Delete folder`" @click.stop="deletePersonalFolder(pf)"><X :size="11" /></span>
           </span>
-          <span class="count">{{ pf.count || '' }}</span>
+          <span v-if="pf.attention" class="count attn" :data-tip="`${pf.attention} awaiting you`">{{ pf.attention }}</span>
+          <span v-else class="count">{{ pf.count || '' }}</span>
         </button>
         <div v-if="creatingFolder" class="pf-create">
+          <span class="swatch-wrap">
+            <span class="pf-dot pf-dot-btn" :style="{ background: newFolderColor }" role="button"
+                  aria-label="Folder colour" data-tip="Pick a colour"
+                  @mousedown.prevent="folderPicker = folderPicker === 'new' ? null : 'new'"></span>
+            <ColorPicker v-if="folderPicker === 'new'" :model-value="newFolderColor"
+                         @update:model-value="(v) => (newFolderColor = v)"
+                         @close="folderPicker = null; newFolderInput?.focus()" />
+          </span>
           <input ref="newFolderInput" v-model="newFolderName" :placeholder="t.newFolder"
                  maxlength="40" @keydown.enter.prevent="commitCreateFolder"
                  @keydown.esc="cancelCreateFolder" @blur="commitCreateFolder" />
@@ -476,7 +524,8 @@ async function logout() {
         <li v-for="c in inbox.conversations" :key="c.id">
           <button class="conv-item" :class="{ active: c.id === currentId, unread: c.unread, selecting: selected.size, selected: selected.has(c.id), 'being-dragged': dragging === c.id }"
                   draggable="true" @dragstart="onDragStart(c, $event)" @dragend="onDragEnd"
-                  @click="router.push(`/conversations/${c.id}`)">
+                  @click="$event.shiftKey ? toggleSelect(c.id, $event) : router.push(`/conversations/${c.id}`)"
+                  @contextmenu.prevent="onRowContext(c, $event)">
             <span class="avatar-select" @click="toggleSelect(c.id, $event)">
               <span class="avatar" :style="{ background: avatarColor(c.customer.email) }">
                 {{ initials(c.customer.name || c.customer.email) }}
@@ -490,7 +539,7 @@ async function logout() {
                 <span class="when">{{ shortTime(c.last_message_at, session.agent) }}</span>
               </span>
               <span class="line2">
-                <Star v-if="c.starred" :size="12" class="star" fill="currentColor" /><span class="subj">{{ c.subject || '(no subject)' }}</span><span class="prev"> — {{ c.preview }}</span>
+                <span class="subj">{{ c.subject || '(no subject)' }}</span><span class="prev"> — {{ c.preview }}</span>
               </span>
               <span v-if="c.assignee || c.tags.length || c.status === 'pending'" class="meta">
                 <span v-if="c.status === 'pending'" class="pill status-pending">{{ t.statuses.pending }}</span>
@@ -514,5 +563,20 @@ async function logout() {
                             :default-mailbox-id="inbox.mailboxId"
                             @close="showNew = false" @created="onConversationCreated" />
     </Transition>
+
+    <Teleport to="body">
+      <div v-if="ctxMenu" class="card menu-card drop-panel ctx-menu"
+           :style="{ top: `${ctxMenu.y}px`, left: `${ctxMenu.x}px` }">
+        <button type="button" class="ghost" @click="ctxApply({ assignee_id: session.agent.id })">Assign to me</button>
+        <button type="button" class="ghost" @click="ctxApply({ assignee_id: '' })">Unassign</button>
+        <StyledSelect :model-value="''" placeholder="Assign to…" aria-label="Assign to agent"
+                      @change="(v) => ctxApply({ assignee_id: v })"
+                      :options="agents.map((a) => ({ value: a.id, label: a.name }))" />
+        <div class="ctx-sep"></div>
+        <button type="button" class="ghost" @click="ctxApply({ status: 'closed' })">{{ t.statuses.closed }}</button>
+        <button type="button" class="ghost" @click="ctxApply({ status: 'spam' })">{{ t.statuses.spam }}</button>
+        <button type="button" class="ghost" @click="ctxApply({ status: 'trash' })">{{ t.statuses.trash }}</button>
+      </div>
+    </Teleport>
   </div>
 </template>

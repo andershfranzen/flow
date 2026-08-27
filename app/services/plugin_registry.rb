@@ -75,7 +75,9 @@ class PluginRegistry
         Array(provider.call(conversation))
       rescue StandardError => e
         Rails.logger.error("plugin #{name} insights failed: #{e.class} #{e.message}")
-        []
+        # A silently missing card reads as "plugin not enabled" — say what broke.
+        [ { "id" => "#{name}-error", "title" => name,
+            "sections" => [ { "title" => "Plugin error", "meta" => e.message.to_s.truncate(120), "items" => [] } ] } ]
       end
     end
 

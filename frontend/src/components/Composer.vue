@@ -182,7 +182,7 @@ async function insertSavedReply(e) {
                       :options="savedReplies.map((r) => ({ value: r.id, label: r.name }))" />
         <label style="margin:0">
           <input type="file" multiple style="display:none" @change="pickFiles" />
-          <span class="pill" style="cursor:pointer; display:inline-flex; align-items:center; gap:4px" data-tip="Attach files"><Paperclip :size="13" /> {{ files.length || '' }}</span>
+          <span class="attach-btn" data-tip="Attach files"><Paperclip :size="15" />{{ files.length || '' }}</span>
         </label>
       </template>
       <span class="spacer"></span>

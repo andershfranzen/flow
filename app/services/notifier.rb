@@ -11,8 +11,12 @@ class Notifier
   def self.customer_reply(message)
     conversation = message.conversation
     recipients = []
-    if (assignee = conversation.assignee) && assignee.notify_prefs["customer_reply"]
-      recipients << assignee
+    if (assignee = conversation.assignee)
+      recipients << assignee if assignee.notify_prefs["customer_reply"]
+    else
+      # No owner (never assigned, or the assignee left): the reply must not
+      # vanish — alert the same crowd a new unassigned conversation would.
+      recipients |= agents_for(conversation.mailbox).select { |a| a.notify_prefs["new_unassigned"] }
     end
     recipients |= conversation.following_agents.to_a
     notify(recipients, conversation, "customer_reply")

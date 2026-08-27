@@ -17,7 +17,15 @@ class Agent < ApplicationRecord
   has_many :notifications, dependent: :destroy
   has_many :drafts, dependent: :destroy
   has_many :personal_folders, dependent: :destroy
-  has_many :stars, dependent: :delete_all
+  # Offboarding: deleting an agent must not orphan or block on their traces.
+  # Their conversations fall back to Unassigned; authored rows lose the byline.
+  has_many :assigned_conversations, class_name: "Conversation", foreign_key: :assignee_id,
+                                    inverse_of: :assignee, dependent: :nullify
+  has_many :messages, dependent: :nullify
+  has_many :events, dependent: :nullify
+  has_many :followers, dependent: :delete_all
+  has_many :conversation_reads, dependent: :delete_all
+  has_many :team_members, dependent: :delete_all
 
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :name, presence: true

@@ -169,17 +169,29 @@ td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: midd
 .rail .rail-item.active { background: var(--text); color: var(--bg); }
 .rail .rail-item.active .count { color: var(--highlight); }
 .rail .count { font-size: 12px; font-weight: 800; color: var(--muted); }
+/* Call-to-action badge: work is waiting behind this row. */
+.rail .count.attn {
+  background: var(--accent); color: var(--accent-ink, #fff);
+  border-radius: 999px; padding: 1px 7px; min-width: 20px; text-align: center;
+}
+.rail .rail-item.active .count.attn { color: var(--accent-ink, #fff); }
 .rail .section { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; color: var(--muted); padding: 16px 12px 6px; }
 .rail .foot { margin-top: auto; padding: 14px 12px 0; border-top: 2px solid var(--border); }
 .pf-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
-.pf-item .label-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pf-item .label-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .pf-actions { display: none; gap: 2px; flex: none; }
 .pf-item:hover .pf-actions { display: inline-flex; }
 .pf-item:hover .count { display: none; }
 .pf-act { font-size: 11px; color: var(--muted); padding: 1px 5px; border-radius: 6px; }
 .pf-act:hover { background: var(--panel-deep); color: var(--text); }
 .rail.dragging .pf-actions { display: none !important; }
-.pf-create { padding: 2px 4px; animation: flow-rise .15s var(--ease) both; }
+.pf-create { padding: 2px 4px; animation: flow-rise .15s var(--ease) both; display: flex; align-items: center; gap: 7px; }
+.pf-dot-btn { cursor: pointer; margin-right: 0; transition: transform .12s var(--ease); }
+.pf-dot-btn:hover { transform: scale(1.6); }
+.pf-item .swatch-wrap { margin-right: 7px; }
+/* The row clips (label ellipsis), so the picker escapes via fixed positioning:
+   auto offsets keep it at its natural spot but measured against the viewport. */
+.pf-item .color-pop { position: fixed; top: auto; left: auto; margin-top: 8px; }
 .pf-create input {
   width: 100%; font-size: 13.5px; font-weight: 600;
   padding: 5px 12px; border-radius: 999px; border: 2px solid var(--accent);
@@ -301,7 +313,6 @@ button { display: inline-flex; align-items: center; justify-content: center; gap
 .conv-item .line2 .subj { font-weight: 600; }
 .conv-item .line2 .prev { color: var(--muted); }
 .conv-item .meta { display: flex; gap: 6px; margin-top: 4px; align-items: center; flex-wrap: wrap; }
-.conv-item .star, .star-btn.starred { color: var(--warn); } .conv-item .star { vertical-align: -1px; margin-right: 3px; }
 .empty { color: var(--muted); text-align: center; padding: 48px 16px; font-weight: 600; }
 
 .pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -311,10 +322,16 @@ button { display: inline-flex; align-items: center; justify-content: center; gap
   margin: 0; font-size: 19px; font-weight: 800; flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.pane-head .number { color: var(--muted); font-weight: 700; font-size: 14px; }
-.pane-head .star-btn { font-size: 17px; padding: 4px 8px; }
-.pane-head .star-btn.starred { color: var(--warn); }
-.pane-head .head-controls { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.pane-head .number { font-size: 12.5px; vertical-align: 2px; margin-right: 2px; }
+.pane-head .head-row { flex-wrap: wrap; }
+.pane-head .head-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Header action pills (Follow, Tags, "…") sized like real buttons. */
+.head-controls .pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 13.5px; padding: 7px 14px; color: var(--text); cursor: pointer;
+}
+.head-controls .pill:hover { background: #e9e9ef; }
+.head-controls .follow-pill.on { background: var(--accent-soft); color: var(--accent); }
 .pane-head select { border-radius: 999px; font-weight: 700; background: var(--panel); font-size: 13.5px; padding: 5px 10px; }
 .pane-body { flex: 1; display: flex; min-height: 0; }
 .transcript-col { flex: 1; min-width: 0; overflow-y: auto; padding: 16px 24px 24px; }
@@ -330,6 +347,24 @@ button { display: inline-flex; align-items: center; justify-content: center; gap
 .msg.outbound { border-color: var(--accent-soft); }
 .msg.outbound .msg-head { color: var(--accent); }
 .msg .from { font-weight: 800; color: var(--text); font-family: var(--font-round); }
+.msg .from-email, .msg .cc-inline { font-weight: 500; font-size: 12.5px; color: var(--muted); margin-left: 4px; }
+.msg .envelope-toggle { padding: 2px 6px; }
+.msg .envelope-toggle .flipped { transform: rotate(180deg); }
+/* 0fr → 1fr grid rows animate the "auto" height CSS can't otherwise reach. */
+.msg-envelope-wrap {
+  display: grid; grid-template-rows: 1fr; margin: 0 14px 4px;
+  transition: grid-template-rows .22s var(--ease), opacity .22s var(--ease);
+}
+.env-enter-from, .env-leave-to { grid-template-rows: 0fr; opacity: 0; }
+.msg-envelope { transition: padding .22s var(--ease); }
+.env-enter-from .msg-envelope, .env-leave-to .msg-envelope { padding-top: 0; padding-bottom: 0; }
+.msg-envelope {
+  display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px;
+  min-height: 0; overflow: hidden; padding: 8px 12px; border-radius: var(--radius-sm);
+  background: var(--panel-deep); font-size: 12.5px;
+}
+.msg-envelope dt { color: var(--muted); font-weight: 700; }
+.msg-envelope dd { margin: 0; overflow-wrap: anywhere; }
 .msg.outbound .from { color: var(--accent); }
 .attachments { padding: 0 14px 12px; display: flex; flex-wrap: wrap; gap: 10px; }
 .attachment-card {
@@ -405,6 +440,15 @@ button { display: inline-flex; align-items: center; justify-content: center; gap
 
 .tag-menu { position: relative; }
 .menu-card { text-align: left; }
+.drop-trigger { display: inline-flex; align-items: center; cursor: pointer; }
+.drop-panel {
+  position: fixed; z-index: 30; white-space: nowrap;
+  box-shadow: 0 6px 24px rgba(20, 20, 40, .14);
+  animation: flow-pop .14s var(--ease) both;
+}
+.ctx-menu { display: flex; flex-direction: column; gap: 4px; min-width: 190px; }
+.ctx-menu .ghost { text-align: left; }
+.ctx-sep { height: 1.5px; margin: 3px 0; background: var(--border); }
 .menu-card .ghost { justify-content: flex-start; }
 .menu-card-unused {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
@@ -452,6 +496,9 @@ button { display: inline-flex; align-items: center; justify-content: center; gap
 }
 @keyframes flow-chip { from { opacity: 0; transform: scale(.9); } }
 .recipient-chip.invalid { background: var(--danger-soft); color: var(--danger); }
+.recipient-chip { cursor: grab; }
+.recipient-chip.marked { box-shadow: 0 0 0 2px var(--accent); }
+.recipients.drag-over { border-color: var(--accent); background: var(--accent-soft); }
 .recipient-chip .chip-x {
   border: 0; background: none; color: inherit; font-size: 10px; padding: 2px 6px;
   border-radius: 99px; cursor: pointer; opacity: .6;
@@ -460,13 +507,26 @@ button { display: inline-flex; align-items: center; justify-content: center; gap
 
 /* Rich text editor (shared: reply composer + new-conversation modal) */
 .rich-editor .editor {
-  min-height: 130px; padding: 12px 14px; outline: none; overflow-y: auto; max-height: 45vh;
+  min-height: 220px; padding: 12px 14px; outline: none; overflow-y: auto; max-height: 70vh;
 }
+.rich-editor .resize-grip {
+  display: flex; justify-content: center; align-items: center;
+  height: 12px; cursor: ns-resize; touch-action: none;
+}
+.rich-editor .resize-grip span { width: 38px; height: 4px; border-radius: 999px; background: var(--border); }
+.rich-editor .resize-grip:hover span { background: var(--accent); }
 .rich-editor .editor:empty::before { content: attr(data-placeholder); color: var(--muted); pointer-events: none; }
 .rich-editor .editor img { max-width: 240px; max-height: 180px; border-radius: 8px; display: block; margin: 6px 0; }
 .rich-editor .editor blockquote { border-left: 3px solid var(--border); margin: 6px 0; padding-left: 10px; color: var(--muted); }
 .rich-editor .fmt-bar { display: flex; gap: 2px; align-items: center; padding: 6px 8px 0; }
 .fmt { padding: 3px 9px; font-size: 13px; }
+.fmt-sep { width: 1.5px; align-self: stretch; margin: 3px 4px; background: var(--border); }
+.attach-btn {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  padding: 7px 14px; border-radius: 999px; background: var(--panel-deep);
+  font-weight: 700; color: var(--text);
+}
+.attach-btn:hover { background: #e9e9ef; }
 
 /* Collapsed quoted text / signatures */
 details.quoted { margin-top: 10px; }
@@ -731,6 +791,10 @@ a.crm-open:hover { color: var(--text); background: var(--panel-deep); }
 }
 .modal { background: var(--panel); border-radius: 20px; padding: 24px; width: min(560px, 92vw); max-height: 90vh; overflow-y: auto; margin: auto; }
 .modal-wide { width: min(760px, 94vw); }
+.modal-dialog { width: min(440px, 92vw); animation: flow-modal .2s var(--ease); }
+.dialog-message { margin: 0 0 12px; white-space: pre-line; }
+button.primary.danger { background: var(--danger); color: #fff; }
+button.primary.danger:hover { background: #c93a3f; }
 .modal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 .modal-editor { border: 2px solid var(--border); border-radius: var(--radius-sm); }
 .modal-editor:focus-within { border-color: var(--accent); }

@@ -4,7 +4,7 @@ export const THEME_TOKENS = [
   { key: 'accent', cssVar: '--accent', default: '#5522fa', label: 'Accent', hint: 'Buttons, links, the Flow dot' },
   { key: 'accent_ink', cssVar: '--accent-ink', default: '#ffffff', label: 'Accent text', hint: 'Text on accent-colored buttons' },
   { key: 'accent_soft', cssVar: '--accent-soft', default: '#ece5ff', label: 'Accent wash', hint: 'Focus rings, soft highlights, login gradient' },
-  { key: 'highlight', cssVar: '--highlight', default: '#ffd43b', label: 'Highlight', hint: 'Stars and unread badges' },
+  { key: 'highlight', cssVar: '--highlight', default: '#ffd43b', label: 'Highlight', hint: 'Unread badges' },
   { key: 'danger', cssVar: '--danger', default: '#e5484d', label: 'Danger', hint: 'Destructive actions and errors' },
   { key: 'warn', cssVar: '--warn', default: '#9a6700', label: 'Warning', hint: 'Cautions and pending states' },
   { key: 'ok', cssVar: '--ok', default: '#1a7f37', label: 'Success', hint: 'Confirmations and healthy states' },

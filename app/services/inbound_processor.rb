@@ -39,9 +39,19 @@ class InboundProcessor
     conversation ||= find_by_subject_fallback(customer)
 
     if conversation
+      # A merged-away thread must not resurrect: route to the surviving target.
+      conversation = resolve_merge_target(conversation)
       # Reply from a CC'd stranger keeps the original customer (A11).
       message = create_message(conversation, bounce: bounce?)
-      conversation.set_status!("active") if %w[pending closed].include?(conversation.status)
+      # Spam stays spam: appending keeps the record, but replying to a spam
+      # thread must not reopen it or ping anyone.
+      return :reply_to_spam if conversation.status == "spam"
+      # An assignee who left or lost this mailbox can't handle the reopened
+      # thread — unassign so it lands in Unassigned instead of a dead "Mine".
+      if conversation.assignee && !conversation.assignee.can_access?(@mailbox)
+        conversation.assign!(nil)
+      end
+      conversation.set_status!("active") if %w[pending closed trash].include?(conversation.status)
       conversation.update!(snoozed_until: nil) if conversation.snoozed_until # reply wakes it (B18)
       Notifier.customer_reply(message)
       :reply
@@ -114,6 +124,14 @@ class InboundProcessor
 
   def referenced_message_ids
     [ @mail.in_reply_to, *Array(@mail.references) ].flatten.compact.map(&:to_s)
+  end
+
+  def resolve_merge_target(conversation)
+    seen = Set.new
+    while conversation.merged_into_id && seen.add?(conversation.id)
+      conversation = Conversation.find(conversation.merged_into_id)
+    end
+    conversation
   end
 
   def find_by_references

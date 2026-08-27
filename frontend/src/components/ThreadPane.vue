@@ -5,10 +5,12 @@ import { useSession } from '../stores/session'
 import { useInbox } from '../stores/inbox'
 import { api } from '../api'
 import { t } from '../strings'
+import { dialog } from '../dialog'
 import Composer from './Composer.vue'
+import DropMenu from './DropMenu.vue'
 import { avatarColor, initials } from '../avatar'
 import Attachments from './Attachments.vue'
-import { ArrowLeft, Star, PanelRight, ChevronsRight, Ellipsis, Eye, Building2, Phone, MapPin, ExternalLink } from 'lucide-vue-next'
+import { ArrowLeft, PanelRight, ChevronDown, ChevronsRight, Ellipsis, Eye, Building2, Phone, MapPin, ExternalLink } from 'lucide-vue-next'
 import StyledSelect from './StyledSelect.vue'
 import { threadTime, fullTime, dateOnly } from '../format'
 
@@ -69,7 +71,6 @@ watch(() => conv.value?.messages_count, async () => {
 
 function setStatus(status) { inbox.update(conv.value.id, { status }) }
 function setAssignee(e) { inbox.update(conv.value.id, { assignee_id: e.target.value || null }) }
-function toggleStar() { inbox.update(conv.value.id, { starred: !conv.value.starred }) }
 async function toggleFollow() {
   if (conv.value.followed) await api.delete(`/api/conversations/${conv.value.id}/follow`)
   else await api.post(`/api/conversations/${conv.value.id}/follow`)
@@ -130,22 +131,41 @@ async function saveCustomer() {
 }
 
 async function mergeCustomer() {
-  const email = window.prompt(`${t.mergeCustomer}\nEmail address of the duplicate customer:`)
+  const email = await dialog.prompt(`${t.mergeCustomer}\nEmail address of the duplicate customer:`, { placeholder: 'name@example.com' })
   if (!email) return
   try {
     customerDetail.value = await api.post(`/api/customers/${conv.value.customer.id}/merge`, { source_email: email.trim() })
   } catch (e) {
-    alert(e.status === 404 ? 'No customer with that address' : 'Merge failed')
+    dialog.alert(e.status === 404 ? 'No customer with that address' : 'Merge failed')
   }
 }
+
+// Opening a thread lands you in the reply field, ready to type.
+watch(() => conv.value?.id, async (id) => {
+  if (!id) return
+  await nextTick()
+  document.querySelector('.composer .editor')?.focus()
+}, { immediate: true })
 
 // Merged conversations redirect to their target (B14).
 watch(() => conv.value?.merged_into_id, (id) => {
   if (id) router.replace(`/conversations/${id}`)
 }, { immediate: true })
 
+// Per-message envelope details (From/To/Cc/timing), hidden until asked for.
+const expandedMsgs = ref(new Set())
+function toggleEnvelope(id) {
+  const next = new Set(expandedMsgs.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  expandedMsgs.value = next
+}
+const mailboxAddress = computed(() => inbox.mailboxes.find((m) => m.id === conv.value?.mailbox_id)?.address)
+
+const moreMenu = ref(null)
+
 function closeMenus() {
   document.querySelectorAll('details[open]').forEach((d) => (d.open = false))
+  moreMenu.value?.close()
 }
 
 async function addToPersonalFolder(e) {
@@ -159,7 +179,7 @@ async function addToPersonalFolder(e) {
 
 async function mergeInto() {
   closeMenus()
-  const number = window.prompt('Merge this conversation into #…\nEnter the target conversation number:')
+  const number = await dialog.prompt('Merge this conversation into #…\nEnter the target conversation number:', { placeholder: '#1234' })
   if (!number) return
   const target = await api.post(`/api/conversations/${conv.value.id}/merge`, { into_number: Number(number.replace('#', '')) })
   await inbox.loadConversations()
@@ -261,18 +281,10 @@ function eventText(e) {
       <div class="head-row">
         <button class="ghost" @click="router.push('/inbox')" data-tip="Back to list"><ArrowLeft :size="17" /></button>
         <h2 class="head-title" :title="conv.subject">
-          <span class="number">#{{ conv.number }}</span>
+          <span class="pill number">#{{ conv.number }}</span>
           {{ conv.subject || '(no subject)' }}
         </h2>
-        <button class="ghost star-btn" :class="{ starred: conv.starred }" @click="toggleStar"
-                :data-tip="conv.starred ? 'Unstar' : 'Star'">
-          <Star :size="16" :fill="conv.starred ? 'currentColor' : 'none'" />
-        </button>
-        <button class="ghost insights-toggle" @click="toggleInsights"
-                :data-tip="showInsights ? `Hide ${t.insights.toLowerCase()}` : `Show ${t.insights.toLowerCase()}`"
-                :aria-expanded="showInsights"><PanelRight :size="16" /></button>
-      </div>
-      <div class="head-controls">
+        <div class="head-controls">
         <button type="button" class="pill follow-pill" :class="{ on: conv.followed }" @click="toggleFollow">
           {{ conv.followed ? t.following : t.follow }}
         </button>
@@ -291,9 +303,9 @@ function eventText(e) {
             <span v-if="!tags.length" class="hint" style="font-size:12px; color:var(--muted)">No tags yet — create them in Settings</span>
           </div>
         </details>
-        <details class="tag-menu">
-          <summary class="pill" style="cursor:pointer; display:inline-flex; align-items:center"><Ellipsis :size="15" /></summary>
-          <div class="card menu-card" style="display:flex; flex-direction:column; gap:6px; min-width:190px">
+        <DropMenu ref="moreMenu" aria-label="More actions">
+          <template #trigger><Ellipsis :size="15" /></template>
+          <div style="display:flex; flex-direction:column; gap:6px; min-width:190px">
             <button type="button" class="ghost" style="text-align:left" @click="startForward">Forward…</button>
             <button type="button" class="ghost" style="text-align:left" @click="mergeInto">Merge into #…</button>
             <StyledSelect v-if="inbox.personalFolders.length" :model-value="''" placeholder="Add to my folder…"
@@ -308,7 +320,11 @@ function eventText(e) {
                           aria-label="Move to mailbox" @change="(v) => moveTo({ target: { value: v } })"
                           :options="inbox.mailboxes.filter((x) => x.id !== conv.mailbox_id).map((m) => ({ value: m.id, label: m.name }))" />
           </div>
-        </details>
+        </DropMenu>
+        </div>
+        <button class="ghost insights-toggle" @click="toggleInsights"
+                :data-tip="showInsights ? `Hide ${t.insights.toLowerCase()}` : `Show ${t.insights.toLowerCase()}`"
+                :aria-expanded="showInsights"><PanelRight :size="16" /></button>
       </div>
     </header>
 
@@ -324,18 +340,41 @@ function eventText(e) {
             <div class="msg-head">
               <span class="who-line">
                 <span class="from">{{ item.kind === 'inbound' ? (item.from_name || item.from_email) : (item.agent?.name || 'Agent') }}</span>
+                <span v-if="item.kind === 'inbound' && item.from_name" class="from-email">&lt;{{ item.from_email }}&gt;</span>
                 <span v-if="item.kind === 'note'"> · {{ t.internalNote }}</span>
                 <span v-else-if="item.kind === 'outbound'"> → {{ (item.to || []).join(', ') }}</span>
+                <span v-if="item.kind !== 'note' && (item.cc || []).length" class="cc-inline">cc: {{ item.cc.join(', ') }}</span>
               </span>
               <span class="when-line">
+                <span v-if="item.auto_submitted" class="pill" data-tip="Automated / mailing-list mail">auto</span>
                 <span v-if="item.bounce" class="pill bounce">{{ t.bounced }}</span>
                 <span v-if="item.status === 'queued'" class="pill">{{ t.queued }}</span>
                 <button v-if="item.status === 'queued' && item.kind === 'outbound'" type="button"
                         class="ghost" style="padding:0 8px; font-size:12px" data-tip="Cancel before it sends" @click="undoSend(item)">Undo</button>
                 <span v-if="item.status === 'failed'" class="pill bounce">{{ t.failed }}</span>
                 <time :title="fullTime(itemTime(item), session.agent)">{{ threadTime(itemTime(item), session.agent) }}</time>
+                <button v-if="item.kind !== 'note'" type="button" class="ghost envelope-toggle"
+                        :data-tip="expandedMsgs.has(item.id) ? 'Hide details' : 'Show details'"
+                        :aria-expanded="expandedMsgs.has(item.id)" @click="toggleEnvelope(item.id)">
+                  <ChevronDown :size="14" :class="{ flipped: expandedMsgs.has(item.id) }" style="transition: transform .15s" />
+                </button>
               </span>
             </div>
+            <Transition name="env">
+            <div v-if="expandedMsgs.has(item.id)" class="msg-envelope-wrap">
+            <dl class="msg-envelope">
+              <dt>From</dt>
+              <dd v-if="item.kind === 'inbound'">{{ item.from_name ? `${item.from_name} <${item.from_email}>` : item.from_email }}</dd>
+              <dd v-else>{{ item.agent?.name || 'Agent' }}<template v-if="mailboxAddress"> via {{ mailboxAddress }}</template></dd>
+              <template v-if="(item.to || []).length"><dt>To</dt><dd>{{ item.to.join(', ') }}</dd></template>
+              <template v-if="(item.cc || []).length"><dt>Cc</dt><dd>{{ item.cc.join(', ') }}</dd></template>
+              <template v-if="item.sent_at"><dt>Sent</dt><dd>{{ fullTime(item.sent_at, session.agent) }}</dd></template>
+              <template v-if="item.kind === 'inbound' && item.received_at"><dt>Received</dt><dd>{{ fullTime(item.received_at, session.agent) }}</dd></template>
+              <template v-if="item.kind === 'outbound'"><dt>Status</dt><dd>{{ item.status }}</dd></template>
+              <template v-if="(item.attachments || []).length"><dt>Files</dt><dd>{{ item.attachments.length }} attachment{{ item.attachments.length === 1 ? '' : 's' }}</dd></template>
+            </dl>
+            </div>
+            </Transition>
             <div v-if="item.body_html" class="msg-body" dir="auto" v-html="renderHtml(item)"></div>
             <div v-else class="msg-body" dir="auto" style="white-space:pre-wrap">{{ splitText(item.body_text).main }}<details v-if="splitText(item.body_text).quoted" class="quoted"><summary>•••</summary>{{ splitText(item.body_text).quoted }}</details></div>
             <Attachments :attachments="item.attachments || []" />

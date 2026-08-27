@@ -117,6 +117,70 @@ class PipelineTest < ActiveSupport::TestCase
     assert_equal "active", conv.status
   end
 
+  test "reply reopens a trashed conversation but spam stays spam" do
+    @fetcher.ingest(raw_mail(message_id: "t1@example.dk"))
+    trashed = Conversation.last
+    trashed.update!(status: "trash")
+    @fetcher.ingest(raw_mail(message_id: "t2@example.dk", headers: { "In-Reply-To" => "<t1@example.dk>" }))
+    assert_equal "active", trashed.reload.status
+
+    @fetcher.ingest(raw_mail(from: "other@example.dk", subject: "Buy pills", message_id: "s1@example.dk"))
+    spam = Conversation.last
+    spam.update!(status: "spam")
+    assert_no_difference "Notification.count" do
+      @fetcher.ingest(raw_mail(from: "other@example.dk", subject: "Buy pills", message_id: "s2@example.dk",
+                               headers: { "In-Reply-To" => "<s1@example.dk>" }))
+    end
+    spam.reload
+    assert_equal "spam", spam.status, "spam must not reopen or notify"
+    assert_equal 2, spam.messages_count, "the reply is still kept on record"
+  end
+
+  test "reply to a merged-away thread lands in the surviving target" do
+    @fetcher.ingest(raw_mail(message_id: "src@example.dk", subject: "Original"))
+    source = Conversation.last
+    @fetcher.ingest(raw_mail(subject: "Other thread", message_id: "tgt@example.dk"))
+    target = Conversation.last
+    source.update!(merged_into_id: target.id, status: "closed", assignee: nil)
+
+    @fetcher.ingest(raw_mail(message_id: "late@example.dk", headers: { "In-Reply-To" => "<src@example.dk>" }))
+    assert_equal "closed", source.reload.status, "merged ghost must not resurrect"
+    assert_equal 1, source.messages_count
+    assert_equal 2, target.reload.messages_count
+    assert_equal "active", target.status
+  end
+
+  test "reply unassigns an assignee who lost mailbox access" do
+    departed = Agent.create!(name: "Departed", email: "gone@example.com", password: "x" * 12)
+    MailboxAccess.create!(agent: departed, mailbox: @mailbox)
+    @fetcher.ingest(raw_mail(message_id: "a1@example.dk"))
+    conv = Conversation.last
+    conv.assign!(departed)
+    conv.set_status!("closed")
+    departed.mailbox_accesses.destroy_all
+
+    @fetcher.ingest(raw_mail(message_id: "a2@example.dk", headers: { "In-Reply-To" => "<a1@example.dk>" }))
+    conv.reload
+    assert_equal "active", conv.status
+    assert_nil conv.assignee_id, "a dead 'Mine' would hide the reopened thread"
+  end
+
+  test "deleting an agent releases their conversations to Unassigned" do
+    agent = Agent.create!(name: "Leaver", email: "leaver@example.com", password: "x" * 12)
+    MailboxAccess.create!(agent: agent, mailbox: @mailbox)
+    @fetcher.ingest(raw_mail(message_id: "d1@example.dk"))
+    conv = Conversation.last
+    conv.assign!(agent, agent: agent)
+    conv.messages.create!(kind: "note", status: "received", body_text: "mine", agent: agent)
+    Follower.create!(agent: agent, conversation: conv)
+
+    agent.destroy!
+    conv.reload
+    assert_nil conv.assignee_id
+    assert_equal 0, conv.followers.count
+    assert Message.where(conversation: conv, kind: "note").exists?, "authored rows survive without byline"
+  end
+
   test "cc'd stranger reply keeps the original customer" do
     @fetcher.ingest(raw_mail(from: "kunde@example.dk", message_id: "orig@example.dk"))
     conv = Conversation.last

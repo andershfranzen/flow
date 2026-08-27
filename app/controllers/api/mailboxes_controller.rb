@@ -3,7 +3,9 @@ class Api::MailboxesController < Api::BaseController
 
   def index
     mailboxes = current_agent.accessible_mailboxes.order(:name)
-    render json: mailboxes.map { |m| mailbox_json(m) }
+    waiting = Conversation.where(mailbox: mailboxes, status: %w[active pending], assignee_id: nil)
+                          .not_snoozed.group(:mailbox_id).count
+    render json: mailboxes.map { |m| mailbox_json(m).merge("unassigned_count" => waiting[m.id] || 0) }
   end
 
   def show

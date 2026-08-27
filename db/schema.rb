@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_26_012000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_27_090000) do
   create_table "action_mailbox_inbound_emails", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "message_checksum", null: false
@@ -329,16 +329,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_26_012000) do
     t.index ["mailbox_id"], name: "index_saved_replies_on_mailbox_id"
   end
 
-  create_table "stars", force: :cascade do |t|
-    t.integer "agent_id", null: false
-    t.integer "conversation_id", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["agent_id", "conversation_id"], name: "index_stars_on_agent_id_and_conversation_id", unique: true
-    t.index ["agent_id"], name: "index_stars_on_agent_id"
-    t.index ["conversation_id"], name: "index_stars_on_conversation_id"
-  end
-
   create_table "tags", force: :cascade do |t|
     t.string "color", default: "#8899aa", null: false
     t.datetime "created_at", null: false
@@ -420,8 +410,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_26_012000) do
   add_foreign_key "personal_folder_items", "personal_folders"
   add_foreign_key "personal_folders", "agents"
   add_foreign_key "saved_replies", "mailboxes"
-  add_foreign_key "stars", "agents"
-  add_foreign_key "stars", "conversations"
   add_foreign_key "team_members", "agents"
   add_foreign_key "team_members", "teams"
   add_foreign_key "workflows", "mailboxes"

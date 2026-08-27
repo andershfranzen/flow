@@ -261,6 +261,21 @@ class ApiFlowTest < ActionDispatch::IntegrationTest
     assert_includes message.body_html, "cid:#{content_id}"
   end
 
+  test "mailbox list reports waiting unassigned counts" do
+    login("a@example.com")
+    get "/api/mailboxes"
+    baseline = response.parsed_body.find { |m| m["id"] == @mailbox.id }["unassigned_count"]
+
+    customer = Customer.create!(email: "c@example.dk")
+    2.times { |i| Conversation.create!(mailbox: @mailbox, customer: customer, subject: "W#{i}", status: "active") }
+    assigned = Conversation.create!(mailbox: @mailbox, customer: customer, subject: "Mine", status: "active")
+    assigned.assign!(Agent.find_by(email: "a@example.com"))
+
+    get "/api/mailboxes"
+    row = response.parsed_body.find { |m| m["id"] == @mailbox.id }
+    assert_equal baseline + 2, row["unassigned_count"], "assigned threads must not count"
+  end
+
   test "mailbox settings hide passwords but report presence" do
     login("a@example.com")
     @mailbox.update!(imap_password: "sekrit")

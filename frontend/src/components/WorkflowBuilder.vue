@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../api'
+import { dialog } from '../dialog'
 import { X, Plus, Zap, HelpCircle, Cog } from 'lucide-vue-next'
 import StyledSelect from './StyledSelect.vue'
 
@@ -33,10 +34,10 @@ const OPERATOR_LABELS = {
 }
 const ACTION_LABELS = {
   assign: 'Assign to agent', assign_team: 'Assign to team (round-robin)', unassign: 'Unassign', add_tag: 'Add tag', remove_tag: 'Remove tag',
-  set_status: 'Set status', star: 'Star', move_mailbox: 'Move to mailbox',
+  set_status: 'Set status', move_mailbox: 'Move to mailbox',
   add_note: 'Add internal note', send_reply: 'Send reply to customer', forward_to: 'Forward to address',
 }
-const NO_VALUE_ACTIONS = ['unassign', 'star']
+const NO_VALUE_ACTIONS = ['unassign']
 
 async function load() {
   const data = await api.get('/api/workflows')
@@ -88,7 +89,7 @@ async function toggle(w) {
 }
 
 async function remove(w) {
-  if (!confirm(`Delete workflow "${w.name}"?`)) return
+  if (!await dialog.confirm(`Delete workflow "${w.name}"?`, { danger: true })) return
   await api.delete(`/api/workflows/${w.id}`)
   await load()
 }

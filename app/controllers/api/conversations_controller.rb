@@ -28,14 +28,12 @@ class Api::ConversationsController < Api::BaseController
     # archive doesn't flag every thread; created_at covers the rest.
     activity = Message.where(conversation_id: ids).group(:conversation_id)
                       .maximum(Arel.sql("COALESCE(received_at, created_at)"))
-    my_stars = Star.where(agent: current_agent, conversation_id: ids).pluck(:conversation_id).to_set
     render json: { conversations: conversations.map { |c|
-                     conversation_json(c).merge("unread" => unread?(activity[c.id], reads[c.id]),
-                                                "starred" => my_stars.include?(c.id)) },
+                     conversation_json(c).merge("unread" => unread?(activity[c.id], reads[c.id])) },
                    folder_counts: folder_counts }
   end
 
-  # PATCH /api/conversations/bulk { ids: [], status:|assignee_id:|starred: }
+  # PATCH /api/conversations/bulk { ids: [], status:|assignee_id: }
   def bulk
     ids = Array(params.require(:ids))
     conversations = Conversation.where(id: ids).to_a.select { |c| current_agent.can_access?(c.mailbox) }
@@ -54,7 +52,6 @@ class Api::ConversationsController < Api::BaseController
         conversation.assign!(assignee, agent: current_agent)
         Notifier.assigned(conversation, by: current_agent) if assignee
       end
-      set_starred(conversation, params[:starred]) if params.key?(:starred)
       if params[:remove_from_folder_id].present?
         current_agent.personal_folders.find_by(id: params[:remove_from_folder_id])
           &.personal_folder_items&.where(conversation_id: conversation.id)&.delete_all
@@ -164,7 +161,7 @@ class Api::ConversationsController < Api::BaseController
     render json: { followed: false }
   end
 
-  # PATCH /api/conversations/:id — status, star, assignee, tags, mailbox (B4/B5/B10/B11/B15)
+  # PATCH /api/conversations/:id — status, assignee, tags, mailbox (B4/B5/B10/B11/B15)
   def update
     conversation = find_accessible_conversation!(params[:id])
     if params.key?(:mailbox_id) && params[:mailbox_id].to_i != conversation.mailbox_id
@@ -184,7 +181,6 @@ class Api::ConversationsController < Api::BaseController
       conversation.assign!(assignee, agent: current_agent)
       Notifier.assigned(conversation, by: current_agent)
     end
-    set_starred(conversation, params[:starred]) if params.key?(:starred)
     if params.key?(:snooze_until)
       conversation.update!(snoozed_until: params[:snooze_until].presence)
     end
@@ -208,21 +204,11 @@ class Api::ConversationsController < Api::BaseController
     { unassigned: open.where(assignee_id: nil).count,
       mine: open.where(assignee_id: current_agent.id).count,
       assigned: open.where.not(assignee_id: nil).count,
-      starred: base.joins(:stars).where(stars: { agent_id: current_agent.id }).where.not(status: %w[spam trash]).count,
       closed: base.where(status: "closed").count,
       spam: base.where(status: "spam").count,
       trash: base.where(status: "trash").count,
       snoozed: base.where(status: %w[active pending]).snoozed.count,
       drafts: current_agent.drafts.count }
-  end
-
-  # Stars are personal (D-layer): toggle for the current agent only.
-  def set_starred(conversation, value)
-    if ActiveModel::Type::Boolean.new.cast(value)
-      Star.find_or_create_by!(agent: current_agent, conversation: conversation)
-    else
-      Star.where(agent: current_agent, conversation: conversation).delete_all
-    end
   end
 
   def unread?(activity_at, last_read_at)
@@ -268,7 +254,6 @@ class Api::ConversationsController < Api::BaseController
   def conversation_json(c, full: false)
     json = c.as_json(only: [ :id, :number, :subject, :status, :preview,
                              :messages_count, :last_message_at, :mailbox_id, :created_at, :snoozed_until ])
-    json["starred"] = c.stars.loaded? ? c.stars.any? { |s| s.agent_id == current_agent.id } : c.stars.exists?(agent_id: current_agent.id)
     json["customer"] = c.customer.as_json(only: [ :id, :email, :name ])
     json["assignee"] = c.assignee&.as_json(only: [ :id, :name ])
     json["tags"] = c.tags.map { |t| t.as_json(only: [ :id, :name, :color ]) }
