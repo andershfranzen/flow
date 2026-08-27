@@ -12,6 +12,12 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // Remote/tunneled dev (e.g. a forwarded port from a cloud session): listen
+    // on all interfaces, accept any Host the tunnel presents, and point the
+    // HMR websocket client at the forwarded port.
+    host: true,
+    allowedHosts: true,
+    hmr: { clientPort: 5173 },
     proxy: Object.fromEntries(
       ['/api', '/mcp', '/rails', '/oauth', '/auth', '/health'].map((path) => [
         path,
