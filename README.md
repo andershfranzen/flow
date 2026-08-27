@@ -192,12 +192,15 @@ For in-process plugins and a hello-world bot that needs no PR to core, read
 ## Development
 
 ```sh
-bundle install
-bin/rails db:prepare
-bin/rails server -p 3111    # API (the Vite proxy expects 3111)
-bin/jobs                    # Solid Queue worker (fetch/send)
-cd frontend && npm install && npm run dev   # HMR dev server on 5173 — work here
+bin/setup          # First run: PostgreSQL (or SQLite fallback), dependencies, database, seed data
+bin/dev            # Daily use: Rails + jobs + Vite; open http://localhost:5173
+bin/setup --reset  # Reset the development database when needed
 ```
+
+Sign in with the seeded `admin@flow.local` / `flowdev123` (development only).
+`bin/dev` runs the three processes from `Procfile.dev` — Rails API on 3111
+(the Vite proxy expects it), the Solid Queue worker, and Vite with HMR on
+5173 — so work against 5173.
 
 ```sh
 bin/rails test        # the whole backend suite; CI runs it on SQLite and PostgreSQL

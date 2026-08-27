@@ -1,0 +1,3 @@
+web: bin/rails server -p 3111
+jobs: bin/jobs
+vite: npm --prefix frontend run dev

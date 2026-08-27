@@ -1,2 +1,14 @@
-#!/usr/bin/env ruby
-exec "./bin/rails", "server", *ARGV
+#!/usr/bin/env sh
+# Daily development: Rails API (3111) + Solid Queue worker + Vite HMR (5173).
+# Open http://localhost:5173 — the Vite proxy forwards /api to Rails.
+# foreman loads .env (written by bin/setup), so DATABASE_URL reaches every process.
+if ! command -v foreman >/dev/null 2>&1; then
+  echo "Installing foreman..."
+  gem install foreman
+  command -v rbenv >/dev/null 2>&1 && rbenv rehash
+fi
+if command -v foreman >/dev/null 2>&1; then
+  exec foreman start -f Procfile.dev "$@"
+fi
+# PATH may not include the gem bindir (fresh rbenv/chruby shells) — run it directly.
+exec "$(ruby -e 'print Gem.bindir')/foreman" start -f Procfile.dev "$@"
