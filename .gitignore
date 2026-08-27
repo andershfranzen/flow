@@ -41,3 +41,4 @@
 /plugins/*
 !/plugins/README.md
 /storage/backups
+/db/seeds.local.rb

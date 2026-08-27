@@ -35,5 +35,10 @@ module Flow
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # db/schema.rb stays canonical for both engines: migrations on a
+    # PostgreSQL database (DATABASE_URL) must not re-dump it PG-flavored
+    # (plpgsql extension, Solid Queue tables) or SQLite can no longer load it.
+    config.active_record.dump_schema_after_migration = !ENV["DATABASE_URL"].to_s.start_with?("postgres")
   end
 end

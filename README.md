@@ -198,6 +198,10 @@ bin/setup --reset  # Reset the development database when needed
 ```
 
 Sign in with the seeded `admin@flow.local` / `flowdev123` (development only).
+`bin/setup` finds a local PostgreSQL server, or starts the Compose dev-profile
+container when Docker is around; set `DATABASE_URL` beforehand to use another
+instance. Machine-specific seed overlays (real mailboxes, company plugins)
+go in the untracked `db/seeds.local.rb`.
 `bin/dev` runs the three processes from `Procfile.dev` — Rails API on 3111
 (the Vite proxy expects it), the Solid Queue worker, and Vite with HMR on
 5173 — so work against 5173.

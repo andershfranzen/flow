@@ -32,7 +32,9 @@ const transcriptEl = ref(null)
 let heartbeatTimer = null
 
 const conv = computed(() => inbox.current)
-const itemTime = (item) => item._type === 'message' ? (item.sent_at || item.created_at) : item.created_at
+const itemTime = (item) => item._type === 'message'
+  ? ((item.kind === 'inbound' && item.received_at) || item.sent_at || item.created_at)
+  : item.created_at
 
 // Messages + events merged, newest-last (B2).
 const timeline = computed(() => {

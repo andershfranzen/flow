@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_26_011000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_26_012000) do
   create_table "action_mailbox_inbound_emails", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "message_checksum", null: false
@@ -244,6 +244,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_26_011000) do
     t.string "in_reply_to"
     t.string "kind", null: false
     t.string "message_id_header"
+    t.datetime "received_at"
     t.text "references_header"
     t.datetime "sent_at"
     t.string "status", default: "received", null: false

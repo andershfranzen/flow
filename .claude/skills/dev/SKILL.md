@@ -79,7 +79,9 @@ bin/e2e-greenmail               # live IMAP/SMTP round trip — needs Docker
 ```
 
 CI runs the backend suite on both SQLite and PostgreSQL; run both locally
-for DB-sensitive changes (SQLite: `DATABASE_URL= TEST_DATABASE_URL= bin/rails test`).
+for DB-sensitive changes. SQLite while .env points at PostgreSQL:
+`env -u DATABASE_URL -u TEST_DATABASE_URL FLOW_SKIP_DOTENV=1 bin/rails test`
+(an empty-string DATABASE_URL is fatal to Rails — unset it, don't blank it).
 
 ## Gotchas already solved — don't rediscover
 

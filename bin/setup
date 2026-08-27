@@ -1,12 +1,14 @@
 #!/usr/bin/env ruby
 # First-run development setup, idempotent:
-#   bin/setup           PostgreSQL (when reachable), dependencies, database, seed data
+#   bin/setup           PostgreSQL (local server or Docker; SQLite fallback), deps, database, seed data
 #   bin/setup --reset   Drop and rebuild the development database
 # Then `bin/dev` for daily use — Rails + jobs + Vite; open http://localhost:5173
 require "fileutils"
+require "uri"
 
 APP_ROOT = File.expand_path("..", __dir__)
 ENV_FILE = File.join(APP_ROOT, ".env")
+DOCKER_DB_URL = "postgres://flow:flow@127.0.0.1:5436/flow_development?gssencmode=disable"
 
 def system!(*args)
   system(*args, exception: true)
@@ -16,9 +18,15 @@ def psql_ok?(url)
   system("psql", url, "-Atc", "SELECT 1", out: File::NULL, err: File::NULL)
 end
 
-# Dev prefers the same database engine as production. Best-effort: start a
-# local server, find a URL that connects, create flow_development. Falls back
-# to the SQLite default when no PostgreSQL server is reachable.
+def with_db(url, name)
+  uri = URI.parse(url)
+  uri.path = "/#{name}"
+  uri.to_s
+end
+
+# Dev prefers the same database engine as production. Best-effort, in order:
+# a reachable local server, the Compose dev-profile container (started on
+# demand when Docker is around), then the SQLite fallback.
 def discover_postgres_url
   return nil unless system("command -v psql >/dev/null 2>&1")
   unless system("pg_isready -q 2>/dev/null")
@@ -29,24 +37,33 @@ def discover_postgres_url
     end
     sleep 1
   end
-  admin = [
+  candidates = [
     "postgres:///postgres",                                 # unix socket, current user (Homebrew)
     "postgres://postgres@127.0.0.1:5432/postgres",          # trust auth
     "postgres://postgres:postgres@127.0.0.1:5432/postgres",
-    "postgres://postgres:ci@127.0.0.1:5432/postgres"        # CI-style server
-  ].find { |url| psql_ok?(url) }
+    "postgres://postgres:ci@127.0.0.1:5432/postgres",       # CI-style server
+    DOCKER_DB_URL                                           # Compose dev-profile container
+  ]
+  admin = candidates.find { |url| psql_ok?(url) }
+  if admin.nil? && system("command -v docker >/dev/null 2>&1")
+    puts "== Starting the Compose dev-profile PostgreSQL container =="
+    if system({ "SECRET_KEY_BASE" => ENV.fetch("SECRET_KEY_BASE", "development") },
+              "docker", "compose", "--profile", "dev", "up", "-d", "--wait", "db")
+      admin = DOCKER_DB_URL if psql_ok?(DOCKER_DB_URL)
+    end
+  end
   return nil unless admin
 
   %w[flow_development flow_test].each do |name|
     exists = `psql "#{admin}" -Atc "SELECT 1 FROM pg_database WHERE datname='#{name}'"`.strip == "1"
     system!("psql", admin, "-qc", "CREATE DATABASE #{name}") unless exists
   end
-  admin.sub(%r{/postgres\z}, "/flow_development")
+  with_db(admin, "flow_development")
 end
 
 FileUtils.chdir APP_ROOT do
   # .env (gitignored) carries DATABASE_URL into bin/setup re-runs and into
-  # every bin/dev process (foreman loads it).
+  # every bin/dev process (foreman loads it; config/boot.rb loads it too).
   if File.exist?(ENV_FILE)
     File.readlines(ENV_FILE).each do |line|
       key, value = line.strip.split("=", 2)
@@ -54,7 +71,7 @@ FileUtils.chdir APP_ROOT do
     end
   elsif (url = discover_postgres_url)
     # TEST_DATABASE_URL keeps `bin/rails test` off the development database.
-    test_url = url.sub(%r{/flow_development\z}, "/flow_test")
+    test_url = with_db(url, "flow_test")
     File.write(ENV_FILE, "DATABASE_URL=#{url}\nTEST_DATABASE_URL=#{test_url}\n")
     ENV["DATABASE_URL"] ||= url
     ENV["TEST_DATABASE_URL"] ||= test_url

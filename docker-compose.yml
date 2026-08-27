@@ -12,6 +12,23 @@
 # Everything durable (SQLite databases, attachments, backups) lives in the
 # `flow-storage` volume. Back it up, and you have backed up Flow.
 services:
+  db:
+    profiles: ["dev"]
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5436:5432"
+    environment:
+      POSTGRES_USER: flow
+      POSTGRES_PASSWORD: flow
+      POSTGRES_DB: flow_development
+    volumes:
+      - flow-dev-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flow -d flow_development"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
   web:
     build: .
     image: flow
@@ -52,3 +69,4 @@ services:
 volumes:
   flow-storage:
   flow-plugins:
+  flow-dev-postgres:

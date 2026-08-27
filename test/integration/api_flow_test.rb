@@ -32,6 +32,31 @@ class ApiFlowTest < ActionDispatch::IntegrationTest
     assert_equal 1, body["folder_counts"]["unassigned"]
   end
 
+  test "api exposes sender and inbox arrival times separately" do
+    sent_at = 2.days.ago.change(usec: 0)
+    received_at = 1.hour.ago.change(usec: 0)
+    raw = Mail.new do
+      from "arrival@example.dk"
+      to "support@example.com"
+      subject "Arrival timestamp"
+      body "Check the inbox time"
+      message_id "<arrival@example.dk>"
+      date sent_at
+    end
+    ImapFetcher.new(@mailbox).ingest(raw.to_s, received_at: received_at)
+    conversation = Conversation.order(:id).last
+
+    login("a@example.com")
+    get "/api/conversations"
+    listed = response.parsed_body["conversations"].find { |item| item["id"] == conversation.id }
+    assert_equal received_at.to_i, Time.zone.parse(listed["last_message_at"]).to_i
+
+    get "/api/conversations/#{conversation.id}"
+    message = response.parsed_body["messages"].first
+    assert_equal sent_at.to_i, Time.zone.parse(message["sent_at"]).to_i
+    assert_equal received_at.to_i, Time.zone.parse(message["received_at"]).to_i
+  end
+
   test "acl: outsider sees nothing and cannot open the conversation" do
     login("c@example.com")
     get "/api/conversations"

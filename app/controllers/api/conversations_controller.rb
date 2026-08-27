@@ -24,7 +24,10 @@ class Api::ConversationsController < Api::BaseController
     ids = conversations.map(&:id)
     reads = ConversationRead.where(agent: current_agent, conversation_id: ids)
                             .pluck(:conversation_id, :last_read_at).to_h
-    activity = Message.where(conversation_id: ids).group(:conversation_id).maximum(:created_at)
+    # Arrival time (IMAP INTERNALDATE) decides unread, so importing an old
+    # archive doesn't flag every thread; created_at covers the rest.
+    activity = Message.where(conversation_id: ids).group(:conversation_id)
+                      .maximum(Arel.sql("COALESCE(received_at, created_at)"))
     my_stars = Star.where(agent: current_agent, conversation_id: ids).pluck(:conversation_id).to_set
     render json: { conversations: conversations.map { |c|
                      conversation_json(c).merge("unread" => unread?(activity[c.id], reads[c.id]),
@@ -287,7 +290,7 @@ class Api::ConversationsController < Api::BaseController
 
   def message_json(m)
     m.as_json(only: [ :id, :kind, :status, :from_email, :from_name, :to, :cc,
-                      :body_text, :body_html, :bounce, :auto_submitted, :sent_at, :created_at ])
+                      :body_text, :body_html, :bounce, :auto_submitted, :sent_at, :received_at, :created_at ])
      .merge(
        "agent" => m.agent&.as_json(only: [ :id, :name ]),
        "attachments" => m.files.map { |f|

@@ -1,8 +1,16 @@
 # Development seed data: a ready-to-use inbox so bin/setup lands you in a
 # working app. Production seeds nothing — bin/create-admin makes the first
 # admin there. Idempotent: skips entirely once any agent exists.
+#
+# Machine-specific overlays (real mailboxes, company plugins, credentials)
+# belong in db/seeds.local.rb — untracked, loaded after these seeds.
 return unless Rails.env.development?
-return if Agent.exists?
+
+local_seeds = Rails.root.join("db/seeds.local.rb")
+if Agent.exists?
+  load local_seeds if File.exist?(local_seeds)
+  return
+end
 
 puts "Seeding development demo data…"
 
@@ -29,6 +37,7 @@ def seed_conversation(mailbox, name:, email:, subject:, status: "active", assign
     sent_at = m.fetch(:at)
     conversation.messages.create!(
       kind: m.fetch(:kind), body_text: m.fetch(:body), sent_at: sent_at,
+      received_at: (sent_at if m[:kind] == "inbound"),
       status: m[:kind] == "outbound" ? "sent" : "received",
       from_email: m[:kind] == "inbound" ? email : mailbox.address,
       from_name: m[:kind] == "inbound" ? name : nil,
@@ -75,3 +84,7 @@ seed_conversation(support, name: "Anna Berg", email: "anna@bergcatering.se",
   ])
 
 puts "Seeded #{Conversation.count} conversations. Sign in: admin@flow.local / flowdev123"
+
+# Machine-specific overlay (real mailboxes, company plugins, credentials):
+# untracked, idempotent, runs on every db:seed.
+load local_seeds if File.exist?(local_seeds)
