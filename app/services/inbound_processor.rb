@@ -5,14 +5,15 @@ class InboundProcessor
   FLOOD_CAP_PER_MINUTE = 30
   SUBJECT_FALLBACK_WINDOW = 30.days
 
-  def self.call(mailbox, inbound_email)
-    new(mailbox, inbound_email).call
+  def self.call(mailbox, inbound_email, received_at: nil)
+    new(mailbox, inbound_email, received_at: received_at).call
   end
 
-  def initialize(mailbox, inbound_email)
+  def initialize(mailbox, inbound_email, received_at: nil)
     @mailbox = mailbox
     @inbound_email = inbound_email
     @mail = inbound_email.mail
+    @received_at = received_at
   end
 
   def call
@@ -48,7 +49,7 @@ class InboundProcessor
       return :skipped_flood if flooded?
       conversation = Conversation.create!(
         mailbox: @mailbox, customer: customer,
-        subject: subject, last_message_at: sent_time
+        subject: subject, last_message_at: arrival_time
       )
       message = create_message(conversation, bounce: bounce?)
       Notifier.new_conversation(message)
@@ -66,6 +67,7 @@ class InboundProcessor
   def from_name = @mail[:from]&.display_names&.first
   def subject = @mail.subject.to_s.scrub.strip
   def sent_time = (@mail.date&.to_time rescue nil)
+  def arrival_time = @received_at || sent_time
 
   def loop?
     return true if from_email == @mailbox.address
@@ -148,7 +150,8 @@ class InboundProcessor
       body_html: extract_html,
       bounce: bounce,
       auto_submitted: list_mail?,
-      sent_at: sent_time
+      sent_at: sent_time,
+      received_at: @received_at
     )
     attach_files(message)
     message

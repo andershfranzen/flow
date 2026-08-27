@@ -18,7 +18,9 @@ class OrgSetting < ApplicationRecord
     return if value.blank?
 
     uri = URI.parse(value)
-    return unless uri.is_a?(URI::HTTPS) && uri.host.present? && uri.userinfo.blank? &&
+    secure = uri.is_a?(URI::HTTPS) ||
+      (Rails.env.development? && uri.is_a?(URI::HTTP) && %w[localhost 127.0.0.1 ::1].include?(uri.host))
+    return unless secure && uri.host.present? && uri.userinfo.blank? &&
       uri.query.blank? && uri.fragment.blank?
 
     value.sub(%r{/+\z}, "")

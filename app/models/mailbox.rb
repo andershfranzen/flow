@@ -1,3 +1,6 @@
+require "net/imap"
+require "net/smtp"
+
 class Mailbox < ApplicationRecord
   AUTH_KINDS = %w[password microsoft microsoft_app google].freeze
 

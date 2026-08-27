@@ -3,6 +3,29 @@ require "test_helper"
 class PipelineTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
+  FetchData = Data.define(:attr, :internaldate)
+
+  class FakeImap
+    def initialize(raw, received_at)
+      @raw = raw
+      @received_at = received_at
+    end
+
+    def login(*) = nil
+    def examine(*) = nil
+    def logout = nil
+    def disconnect = nil
+    def responses(*) = yield([ 1 ])
+    def uid_search(*) = [ 1 ]
+
+    def uid_fetch(_, fields)
+      return [ FetchData.new({ "UID" => 1, "RFC822.SIZE" => @raw.bytesize }, nil) ] if fields == "RFC822.SIZE"
+      raise "INTERNALDATE was not requested" unless fields.include?("INTERNALDATE")
+
+      [ FetchData.new({ "BODY[]" => @raw }, @received_at) ]
+    end
+  end
+
   setup do
     @mailbox = Mailbox.create!(address: "support@example.com", name: "Support",
                                smtp_host: "smtp.example.com")
@@ -44,6 +67,24 @@ class PipelineTest < ActiveSupport::TestCase
 
     assert_equal sent_at, Message.last.sent_at
     assert_equal sent_at, Conversation.last.last_message_at
+  end
+
+  test "imap arrival time drives inbox time while preserving sender time" do
+    sent_at = 2.days.ago.change(usec: 0)
+    received_at = 1.hour.ago.change(usec: 0)
+    imap = FakeImap.new(raw_mail(date: sent_at), received_at)
+    @mailbox.update!(imap_host: "imap.example.com", imap_password: "secret")
+
+    original_new = Net::IMAP.method(:new)
+    Net::IMAP.define_singleton_method(:new) { |*| imap }
+    @fetcher.call
+
+    message = Message.last
+    assert_equal sent_at, message.sent_at
+    assert_equal received_at, message.received_at
+    assert_equal received_at, message.conversation.last_message_at
+  ensure
+    Net::IMAP.define_singleton_method(:new, original_new) if original_new
   end
 
   test "fetching the same mail twice does not duplicate" do

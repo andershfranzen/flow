@@ -287,7 +287,7 @@ class Api::ConversationsController < Api::BaseController
 
   def message_json(m)
     m.as_json(only: [ :id, :kind, :status, :from_email, :from_name, :to, :cc,
-                      :body_text, :body_html, :bounce, :auto_submitted, :sent_at, :created_at ])
+                      :body_text, :body_html, :bounce, :auto_submitted, :sent_at, :received_at, :created_at ])
      .merge(
        "agent" => m.agent&.as_json(only: [ :id, :name ]),
        "attachments" => m.files.map { |f|

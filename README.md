@@ -192,12 +192,20 @@ For in-process plugins and a hello-world bot that needs no PR to core, read
 ## Development
 
 ```sh
-bundle install
-bin/rails db:prepare
-bin/rails server -p 3111    # API (the Vite proxy expects 3111)
-bin/jobs                    # Solid Queue worker (fetch/send)
-cd frontend && npm install && npm run dev   # HMR dev server on 5173 — work here
+bin/setup    # dependencies, PostgreSQL, and demo data (requires Docker)
+bin/dev      # PostgreSQL, Rails, jobs, and the Vite HMR server
 ```
+
+Open `http://localhost:5173` and sign in with
+`ahf@acmecool.com` / `development` until Microsoft sign-in is configured.
+The seeded `testai@acmecool.com` mailbox uses Microsoft app-only IMAP/SMTP and
+activates when `FLOW_MS_CLIENT_SECRET` is supplied. `bin/setup` also installs
+and enables the Data Gateway CRM plugin; override its defaults with
+`FLOW_DGW_URL`, `FLOW_DGW_API_KEY`, and `FLOW_DGW_CRM_URLS`. Run
+`bin/setup --reset` whenever you want a clean, reseeded development database.
+
+Set `DATABASE_URL` before either command to use another PostgreSQL instance
+instead of the local development container.
 
 ```sh
 bin/rails test        # the whole backend suite; CI runs it on SQLite and PostgreSQL

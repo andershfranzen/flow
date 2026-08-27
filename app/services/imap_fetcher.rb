@@ -43,8 +43,8 @@ class ImapFetcher
         if sizes.fetch(uid, 0) > MAX_MESSAGE_BYTES
           Rails.logger.warn("fetch: skipping oversized message uid=#{uid} (#{sizes[uid]} bytes) in #{@mailbox.address}")
         else
-          data = imap.uid_fetch([ uid ], "BODY.PEEK[]")&.first
-          ingest(data.attr["BODY[]"]) if data
+          data = imap.uid_fetch([ uid ], [ "BODY.PEEK[]", "INTERNALDATE" ])&.first
+          ingest(data.attr["BODY[]"], received_at: data.internaldate) if data
         end
         @mailbox.update_column(:last_uid, uid) if uid > @mailbox.last_uid
       end
@@ -57,7 +57,7 @@ class ImapFetcher
     imap&.disconnect rescue nil
   end
 
-  def ingest(raw)
+  def ingest(raw, received_at: nil)
     raw = raw.to_s
     key = raw[/^Message-I[dD]:\s*(<[^>]+>|\S+)/i, 1]&.delete("<>")
     key ||= Digest::SHA256.hexdigest(raw) # fallback hash when no Message-ID (A9)
@@ -73,7 +73,7 @@ class ImapFetcher
 
     inbound_email = ActionMailbox::InboundEmail.create_and_extract_message_id!(raw, status: :processing)
     begin
-      InboundProcessor.call(@mailbox, inbound_email)
+      InboundProcessor.call(@mailbox, inbound_email, received_at: received_at)
       inbound_email.delivered!
     rescue StandardError => e
       inbound_email.update!(status: :failed)

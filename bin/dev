@@ -1,2 +1,38 @@
 #!/usr/bin/env ruby
-exec "./bin/rails", "server", *ARGV
+
+unless ENV["DATABASE_URL"]
+  ENV["DATABASE_URL"] = "postgres://flow:flow@127.0.0.1:5436/flow_development?gssencmode=disable"
+  system({ "SECRET_KEY_BASE" => ENV.fetch("SECRET_KEY_BASE", "development") },
+         "docker", "compose", "--profile", "dev", "up", "-d", "--wait", "db", exception: true)
+end
+
+commands = [
+  [ "bin/rails", "server", "-p", "3111", *ARGV ],
+  [ "bin/jobs" ],
+  [ "npm", "--prefix", "frontend", "run", "dev" ]
+]
+
+pids = []
+interrupted = false
+exit_code = 1
+stop = lambda do
+  pids.each do |pid|
+    Process.kill("TERM", -pid)
+  rescue Errno::ESRCH
+  end
+end
+%w[INT TERM].each { |signal| Signal.trap(signal) { interrupted = true; stop.call } }
+
+begin
+  commands.each { |command| pids << Process.spawn(*command, pgroup: true) }
+  _, status = Process.wait2
+  exit_code = status.exitstatus || 1
+ensure
+  stop.call
+  pids.each do |pid|
+    Process.wait(pid)
+  rescue Errno::ECHILD, Errno::ESRCH
+  end
+end
+
+exit(interrupted ? 0 : exit_code)

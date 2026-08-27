@@ -105,6 +105,20 @@ class SsoTest < ActionDispatch::IntegrationTest
     assert_nil response.location
   end
 
+  test "development permits HTTP only on loopback hosts" do
+    environment = Rails.env
+    development = environment.method(:development?)
+    environment.define_singleton_method(:development?) { true }
+
+    OrgSetting.current.update!(base_url: "http://localhost:5173")
+    assert_equal "http://localhost:5173", OrgSetting.current.canonical_base_url
+
+    OrgSetting.current.update!(base_url: "http://attacker.example")
+    assert_nil OrgSetting.current.canonical_base_url
+  ensure
+    environment&.define_singleton_method(:development?, development)
+  end
+
   test "force password login only accepts explicit true values" do
     %w[0 false].each do |value|
       ENV["FLOW_FORCE_PASSWORD_LOGIN"] = value

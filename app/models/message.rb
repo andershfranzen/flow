@@ -17,7 +17,7 @@ class Message < ApplicationRecord
   private
 
   def bump_conversation
-    message_time = sent_at || created_at
+    message_time = (received_at if kind == "inbound") || sent_at || created_at
     return if conversation.last_message_at && conversation.last_message_at > message_time
 
     conversation.update_columns(
