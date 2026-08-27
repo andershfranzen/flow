@@ -10,7 +10,7 @@ import { avatarColor, initials } from '../avatar'
 import Attachments from './Attachments.vue'
 import { ArrowLeft, Star, PanelRight, ChevronsRight, Ellipsis, Eye, Building2, Phone, MapPin, ExternalLink } from 'lucide-vue-next'
 import StyledSelect from './StyledSelect.vue'
-import { shortTime, fullTime, dateOnly } from '../format'
+import { threadTime, fullTime, dateOnly } from '../format'
 
 const router = useRouter()
 const session = useSession()
@@ -317,7 +317,7 @@ function eventText(e) {
             <Eye :size="15" style="vertical-align:-3px" /> {{ inbox.viewers.map((v) => v.name).join(', ') }} {{ t.viewing }}
           </div>
         <template v-for="item in timeline" :key="item._type + item.id">
-          <div v-if="item._type === 'event'" class="event-line">{{ eventText(item) }} · {{ shortTime(item.created_at, session.agent) }}</div>
+          <div v-if="item._type === 'event'" class="event-line">{{ eventText(item) }} · {{ threadTime(item.created_at, session.agent) }}</div>
           <article v-else class="msg" :class="item.kind">
             <div class="msg-head">
               <span class="who-line">
@@ -331,7 +331,7 @@ function eventText(e) {
                 <button v-if="item.status === 'queued' && item.kind === 'outbound'" type="button"
                         class="ghost" style="padding:0 8px; font-size:12px" data-tip="Cancel before it sends" @click="undoSend(item)">Undo</button>
                 <span v-if="item.status === 'failed'" class="pill bounce">{{ t.failed }}</span>
-                <time :title="fullTime(itemTime(item), session.agent)">{{ shortTime(itemTime(item), session.agent) }}</time>
+                <time :title="fullTime(itemTime(item), session.agent)">{{ threadTime(itemTime(item), session.agent) }}</time>
               </span>
             </div>
             <div v-if="item.body_html" class="msg-body" dir="auto" v-html="renderHtml(item)"></div>
