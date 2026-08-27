@@ -5,11 +5,11 @@ class CrmTest < ActionDispatch::IntegrationTest
     OrgSetting.current.update!(mcp_enabled: true)
     @agent = Agent.create!(email: "a@example.com", name: "Ada", password: "secret123", role: "admin")
     post "/api/session", params: { email: "a@example.com", password: "secret123" }
-    OrgSetting.current.update!(crm_enabled: true, crm_url: "https://acmecool.crm4.dynamics.com",
+    OrgSetting.current.update!(crm_enabled: true, crm_url: "https://contoso.crm4.dynamics.com",
                                ms_client_id: "cid", ms_client_secret: "sec",
                                ms_tenant: "11111111-2222-3333-4444-555555555555")
     @mailbox = Mailbox.create!(address: "support@example.com", name: "Support", smtp_host: "s.example.com")
-    %w[lars@nordiccooling.dk unknown@nordiccooling.dk someone@gmail.com x@y.dk].each do |email|
+    %w[lars@nordiccooling.example unknown@nordiccooling.example someone@gmail.com x@y.dk].each do |email|
       Conversation.create!(mailbox: @mailbox, customer: Customer.create!(email: email), subject: email)
     end
     Conversation.create!(mailbox: @mailbox, customer: Customer.create!(email: "o'brien@example.org"), subject: "O'Brien")
@@ -18,10 +18,10 @@ class CrmTest < ActionDispatch::IntegrationTest
 
   CONTACT = {
     "contactid" => "abc-123", "fullname" => "Lars Beck", "jobtitle" => "Purchaser",
-    "emailaddress1" => "lars@nordiccooling.dk", "telephone1" => "+45 11 22 33 44",
+    "emailaddress1" => "lars@nordiccooling.example", "telephone1" => "+45 11 22 33 44",
     "mobilephone" => nil, "address1_city" => "Odense", "address1_country" => "Denmark",
     "parentcustomerid_account" => { "accountid" => "acc-9", "name" => "Nordic Køling A/S",
-                                    "websiteurl" => "https://nordiccooling.dk",
+                                    "websiteurl" => "https://nordiccooling.example",
                                     "telephone1" => "+45 55 66 77 88",
                                     "address1_city" => "Odense", "address1_country" => "Denmark" }
   }.freeze
@@ -40,26 +40,26 @@ class CrmTest < ActionDispatch::IntegrationTest
   test "lookup returns contact with expanded account" do
     captured = nil
     stub_crm("contacts" => ->(p) { captured = p; { "value" => [ CONTACT.deep_dup ] } }) do
-      get "/api/crm/lookup", params: { email: "lars@nordiccooling.dk" }
+      get "/api/crm/lookup", params: { email: "lars@nordiccooling.example" }
     end
     assert_response :success
     body = response.parsed_body
     assert body["configured"]
     assert_equal "Lars Beck", body.dig("contact", "name")
     assert_equal "Nordic Køling A/S", body.dig("account", "name")
-    assert_equal "https://nordiccooling.dk", body.dig("account", "website")
+    assert_equal "https://nordiccooling.example", body.dig("account", "website")
     assert_includes body.dig("contact", "url"), "etn=contact&id=abc-123"
-    assert_includes captured["$filter"], "emailaddress1 eq 'lars@nordiccooling.dk'"
+    assert_includes captured["$filter"], "emailaddress1 eq 'lars@nordiccooling.example'"
   end
 
   test "no contact falls back to account by company domain, skipping generic domains" do
     calls = []
     stub_crm("contacts" => ->(_) { { "value" => [] } },
              "accounts" => ->(p) { calls << p; { "value" => [ CONTACT["parentcustomerid_account"].dup ] } }) do
-      get "/api/crm/lookup", params: { email: "unknown@nordiccooling.dk" }
+      get "/api/crm/lookup", params: { email: "unknown@nordiccooling.example" }
       assert_equal "Nordic Køling A/S", response.parsed_body.dig("account", "name")
       assert_nil response.parsed_body["contact"]
-      assert_includes calls.last["$filter"], "contains(websiteurl,'nordiccooling.dk')"
+      assert_includes calls.last["$filter"], "contains(websiteurl,'nordiccooling.example')"
 
       get "/api/crm/lookup", params: { email: "someone@gmail.com" }
       assert_nil response.parsed_body["account"], "generic domains must not match accounts"
@@ -79,15 +79,15 @@ class CrmTest < ActionDispatch::IntegrationTest
     contact = CONTACT.deep_dup
     contact["parentcustomerid_account"]["websiteurl"] = "javascript:alert(1)"
     stub_crm("contacts" => ->(_) { { "value" => [ contact ] } }) do
-      get "/api/crm/lookup", params: { email: "lars@nordiccooling.dk" }
+      get "/api/crm/lookup", params: { email: "lars@nordiccooling.example" }
     end
     assert_response :success
     assert_nil response.parsed_body.dig("account", "website")
   end
 
   test "lookup is limited to visible customers and their aliases for HTTP and MCP" do
-    visible = Customer.find_by!(email: "lars@nordiccooling.dk")
-    visible.update!(emails: [ "alias@nordiccooling.dk" ])
+    visible = Customer.find_by!(email: "lars@nordiccooling.example")
+    visible.update!(emails: [ "alias@nordiccooling.example" ])
     limited = Agent.create!(email: "limited@example.com", name: "Limited", password: "secret123", role: "user")
     MailboxAccess.create!(agent: limited, mailbox: @mailbox)
     private_mailbox = Mailbox.create!(address: "private@example.com", name: "Private", smtp_host: "s.example.com")
@@ -97,7 +97,7 @@ class CrmTest < ActionDispatch::IntegrationTest
 
     calls = 0
     stub_crm("contacts" => ->(_) { calls += 1; { "value" => [ CONTACT.deep_dup ] } }) do
-      get "/api/crm/lookup", params: { email: "ALIAS@nordiccooling.DK" }
+      get "/api/crm/lookup", params: { email: "ALIAS@NORDICCOOLING.EXAMPLE" }
       assert_equal "Lars Beck", response.parsed_body.dig("contact", "name")
       assert_equal 1, calls
 
@@ -136,7 +136,7 @@ class CrmTest < ActionDispatch::IntegrationTest
     _, raw = ApiToken.issue(agent: @agent, name: "t", scope: "read")
     stub_crm("contacts" => ->(_) { { "value" => [ CONTACT.deep_dup ] } }) do
       post "/mcp", params: { jsonrpc: "2.0", id: 1, method: "tools/call",
-                             params: { name: "crm_lookup", arguments: { email: "lars@nordiccooling.dk" } } }.to_json,
+                             params: { name: "crm_lookup", arguments: { email: "lars@nordiccooling.example" } } }.to_json,
                    headers: { "Content-Type" => "application/json", "Authorization" => "Bearer #{raw}" }
     end
     text = JSON.parse(response.parsed_body.dig("result", "content").first["text"])

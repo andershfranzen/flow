@@ -475,7 +475,7 @@ const NOTIFY_LABELS = {
         Auto-create agents on first sign-in</label>
       <div class="form-grid">
         <div><label>Allowed sign-in domains (comma-separated)</label>
-          <input v-model="org.sso_allowed_domains" placeholder="acmecool.com" style="width:100%" /></div>
+          <input v-model="org.sso_allowed_domains" placeholder="example.com" style="width:100%" /></div>
       </div>
       <h3 style="margin-top:16px">Agent access (MCP)</h3>
       <p class="hint-text">Flow speaks the Model Context Protocol at

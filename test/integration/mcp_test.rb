@@ -79,8 +79,8 @@ class McpTest < ActionDispatch::IntegrationTest
     assert out["secret"].present?
 
     out = tool_text(call_tool("update_org_settings", { attributes: {
-      "site_name" => "acmecool Support", "theme" => { "accent" => "#1e3a8a", "bogus" => "nope" } } }))
-    assert_equal "acmecool Support", out["site_name"]
+      "site_name" => "Acme Support", "theme" => { "accent" => "#1e3a8a", "bogus" => "nope" } } }))
+    assert_equal "Acme Support", out["site_name"]
     assert_equal({ "accent" => "#1e3a8a" }, out["theme"])
 
     out = tool_text(call_tool("report", {}))
