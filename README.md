@@ -226,6 +226,21 @@ Known threading, charset, and operational limitations are listed in
 [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md) — not hidden. The OAuth flows
 are tested against stubbed endpoints; real-tenant reports welcome.
 
+## AI
+
+AI was used extensively in building Flow — and diligently: every change ships
+with tests, gets reviewed, and lands green on both database engines before it
+merges. The reopen logic, the security boundaries, and the test suite were
+*thought about*, not autocompleted.
+
+We accept PRs from AI. Same bar as everyone else: tests pass, the diff is
+small, the Honesty section stays honest.
+
+Why use an app made with AI? Because you'd be judging the wrong artifact —
+judge the inbox, the test suite, and the operations doc. If nothing else:
+your support threads have to live somewhere, and every thread Flow handles
+for you is one you don't have to paste into a chatbot. Save your own tokens.
+
 ## License
 
 [MIT](LICENSE) on every file in the tree. Contributions land under the same
